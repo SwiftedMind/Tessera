@@ -4,23 +4,24 @@
 import PackageDescription
 
 let package = Package(
-    name: "Tessera",
-    products: [
-        // Products define the executables and libraries a package produces, making them visible to other packages.
-        .library(
-            name: "Tessera",
-            targets: ["Tessera"]
-        ),
-    ],
-    targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
-        .target(
-            name: "Tessera"
-        ),
-        .testTarget(
-            name: "TesseraTests",
-            dependencies: ["Tessera"]
-        ),
-    ]
+  name: "Tessera",
+  platforms: [
+    .iOS(.v17),
+    .macOS(.v14)
+  ],
+  products: [
+    .library(
+      name: "Tessera",
+      targets: ["Tessera"],
+    ),
+  ],
+  targets: [
+    .target(
+      name: "Tessera",
+    ),
+    .testTarget(
+      name: "TesseraTests",
+      dependencies: ["Tessera"],
+    ),
+  ],
 )
