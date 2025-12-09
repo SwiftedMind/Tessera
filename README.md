@@ -6,7 +6,7 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 
 - Easy to use: Create arbitrary repeatable patterns by composing simple SwiftUI views.
 - Declarative API: describe a `Tessera` (tile size, items, density, spacing, seed) and drop it into `TesseraPattern`.
-- Even spacing: Poisson‑disk sampling with wrap‑around edges avoids clustering and seams.
+- Even spacing: Shape-aware placement with wrap‑around edges avoids clustering and seams.
 - Deterministic: Provide a seed for reproducible artwork; omit to randomize.
 
 ## Table of Contents
@@ -38,7 +38,7 @@ struct Demo: View {
       size: CGSize(width: 256, height: 256),
       items: items,
       minimumSpacing: 50,
-      fillProbability: 0.5
+      density: 0.5
     )
 
     TesseraPattern(tessera, seed: 20)
@@ -50,7 +50,7 @@ struct Demo: View {
 ## API Overview
 
 - `Tessera`  
-  Describes one tile: `size`, `items`, `seed`, `minimumSpacing`, `fillProbability`, `baseScaleRange`.
+  Describes one tile: `size`, `items`, `seed`, `minimumSpacing`, `density`, `baseScaleRange`.
 
 - `TesseraItem`  
   A drawable symbol with `weight`, `allowedRotationRange`, optional `scaleRange`, and view builder content. Includes presets like `.squareOutline`, `.partyPopper`, `.equals`, etc.
