@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Workspace
+   version = "1.0">
+   <FileRef
+      location = "group:Examples/README.md">
+   </FileRef>
+   <FileRef
+      location = "group:TesseraApp/TesseraApp.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:Examples/Example App/ExampleApp.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:">
+   </FileRef>
+</Workspace>
