@@ -13,6 +13,7 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 
 - [Quick Start](#quick-start)
 - [API Overview](#api-overview)
+- [Exporting](#exporting)
 - [Custom Items](#custom-items)
 - [Notes](#notes)
 - [License](#license)
@@ -57,6 +58,53 @@ struct Demo: View {
 
 - `TesseraPattern`  
   A SwiftUI view that repeats a tessera to fill available space. Accepts an optional `seed` override for the view instance.
+
+## Exporting
+
+Render a single tile to PNG or vector-friendly PDF using the built-in exporter (powered by `ImageRenderer`):
+
+```swift
+let demoItems: [TesseraItem] = [
+  .squareOutline, .roundedOutline, .partyPopper, .minus, .equals, .circleOutline
+]
+
+let demoTessera = Tessera(
+  size: CGSize(width: 256, height: 256),
+  items: demoItems,
+  seed: 0,
+  minimumSpacing: 10,
+  density: 0.8,
+  baseScaleRange: 0.5...1.2
+)
+
+let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
+
+// Ask for an exact pixel size; scale is derived automatically. Extension is added for you.
+let pngURL = try demoTessera.renderPNG(
+  to: downloads,
+  fileName: "tessera",
+  options: .init(targetPixelSize: CGSize(width: 2000, height: 2000))
+)
+
+// PDF keeps vector content; pageSize is in points. Extension is added automatically.
+let pdfURL = try demoTessera.renderPDF(
+  to: downloads,
+  fileName: "tessera",
+  pageSize: CGSize(width: 256, height: 256)
+)
+
+// Prefer a fixed scale instead of pixel size:
+_ = try demoTessera.renderPNG(
+  to: downloads,
+  fileName: "tessera@3x",
+  options: .init(scale: 3)
+)
+```
+
+Rendering options:
+- `targetPixelSize`: desired output in pixels (derives scale from the tessera’s `size`).
+- `scale`: explicit rasterization scale when `targetPixelSize` is nil (defaults to 2).
+- `isOpaque`, `colorMode`: forwarded to `ImageRenderer`.
 
 ## Custom Items
 
