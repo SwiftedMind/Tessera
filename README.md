@@ -1,4 +1,4 @@
-# Tessera
+# 🔷 Tessera
 
 Tessera is a Swift package that turns a single generated tile composed of arbitrary SwiftUI views into an endlessly repeating, seamlessly wrapping pattern.
 

@@ -22,7 +22,7 @@ public struct TesseraDemoView: View {
       density: 0.8,
       baseScaleRange: 0.5...1.2,
     )
-
+    
     TesseraPattern(demoTessera)
       .ignoresSafeArea()
   }

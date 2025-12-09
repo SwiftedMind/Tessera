@@ -5,7 +5,7 @@ import Foundation
 import SwiftUI
 
 /// Describes a single tessellated pattern configuration.
-public struct Tessera {
+public struct Tessera: View {
   public var size: CGSize
   public var items: [TesseraItem]
   public var seed: UInt64
@@ -36,6 +36,11 @@ public struct Tessera {
     self.minimumSpacing = minimumSpacing
     self.density = density
     self.baseScaleRange = baseScaleRange
+  }
+
+  /// Renders the tessera as a single tile view.
+  public var body: some View {
+    TesseraCanvasTile(tessera: self, seed: seed)
   }
 
   /// Generates a new random seed.

@@ -6,6 +6,7 @@ import SwiftUI
 /// Places tessera items while respecting their approximate collision shapes.
 enum ShapePlacementEngine {
   /// Generates placed items for a single tile using rejection sampling with wrap-aware collisions.
+  @MainActor
   static func placeItems(
     in size: CGSize,
     tessera: Tessera,
