@@ -2,99 +2,76 @@
 
 import SwiftUI
 import Tessera
+import UniformTypeIdentifiers
 
-/*
- 
- TODOS:
- - Add/Remove Tessera Items in UI (Start with the demo items as list)
- - Manage each item's options in the UI
- - Manage overall Tessera options in the UI
- - Export button must be split into a menu with png and pdf and must show a file picker to specify the target location
- 
- */
-
+/// Entry point view that hosts the tessera canvas and the editing inspector.
 struct Root: View {
-  @State private var isPresented: Bool = true
-  @State private var isEnabled: Bool = true
+  @State private var editor = TesseraEditorModel()
+  @State private var repeatPattern: Bool = true
+  @State private var showInspector: Bool = true
+  @State private var exportFormat: ExportFormat = .png
+  @State private var isExportPresented: Bool = false
+  @State private var exportDocument: TesseraExportDocument = .placeholder
 
   var body: some View {
-    let demoItems: [TesseraItem] = [
-      .squareOutline,
-      .roundedOutline,
-      .partyPopper,
-      .minus,
-      .equals,
-      .circleOutline,
-    ]
+    NavigationStack {
+      PatternStage(tessera: editor.liveTessera, repeatPattern: repeatPattern)
+        .backgroundExtensionEffect()
+        .toolbar { exportMenu }
+        .inspector(isPresented: $showInspector) {
+          InspectorPanel()
+        }
+        .fileExporter(
+          isPresented: $isExportPresented,
+          document: exportDocument,
+          contentType: exportFormat == .png ? .png : .pdf,
+          defaultFilename: exportDocument.defaultFileName,
+        ) { _ in }
+    }
+    .onAppear(perform: seedInitialExportDocument)
+    .environment(editor)
+  }
 
-    let demoTessera = Tessera(
-      size: CGSize(width: 256, height: 256),
-      items: demoItems,
-      seed: 0,
-      minimumSpacing: 10,
-      density: 0.8,
-      baseScaleRange: 0.5...1.2,
-    )
+  @ToolbarContentBuilder
+  private var exportMenu: some ToolbarContent {
+    ToolbarItem(placement: .primaryAction) {
+      Toggle("Repeat Pattern", isOn: $repeatPattern)
+    }
+    ToolbarItem(placement: .primaryAction) {
+      Button {
+        showInspector.toggle()
+      } label: {
+        Image(systemName: "sidebar.right")
+      }
+    }
+    ToolbarItem(placement: .primaryAction) {
+      Menu {
+        Button(role: .none) { beginExport(format: .png) } label: {
+          Label("Export PNG", systemImage: "photo")
+        }
+        Button(role: .none) { beginExport(format: .pdf) } label: {
+          Label("Export PDF", systemImage: "doc.richtext")
+        }
+      } label: {
+        Label("Export", systemImage: "square.and.arrow.up")
+          .labelStyle(.titleAndIcon)
+      }
+    }
+  }
 
-    ZStack {
-      if isEnabled {
-        TesseraPattern(demoTessera, seed: 0)
-          .ignoresSafeArea()
-          .transition(.opacity)
-          .backgroundExtensionEffect()
-      }
-      
-      ZStack {
-        if isEnabled == false {
-          demoTessera
-            .transition(.opacity.combined(with: .scale(1.2)))
-        }
-      }
-    }
-    .animation(.default, value: isEnabled)
-    .toolbar {
-      ToolbarItem(placement: .primaryAction) {
-        Toggle("Repeat Pattern", isOn: $isEnabled)
-      }
-      ToolbarItem(placement: .primaryAction) {
-        Button("Export") {
-          let downloadsFolder = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
-          
-          try! demoTessera
-            .renderPNG(
-              to: downloadsFolder,
-              fileName: "tessera",
-              options: TesseraRenderOptions(
-                targetPixelSize: CGSize(width: 2000, height: 2000),
-                isOpaque: false,
-                colorMode: .extendedLinear,
-              ),
-            )
-          
-          try! demoTessera
-            .renderPDF(to: downloadsFolder)
-        }
-      }
-    }
-    .inspector(isPresented: $isPresented) {
-      VStack {
-        Image(systemName: "heart.fill")
-          .imageScale(.large)
-          .foregroundStyle(.red)
-        Text("This is an inspector")
-      }
-      .toolbar {
-        Button {
-          isPresented.toggle()
-        } label: {
-          Image(systemName: "sidebar.right")
-        }
-      }
-    }
+  private func seedInitialExportDocument() {
+    editor.refreshLiveTessera()
+    exportDocument = TesseraExportDocument(tessera: editor.liveTessera, format: exportFormat)
+  }
+
+  private func beginExport(format: ExportFormat) {
+    exportFormat = format
+    exportDocument = TesseraExportDocument(tessera: editor.liveTessera, format: format)
+    isExportPresented = true
   }
 }
 
 #Preview {
   Root()
-    .frame(width: 800, height: 500)
+    .frame(width: 1000, height: 640)
 }
