@@ -4,11 +4,19 @@ import CompactSlider
 import SwiftUI
 
 struct ItemCard: View {
+  @Environment(TesseraEditorModel.self) private var editor
   @Binding var item: EditableItem
   @Binding var expandedItemID: EditableItem.ID?
   @State private var weightDraft: Double
   @State private var rotationDraft: ClosedRange<Double>
   @State private var scaleRangeDraft: ClosedRange<Double>
+  @State private var widthDraft: Double
+  @State private var heightDraft: Double
+  @State private var lineWidthDraft: Double
+  @State private var fontSizeDraft: Double
+  @State private var colorDraft: Color
+  @State private var cornerRadiusDraft: Double
+  @State private var symbolNameDraft: String
   var onRemove: () -> Void
 
   init(
@@ -22,10 +30,26 @@ struct ItemCard: View {
     _weightDraft = State(initialValue: item.wrappedValue.weight)
     _rotationDraft = State(initialValue: item.wrappedValue.minimumRotation...item.wrappedValue.maximumRotation)
     _scaleRangeDraft = State(initialValue: item.wrappedValue.minimumScale...item.wrappedValue.maximumScale)
+    _widthDraft = State(initialValue: item.wrappedValue.style.size.width)
+    _heightDraft = State(initialValue: item.wrappedValue.style.size.height)
+    _lineWidthDraft = State(initialValue: item.wrappedValue.style.lineWidth)
+    _fontSizeDraft = State(initialValue: item.wrappedValue.style.fontSize)
+    _colorDraft = State(initialValue: item.wrappedValue.style.color)
+    _cornerRadiusDraft = State(initialValue: item.wrappedValue.specificOptions.cornerRadius ?? 6)
+    _symbolNameDraft = State(initialValue: item.wrappedValue.specificOptions.systemSymbolName ?? item.wrappedValue
+      .preset.defaultSymbolName)
   }
 
   private var isExpanded: Bool {
     expandedItemID == item.id
+  }
+
+  private var maximumWidth: Double {
+    max(8, editor.tesseraSize.width)
+  }
+
+  private var maximumHeight: Double {
+    max(8, editor.tesseraSize.height)
   }
 
   var body: some View {
@@ -35,6 +59,11 @@ struct ItemCard: View {
         VStack(alignment: .leading, spacing: .medium) {
           weightOption
           rotationOption
+          sizeOption
+          colorOption
+          lineWidthOption
+          fontSizeOption
+          presetSpecificOption
           customScaleRangeOption
         }
         .transition(.opacity)
@@ -66,6 +95,26 @@ struct ItemCard: View {
     }
     .onChange(of: item.maximumScale) {
       scaleRangeDraft = item.minimumScale...item.maximumScale
+    }
+    .onChange(of: item.style) {
+      widthDraft = item.style.size.width
+      heightDraft = item.style.size.height
+      lineWidthDraft = item.style.lineWidth
+      fontSizeDraft = item.style.fontSize
+      colorDraft = item.style.color
+    }
+    .onChange(of: item.specificOptions) {
+      if let radius = item.specificOptions.cornerRadius {
+        cornerRadiusDraft = radius
+      }
+      if let symbol = item.specificOptions.systemSymbolName {
+        symbolNameDraft = symbol
+      }
+    }
+    .onChange(of: editor.tesseraSize) {
+      widthDraft = min(widthDraft, editor.tesseraSize.width)
+      heightDraft = min(heightDraft, editor.tesseraSize.height)
+      applySizeDraft()
     }
   }
 
@@ -135,6 +184,115 @@ struct ItemCard: View {
     }
   }
 
+  @ViewBuilder private var sizeOption: some View {
+    OptionRow("Size") {
+      HStack(spacing: .medium) {
+        VStack(alignment: .leading, spacing: .extraSmall) {
+          Text("Width")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+          SystemSlider(
+            value: $widthDraft,
+            in: 8...maximumWidth,
+            step: 1,
+          )
+          .compactSliderScale(visibility: .hidden)
+          .onSliderCommit(applySizeDraft)
+        }
+        VStack(alignment: .leading, spacing: .extraSmall) {
+          Text("Height")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+          SystemSlider(
+            value: $heightDraft,
+            in: 8...maximumHeight,
+            step: 1,
+          )
+          .compactSliderScale(visibility: .hidden)
+          .onSliderCommit(applySizeDraft)
+        }
+      }
+    } trailing: {
+      Text("\(widthDraft.formatted()) × \(heightDraft.formatted())")
+    }
+  }
+
+  @ViewBuilder private var colorOption: some View {
+    OptionRow(item.preset.colorLabel) {
+      ColorPicker("", selection: $colorDraft, supportsOpacity: true)
+        .labelsHidden()
+        .onChange(of: colorDraft) {
+          item.style.color = colorDraft
+        }
+    }
+  }
+
+  @ViewBuilder private var lineWidthOption: some View {
+    if item.preset.capabilities.supportsLineWidth {
+      OptionRow("Stroke Width") {
+        SystemSlider(
+          value: $lineWidthDraft,
+          in: 0.5...16,
+          step: 0.5,
+        )
+        .compactSliderScale(visibility: .hidden)
+        .onSliderCommit {
+          item.style.lineWidth = lineWidthDraft
+        }
+      } trailing: {
+        Text("\(lineWidthDraft.formatted(.number.precision(.fractionLength(1)))) pt")
+      }
+    }
+  }
+
+  @ViewBuilder private var fontSizeOption: some View {
+    if item.preset.capabilities.supportsFontSize {
+      OptionRow("Font Size") {
+        SystemSlider(
+          value: $fontSizeDraft,
+          in: 10...64,
+          step: 1,
+        )
+        .compactSliderScale(visibility: .hidden)
+        .onSliderCommit {
+          item.style.fontSize = fontSizeDraft
+        }
+      } trailing: {
+        Text(fontSizeDraft.formatted(.number.precision(.fractionLength(0))))
+      }
+    }
+  }
+
+  @ViewBuilder private var presetSpecificOption: some View {
+    if item.preset.capabilities.supportsCornerRadius {
+      OptionRow("Corner Radius") {
+        SystemSlider(
+          value: $cornerRadiusDraft,
+          in: 0...min(widthDraft, heightDraft) / 2,
+          step: 0.5,
+        )
+        .compactSliderScale(visibility: .hidden)
+        .onSliderCommit {
+          item.specificOptions = item.specificOptions.updatingCornerRadius(cornerRadiusDraft)
+        }
+      } trailing: {
+        Text(cornerRadiusDraft.formatted(.number.precision(.fractionLength(1))))
+      }
+    } else if item.preset.capabilities.supportsSymbolSelection {
+      OptionRow("Symbol") {
+        Picker("Symbol", selection: $symbolNameDraft) {
+          ForEach(item.preset.availableSymbols, id: \.self) { name in
+            Label(name, systemImage: name).tag(name)
+          }
+        }
+        .labelsHidden()
+        .onChange(of: symbolNameDraft) {
+          item.specificOptions = item.specificOptions.updatingSymbolName(symbolNameDraft)
+        }
+      }
+    }
+  }
+
   @ViewBuilder private var customScaleRangeOption: some View {
     OptionRow("Global Overrides") {
       EmptyView()
@@ -163,6 +321,14 @@ struct ItemCard: View {
     }
   }
 
+  private func applySizeDraft() {
+    let clampedWidth = min(widthDraft, maximumWidth)
+    let clampedHeight = min(heightDraft, maximumHeight)
+    widthDraft = clampedWidth
+    heightDraft = clampedHeight
+    item.style.size = CGSize(width: clampedWidth, height: clampedHeight)
+  }
+
   private func toggleExpansion() {
     if isExpanded {
       expandedItemID = nil
@@ -173,10 +339,12 @@ struct ItemCard: View {
 }
 
 #Preview {
+  @Previewable @Environment(TesseraEditorModel.self) var editor
   @Previewable @State var item: EditableItem = .demoItems[0]
   @Previewable @State var expandedItemID: EditableItem.ID?
 
   ItemCard(item: $item, expandedItemID: $expandedItemID) {}
     .padding(.large)
     .frame(height: 600)
+    .environment(editor)
 }

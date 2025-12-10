@@ -47,20 +47,21 @@ struct PatternControls: View {
 
   private func tileSizeRow() -> some View {
     OptionRow("Tile Size") {
-      HStack(spacing: .medium) {
-        OptionNumberField(
-          title: "Width",
-          value: $patternDraft.tileWidth,
-          range: 64...512,
-          onCommit: applyPatternDraft,
-        )
-        OptionNumberField(
-          title: "Height",
-          value: $patternDraft.tileHeight,
-          range: 64...512,
-          onCommit: applyPatternDraft,
-        )
+      Picker("", selection: Binding(
+        get: { patternDraft.tileWidth },
+        set: { newValue in
+          patternDraft.tileWidth = newValue
+          patternDraft.tileHeight = newValue
+          applyPatternDraft()
+        },
+      )) {
+        ForEach(availableTileSizes, id: \.self) { size in
+          Text(FormattedText.tileSize(size))
+            .tag(size)
+        }
       }
+      .labelsHidden()
+      .pickerStyle(.menu)
     }
   }
 
@@ -174,7 +175,7 @@ struct PatternControls: View {
         editor.shuffleSeed()
         patternDraft.seedText = editor.tesseraSeed.description
       } label: {
-        Label("Shuffle", systemImage: "arrow.clockwise")
+        Label("Shuffle", systemImage: "shuffle")
       }
       .buttonStyle(.plain)
     }
@@ -236,11 +237,23 @@ private extension PatternControls {
   func clampMinimumSpacing(to maximum: CGFloat) {
     patternDraft.minimumSpacing = min(max(patternDraft.minimumSpacing, 0), maximum)
   }
+
+  var availableTileSizes: [CGFloat] {
+    [16, 32, 64, 128, 256, 512, 1024]
+  }
+
+  enum FormattedText {
+    static func tileSize(_ value: CGFloat) -> String {
+      "\(Int(value)) px"
+    }
+  }
 }
 
 #Preview {
+  @Previewable @Environment(TesseraEditorModel.self) var editor
+
   PatternControls()
-    .environment(TesseraEditorModel())
+    .environment(editor)
     .padding(.large)
 }
 

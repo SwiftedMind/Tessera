@@ -12,6 +12,8 @@ struct EditableItem: Identifiable, Equatable {
   var usesCustomScaleRange: Bool
   var minimumScale: CGFloat
   var maximumScale: CGFloat
+  var style: ItemStyle
+  var specificOptions: PresetSpecificOptions
 
   init(
     id: UUID = UUID(),
@@ -22,6 +24,8 @@ struct EditableItem: Identifiable, Equatable {
     usesCustomScaleRange: Bool = false,
     minimumScale: CGFloat = 0.6,
     maximumScale: CGFloat = 1.2,
+    style: ItemStyle? = nil,
+    specificOptions: PresetSpecificOptions? = nil,
   ) {
     self.id = id
     self.preset = preset
@@ -31,6 +35,8 @@ struct EditableItem: Identifiable, Equatable {
     self.usesCustomScaleRange = usesCustomScaleRange
     self.minimumScale = minimumScale
     self.maximumScale = maximumScale
+    self.style = style ?? preset.defaultStyle
+    self.specificOptions = specificOptions ?? preset.defaultSpecificOptions
   }
 
   var rotationRange: ClosedRange<Angle> {
@@ -49,7 +55,64 @@ struct EditableItem: Identifiable, Equatable {
       weight: weight,
       rotationRange: rotationRange,
       scaleRange: scaleRange,
+      style: style,
+      options: specificOptions,
     )
+  }
+}
+
+struct ItemStyle: Equatable {
+  var size: CGSize
+  var color: Color
+  var lineWidth: CGFloat
+  var fontSize: CGFloat
+}
+
+enum PresetSpecificOptions: Equatable {
+  case none
+  case roundedRectangle(cornerRadius: CGFloat)
+  case systemSymbol(name: String)
+
+  var cornerRadius: CGFloat? {
+    switch self {
+    case let .roundedRectangle(cornerRadius):
+      cornerRadius
+    default:
+      nil
+    }
+  }
+
+  var systemSymbolName: String? {
+    switch self {
+    case let .systemSymbol(name):
+      name
+    default:
+      nil
+    }
+  }
+
+  enum Kind {
+    case roundedRectangleCornerRadius
+    case systemSymbol
+  }
+
+  var kind: Kind? {
+    switch self {
+    case .none:
+      nil
+    case .roundedRectangle:
+      .roundedRectangleCornerRadius
+    case .systemSymbol:
+      .systemSymbol
+    }
+  }
+
+  func updatingCornerRadius(_ radius: CGFloat) -> PresetSpecificOptions {
+    .roundedRectangle(cornerRadius: radius)
+  }
+
+  func updatingSymbolName(_ name: String) -> PresetSpecificOptions {
+    .systemSymbol(name: name)
   }
 }
 
@@ -99,32 +162,121 @@ extension EditableItem {
       }
     }
 
-    @ViewBuilder var preview: some View {
+    var defaultStyle: ItemStyle {
       switch self {
       case .squareOutline:
-        Rectangle()
-          .stroke(lineWidth: 4)
-          .foregroundStyle(.gray.opacity(0.8))
+        ItemStyle(size: CGSize(width: 30, height: 30), color: .gray.opacity(0.8), lineWidth: 4, fontSize: 32)
       case .roundedOutline:
-        RoundedRectangle(cornerRadius: 6)
-          .stroke(lineWidth: 4)
+        ItemStyle(size: CGSize(width: 30, height: 30), color: .primary, lineWidth: 4, fontSize: 32)
       case .partyPopper:
-        Image(systemName: "party.popper.fill")
-          .foregroundStyle(.red.opacity(0.5))
-          .font(.largeTitle)
+        ItemStyle(size: CGSize(width: 40, height: 40), color: .red.opacity(0.5), lineWidth: 2, fontSize: 34)
       case .minus:
-        Text("-")
-          .foregroundStyle(.gray)
-          .font(.largeTitle)
+        ItemStyle(size: CGSize(width: 36, height: 4), color: .gray, lineWidth: 1, fontSize: 34)
       case .equals:
-        Text("=")
-          .foregroundStyle(.gray)
-          .font(.largeTitle)
+        ItemStyle(size: CGSize(width: 36, height: 12), color: .gray, lineWidth: 1, fontSize: 34)
       case .circleOutline:
-        Circle()
-          .stroke(lineWidth: 4)
-          .foregroundStyle(.gray.opacity(0.2))
+        ItemStyle(size: CGSize(width: 26, height: 26), color: .gray.opacity(0.2), lineWidth: 4, fontSize: 32)
       }
+    }
+
+    var defaultSpecificOptions: PresetSpecificOptions {
+      switch self {
+      case .roundedOutline:
+        .roundedRectangle(cornerRadius: 6)
+      case .partyPopper:
+        .systemSymbol(name: defaultSymbolName)
+      case .squareOutline, .minus, .equals, .circleOutline:
+        .none
+      }
+    }
+
+    var capabilities: PresetCapabilities {
+      switch self {
+      case .squareOutline:
+        PresetCapabilities(
+          usesStrokeStyle: true,
+          usesFillStyle: false,
+          supportsLineWidth: true,
+          supportsFontSize: false,
+          supportsCornerRadius: false,
+          supportsSymbolSelection: false,
+        )
+      case .roundedOutline:
+        PresetCapabilities(
+          usesStrokeStyle: true,
+          usesFillStyle: false,
+          supportsLineWidth: true,
+          supportsFontSize: false,
+          supportsCornerRadius: true,
+          supportsSymbolSelection: false,
+        )
+      case .circleOutline:
+        PresetCapabilities(
+          usesStrokeStyle: true,
+          usesFillStyle: false,
+          supportsLineWidth: true,
+          supportsFontSize: false,
+          supportsCornerRadius: false,
+          supportsSymbolSelection: false,
+        )
+      case .partyPopper:
+        PresetCapabilities(
+          usesStrokeStyle: false,
+          usesFillStyle: true,
+          supportsLineWidth: false,
+          supportsFontSize: true,
+          supportsCornerRadius: false,
+          supportsSymbolSelection: true,
+        )
+      case .minus, .equals:
+        PresetCapabilities(
+          usesStrokeStyle: false,
+          usesFillStyle: true,
+          supportsLineWidth: false,
+          supportsFontSize: true,
+          supportsCornerRadius: false,
+          supportsSymbolSelection: false,
+        )
+      }
+    }
+
+    var availableSymbols: [String] {
+      switch self {
+      case .partyPopper:
+        [
+          "party.popper.fill",
+          "wand.and.stars",
+          "sparkles",
+          "sun.max.fill",
+          "moon.stars.fill",
+          "heart.fill",
+          "burst.fill",
+        ]
+      default:
+        []
+      }
+    }
+
+    var colorLabel: LocalizedStringKey {
+      switch capabilities.usesStrokeStyle {
+      case true:
+        "Stroke Color"
+      case false:
+        "Fill Color"
+      }
+    }
+
+    var defaultSymbolName: String {
+      switch self {
+      case .partyPopper:
+        "party.popper.fill"
+      default:
+        "questionmark"
+      }
+    }
+
+    @ViewBuilder var preview: some View {
+      render(style: defaultStyle, options: defaultSpecificOptions)
     }
 
     func makeItem(
@@ -132,83 +284,99 @@ extension EditableItem {
       weight: Double,
       rotationRange: ClosedRange<Angle>,
       scaleRange: ClosedRange<Double>?,
+      style: ItemStyle,
+      options: PresetSpecificOptions,
     ) -> TesseraItem {
-      switch self {
-      case .squareOutline:
-        TesseraItem(
-          id: id,
-          weight: weight,
-          allowedRotationRange: rotationRange,
-          scaleRange: scaleRange,
-          collisionShape: .rectangle(size: CGSize(width: 34, height: 34)),
-        ) {
-          Rectangle()
-            .stroke(lineWidth: 4)
-            .foregroundStyle(.gray.opacity(0.8))
-            .frame(width: 30, height: 30)
-        }
-      case .roundedOutline:
-        TesseraItem(
-          id: id,
-          weight: weight,
-          allowedRotationRange: rotationRange,
-          scaleRange: scaleRange,
-          collisionShape: .rectangle(size: CGSize(width: 34, height: 34)),
-        ) {
-          RoundedRectangle(cornerRadius: 6)
-            .stroke(lineWidth: 4)
-            .frame(width: 30, height: 30)
-        }
-      case .partyPopper:
-        TesseraItem(
-          id: id,
-          weight: weight,
-          allowedRotationRange: rotationRange,
-          scaleRange: scaleRange,
-          collisionShape: .circle(radius: 20),
-        ) {
-          Image(systemName: "party.popper.fill")
-            .foregroundStyle(.red.opacity(0.5))
-            .font(.largeTitle)
-        }
-      case .minus:
-        TesseraItem(
-          id: id,
-          weight: weight,
-          allowedRotationRange: rotationRange,
-          scaleRange: scaleRange,
-          collisionShape: .rectangle(size: CGSize(width: 36, height: 4)),
-        ) {
-          Text("-")
-            .foregroundStyle(.gray)
-            .font(.largeTitle)
-        }
-      case .equals:
-        TesseraItem(
-          id: id,
-          weight: weight,
-          allowedRotationRange: rotationRange,
-          scaleRange: scaleRange,
-          collisionShape: .rectangle(size: CGSize(width: 36, height: 12)),
-        ) {
-          Text("=")
-            .foregroundStyle(.gray)
-            .font(.largeTitle)
-        }
-      case .circleOutline:
-        TesseraItem(
-          id: id,
-          weight: weight,
-          allowedRotationRange: rotationRange,
-          scaleRange: scaleRange,
-          collisionShape: .circle(radius: 15),
-        ) {
-          Circle()
-            .stroke(lineWidth: 4)
-            .foregroundStyle(.gray.opacity(0.2))
-            .frame(width: 30, height: 30)
-        }
+      TesseraItem(
+        id: id,
+        weight: weight,
+        allowedRotationRange: rotationRange,
+        scaleRange: scaleRange,
+        collisionShape: collisionShape(for: style, options: options),
+      ) {
+        render(style: style, options: options)
       }
     }
+
+    @ViewBuilder
+    private func render(style: ItemStyle, options: PresetSpecificOptions) -> some View {
+      switch self {
+      case .squareOutline:
+        Rectangle()
+          .stroke(lineWidth: style.lineWidth)
+          .foregroundStyle(style.color)
+          .frame(width: style.size.width, height: style.size.height)
+      case .roundedOutline:
+        RoundedRectangle(cornerRadius: cornerRadius(from: options, fallback: 6))
+          .stroke(lineWidth: style.lineWidth)
+          .foregroundStyle(style.color)
+          .frame(width: style.size.width, height: style.size.height)
+      case .circleOutline:
+        Circle()
+          .stroke(lineWidth: style.lineWidth)
+          .foregroundStyle(style.color)
+          .frame(width: style.size.width, height: style.size.height)
+      case .partyPopper:
+        Image(systemName: symbolName(from: options))
+          .foregroundStyle(style.color)
+          .font(.system(size: style.fontSize, weight: .regular))
+          .frame(width: style.size.width, height: style.size.height)
+      case .minus:
+        Text("-")
+          .foregroundStyle(style.color)
+          .font(.system(size: style.fontSize, weight: .bold))
+          .frame(width: style.size.width, height: style.size.height)
+      case .equals:
+        Text("=")
+          .foregroundStyle(style.color)
+          .font(.system(size: style.fontSize, weight: .bold))
+          .frame(width: style.size.width, height: style.size.height)
+      }
+    }
+
+    private func collisionShape(for style: ItemStyle, options: PresetSpecificOptions) -> CollisionShape {
+      switch self {
+      case .squareOutline, .roundedOutline:
+        .rectangle(size: rectangleCollisionSize(for: style))
+      case .circleOutline:
+        .circle(radius: circleRadius(for: style))
+      case .minus:
+        .rectangle(size: style.size)
+      case .equals:
+        .rectangle(size: style.size)
+      case .partyPopper:
+        .circle(radius: max(style.size.width, style.size.height) / 2)
+      }
+    }
+
+    private func rectangleCollisionSize(for style: ItemStyle) -> CGSize {
+      CGSize(
+        width: style.size.width + style.lineWidth,
+        height: style.size.height + style.lineWidth,
+      )
+    }
+
+    private func circleRadius(for style: ItemStyle) -> CGFloat {
+      max(style.size.width, style.size.height) / 2 + style.lineWidth / 2
+    }
+
+    private func cornerRadius(from options: PresetSpecificOptions, fallback: CGFloat) -> CGFloat {
+      options.cornerRadius ?? fallback
+    }
+
+    private func symbolName(from options: PresetSpecificOptions) -> String {
+      options.systemSymbolName ?? defaultSymbolName
+    }
+  }
+}
+
+extension EditableItem.Preset {
+  struct PresetCapabilities {
+    var usesStrokeStyle: Bool
+    var usesFillStyle: Bool
+    var supportsLineWidth: Bool
+    var supportsFontSize: Bool
+    var supportsCornerRadius: Bool
+    var supportsSymbolSelection: Bool
   }
 }

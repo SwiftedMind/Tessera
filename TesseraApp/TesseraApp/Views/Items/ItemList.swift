@@ -44,7 +44,9 @@ struct ItemList: View {
 }
 
 #Preview {
+  @Previewable @Environment(TesseraEditorModel.self) var editor
+  
   ItemList()
-    .environment(TesseraEditorModel())
+    .environment(editor)
     .padding(.large)
 }

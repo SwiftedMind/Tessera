@@ -22,6 +22,8 @@ struct InspectorPanel: View {
 }
 
 #Preview {
+  @Previewable @Environment(TesseraEditorModel.self) var editor
+  
   InspectorPanel()
-    .environment(TesseraEditorModel())
+    .environment(editor)
 }
