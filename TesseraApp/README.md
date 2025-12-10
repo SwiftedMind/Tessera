@@ -1,17 +1,15 @@
-# Examples
+# Tessera App
 
-This directory contains example applications demonstrating how to use the SwiftAgent SDK.
+This directory contains the Tessera macOS app that makes it super easy to build and export patterns through a nice UI.
 
-## Running the Example App
+## Running the App
 
 > [!IMPORTANT]
-> You must open the `SwiftAgent.xcworkspace` file at the root of the repository, **not** the `ExampleApp.xcodeproj` file in the `Example App/` folder.
+> You must open the `Tessera.xcworkspace` file at the root of the repository, **not** the `TesseraApp.xcodeproj` file in the `TesseraApp/` folder.
 
 ### Steps to run:
 
-1. Open `SwiftAgent.xcworkspace` (located at the root of the repository)
-2. Select the "ExampleApp" scheme in Xcode
-3. Choose your target device or simulator
+1. Open `Tessera.xcworkspace` (located at the root of the repository)
+2. Select the "TesseraApp Debug" or "TesseraApp Production" scheme in Xcode
+3. Choose "My Mac" as target device
 4. Build and run
-
-The workspace is configured to use the local development version of the SDK, allowing you to test changes immediately without needing to publish or update package dependencies.

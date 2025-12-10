@@ -8,7 +8,7 @@
       location = "group:TesseraApp/TesseraApp.xcodeproj">
    </FileRef>
    <FileRef
-      location = "group:Examples/Example App/ExampleApp.xcodeproj">
+      location = "group:Examples/ExampleApp.xcodeproj">
    </FileRef>
    <FileRef
       location = "group:">

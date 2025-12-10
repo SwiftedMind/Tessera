@@ -3,10 +3,10 @@
 import SwiftUI
 
 @main
-struct MotifApp: App {
+struct ExampleApp: App {
   var body: some Scene {
     WindowGroup {
-      ContentView()
+      TesseraDemoView()
     }
   }
 }

@@ -33,6 +33,7 @@
 		4E2C93F42EE761A900984B85 /* TesseraAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TesseraAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4E2C93FE2EE761A900984B85 /* TesseraAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TesseraAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4E4853662EE9E8E4003BC882 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		4E48536C2EEA134D003BC882 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -83,6 +84,7 @@
 		4E2C93DE2EE761A700984B85 = {
 			isa = PBXGroup;
 			children = (
+				4E48536C2EEA134D003BC882 /* README.md */,
 				4E4853662EE9E8E4003BC882 /* AGENTS.md */,
 				4E2C93E92EE761A700984B85 /* TesseraApp */,
 				4E2C93F72EE761A900984B85 /* TesseraAppTests */,
