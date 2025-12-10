@@ -28,7 +28,7 @@ struct RangeSliderView: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 10) {
+    VStack(alignment: .leading, spacing: .mediumTight) {
       HStack {
         Text(title)
         Spacer()
@@ -111,5 +111,5 @@ struct RangeSliderView: View {
       return Text("\(lower)× – \(upper)×")
     },
   )
-  .padding()
+  .padding(.large)
 }

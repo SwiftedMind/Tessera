@@ -29,11 +29,11 @@ struct ItemCard: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
+    VStack(alignment: .leading, spacing: .medium) {
       Button {
         toggleExpansion()
       } label: {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .center, spacing: .medium) {
           Image(systemName: "chevron.right")
             .rotationEffect(.degrees(isExpanded ? 90 : 0))
             .foregroundStyle(.secondary)
@@ -52,9 +52,9 @@ struct ItemCard: View {
       .buttonStyle(.plain)
 
       if isExpanded {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: .medium) {
           OptionRow(title: "Weight") {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: .small) {
               SystemSlider(
                 value: $weightDraft,
                 in: 0.2...6,
@@ -131,7 +131,7 @@ struct ItemCard: View {
         .transition(.opacity)
       }
     }
-    .padding(14)
+    .padding(.mediumRelaxed)
     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     .overlay(
       RoundedRectangle(cornerRadius: 14)
@@ -173,6 +173,6 @@ struct ItemCard: View {
   @Previewable @State var expandedItemID: EditableItem.ID?
 
   ItemCard(item: $item, expandedItemID: $expandedItemID) {}
-    .padding()
+    .padding(.large)
     .frame(height: 600)
 }

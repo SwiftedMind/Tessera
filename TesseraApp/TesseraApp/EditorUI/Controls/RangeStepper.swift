@@ -19,7 +19,7 @@ struct RangeStepper: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 6) {
+    VStack(alignment: .leading, spacing: .tight) {
       Stepper(value: $lowerValue, in: bounds.lowerBound...upperValue, step: step) {
         Text("Minimum \(lowerValue, format: .number.precision(.fractionLength(2)))")
           .monospacedDigit()
@@ -78,5 +78,5 @@ struct RangeStepper: View {
 
 #Preview {
   RangeStepper(range: .constant(0.5...1.2), bounds: 0.3...1.8, step: 0.05)
-    .padding()
+    .padding(.large)
 }

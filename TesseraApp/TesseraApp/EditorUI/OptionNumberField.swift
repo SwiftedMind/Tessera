@@ -29,7 +29,7 @@ struct OptionNumberField<Value: BinaryFloatingPoint>: View where Value.Stride: B
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
+    VStack(alignment: .leading, spacing: .extraSmall) {
       if let title {
         Text(title)
           .font(.caption)
@@ -38,7 +38,7 @@ struct OptionNumberField<Value: BinaryFloatingPoint>: View where Value.Stride: B
 
       TextField("", value: $draft, format: format)
         .textFieldStyle(.plain)
-        .padding(8)
+        .padding(.small)
         .background(.background.secondary, in: .rect(cornerRadius: 10))
         .onSubmit(commitDraft)
         .onChange(of: draft) { _, newValue in

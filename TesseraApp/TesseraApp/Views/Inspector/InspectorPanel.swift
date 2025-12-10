@@ -11,11 +11,11 @@ struct InspectorPanel: View {
 
   var body: some View {
     ScrollView {
-      VStack(alignment: .leading, spacing: 20) {
+      VStack(alignment: .leading, spacing: .extraLarge) {
         PatternControls()
         ItemList()
       }
-      .padding(20)
+      .padding(.extraLarge)
     }
     .inspectorColumnWidth(min: 300, ideal: 400, max: 500)
   }

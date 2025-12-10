@@ -11,7 +11,7 @@ struct LabeledSlider<Value: BinaryFloatingPoint>: View where Value.Stride: Binar
   var onEditingChanged: ((Bool) -> Void)?
 
   var body: some View {
-    HStack(spacing: 12) {
+    HStack(spacing: .medium) {
       Text(label)
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -32,5 +32,5 @@ struct LabeledSlider<Value: BinaryFloatingPoint>: View where Value.Stride: Binar
 #Preview {
   @Previewable @State var value = 0.5
   LabeledSlider(label: "Min", value: $value, range: 0...1, step: 0.1)
-    .padding()
+    .padding(.large)
 }

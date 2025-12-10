@@ -11,7 +11,7 @@ struct PatternControls: View {
   var body: some View {
     @Bindable var editor = editor
 
-    VStack(alignment: .leading, spacing: 16) {
+    VStack(alignment: .leading, spacing: .large) {
       tileSizeRow()
       spacingRow()
       densityRow()
@@ -27,6 +27,7 @@ struct PatternControls: View {
     .onChange(of: editor.tesseraSize) {
       patternDraft.tileWidth = editor.tesseraSize.width
       patternDraft.tileHeight = editor.tesseraSize.height
+      clampMinimumSpacing(to: maximumSpacing)
     }
     .onChange(of: editor.minimumSpacing) {
       patternDraft.minimumSpacing = editor.minimumSpacing
@@ -41,7 +42,7 @@ struct PatternControls: View {
 
   private func tileSizeRow() -> some View {
     OptionRow(title: "Tile Size") {
-      HStack(spacing: 12) {
+      HStack(spacing: .medium) {
         OptionNumberField(
           title: "Width",
           value: $patternDraft.tileWidth,
@@ -60,16 +61,37 @@ struct PatternControls: View {
 
   private func spacingRow() -> some View {
     OptionRow(title: "Minimum Spacing") {
-      OptionNumberField(
-        value: $patternDraft.minimumSpacing,
-        range: 4...64,
-        onCommit: applyPatternDraft,
-      )
+      Text(patternDraft.minimumSpacing.formatted())
+    } content: {
+      VStack(alignment: .leading, spacing: .mediumTight) {
+        SystemSlider(
+          value: $patternDraft.minimumSpacing,
+          in: 0...maximumSpacing,
+          step: 1,
+        )
+        .compactSliderScale(visibility: .hidden)
+        .onSliderCommit {
+          clampMinimumSpacing(to: maximumSpacingForDraft)
+          applyPatternDraft()
+        }
+
+        HStack {
+          Text("0")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+          Spacer()
+          Text(maximumSpacingLabel)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+      }
     }
   }
 
   private func densityRow() -> some View {
     OptionRow(title: "Density") {
+      Text(patternDraft.density.formatted())
+    } content: {
       SystemSlider(
         value: $patternDraft.density,
         in: 0.1...1,
@@ -126,6 +148,7 @@ struct PatternControls: View {
   }
 
   private func applyPatternDraft() {
+    clampMinimumSpacing(to: maximumSpacingForDraft)
     editor.tesseraSize = CGSize(width: patternDraft.tileWidth, height: patternDraft.tileHeight)
     editor.minimumSpacing = patternDraft.minimumSpacing
     editor.densityDraft = patternDraft.density
@@ -148,14 +171,33 @@ struct PatternControls: View {
       baseScaleRange: editor.baseScaleRange,
       seedText: editor.tesseraSeed.description,
     )
+    clampMinimumSpacing(to: maximumSpacing)
     didLoadDraft = true
+  }
+}
+
+private extension PatternControls {
+  var maximumSpacing: CGFloat {
+    min(editor.tesseraSize.width, editor.tesseraSize.height) / 2
+  }
+
+  var maximumSpacingForDraft: CGFloat {
+    min(patternDraft.tileWidth, patternDraft.tileHeight) / 2
+  }
+
+  var maximumSpacingLabel: String {
+    Double(maximumSpacing).formatted(.number.precision(.fractionLength(0)))
+  }
+
+  func clampMinimumSpacing(to maximum: CGFloat) {
+    patternDraft.minimumSpacing = min(max(patternDraft.minimumSpacing, 0), maximum)
   }
 }
 
 #Preview {
   PatternControls()
     .environment(TesseraEditorModel())
-    .padding()
+    .padding(.large)
 }
 
 private struct PatternDraft {

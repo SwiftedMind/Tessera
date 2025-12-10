@@ -7,7 +7,7 @@ struct OptionSection<Content: View>: View {
   @ViewBuilder var content: () -> Content
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 16) {
+    VStack(alignment: .leading, spacing: .large) {
       if let title {
         Text(title)
           .font(.headline)
@@ -15,7 +15,7 @@ struct OptionSection<Content: View>: View {
 
       content()
     }
-    .padding(16)
+    .padding(.large)
     .background(
       .quaternary.opacity(0.12),
       in: RoundedRectangle(cornerRadius: 14, style: .continuous),

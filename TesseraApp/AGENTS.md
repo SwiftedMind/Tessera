@@ -43,7 +43,7 @@ Use these documents proactively whenever you work on the corresponding area; the
 
 ## Build Instructions
 
-- Build from `TesseraApp/` with `xcodebuild -project TesseraApp.xcodeproj -scheme "TesseraApp Debug" -destination 'platform=macOS' -quiet`.
+- Build from `TesseraApp/` with `xcodebuild -workspace Tessera.xcworkspace -scheme "TesseraApp Debug" -destination 'platform=macOS' -quiet`.
 - Prefer the `-quiet` flag at all times; only drop it when debugging a failure.
 - Use the `TesseraApp Production` scheme only when preparing a release artifact; keep `-quiet` there as well.
 

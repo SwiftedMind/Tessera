@@ -10,7 +10,7 @@ struct OptionTextField: View {
   var body: some View {
     TextField(placeholder, text: $text)
       .textFieldStyle(.plain)
-      .padding(8)
+      .padding(.small)
       .background(.background.secondary, in: .rect(cornerRadius: 10))
       .font(.title3.monospacedDigit().weight(.medium))
       .lineLimit(1)

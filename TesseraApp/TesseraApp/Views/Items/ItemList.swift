@@ -9,7 +9,7 @@ struct ItemList: View {
   var body: some View {
     @Bindable var editor = editor
 
-    VStack(alignment: .leading, spacing: 12) {
+    VStack(alignment: .leading, spacing: .medium) {
       HStack {
         Label("Items", systemImage: "square.fill.text.grid.1x2")
           .font(.headline)
@@ -26,7 +26,7 @@ struct ItemList: View {
         .buttonStyle(.bordered)
       }
 
-      VStack(spacing: 12) {
+      VStack(spacing: .medium) {
         ForEach($editor.tesseraItems) { $item in
           ItemCard(item: $item, expandedItemID: $expandedItemID) {
             remove(item)
@@ -46,5 +46,5 @@ struct ItemList: View {
 #Preview {
   ItemList()
     .environment(TesseraEditorModel())
-    .padding()
+    .padding(.large)
 }

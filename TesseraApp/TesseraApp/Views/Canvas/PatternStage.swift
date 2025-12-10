@@ -14,9 +14,9 @@ struct PatternStage: View {
           .transition(.opacity)
       } else {
         tessera
-          .padding()
+          .padding(.large)
           .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 22))
-          .padding()
+          .padding(.large)
           .transition(.opacity.combined(with: .scale(1.05)))
       }
     }
