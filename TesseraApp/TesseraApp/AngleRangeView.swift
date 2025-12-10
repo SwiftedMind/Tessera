@@ -3,14 +3,13 @@
 import SwiftUI
 
 struct AngleRangeView: View {
-  @Binding var minimumAngle: Double
-  @Binding var maximumAngle: Double
+  @Binding var angleRange: ClosedRange<Double>
   var onCommit: () -> Void = {}
 
   var body: some View {
     RangeSliderView(
       title: "Rotation",
-      range: angleRangeBinding,
+      range: $angleRange,
       bounds: -180...180,
       step: 1,
       valueLabel: { range in
@@ -21,20 +20,10 @@ struct AngleRangeView: View {
       onCommit: onCommit,
     )
   }
-
-  private var angleRangeBinding: Binding<ClosedRange<Double>> {
-    Binding {
-      minimumAngle...maximumAngle
-    } set: { newRange in
-      minimumAngle = newRange.lowerBound
-      maximumAngle = newRange.upperBound
-    }
-  }
 }
 
 #Preview {
-  @Previewable @State var minimumAngle = -45.0
-  @Previewable @State var maximumAngle = 90.0
-  AngleRangeView(minimumAngle: $minimumAngle, maximumAngle: $maximumAngle, onCommit: {})
+  @Previewable @State var angleRange = -45.0...90.0
+  AngleRangeView(angleRange: $angleRange, onCommit: {})
     .padding()
 }

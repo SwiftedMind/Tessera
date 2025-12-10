@@ -1,17 +1,18 @@
 // By Dennis Müller
 
 import SwiftUI
+import CompactSlider
 
 struct InspectorPanel: View {
   @Environment(TesseraEditorModel.self) private var editor
-
+  
+  @State private var start = 0.9
+  @State private var end = 1.2
+  
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 20) {
-        Text("Tessera Inspector")
-          .font(.title3.weight(.semibold))
-          .padding(.bottom, 4)
-
+        
         PatternControls()
 
         ItemList()

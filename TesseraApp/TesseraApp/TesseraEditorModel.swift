@@ -5,7 +5,7 @@ import Observation
 import SwiftUI
 import Tessera
 
-@Observable
+@Observable @MainActor
 final class TesseraEditorModel {
   var tesseraItems: [EditableItem] {
     didSet {
@@ -51,13 +51,15 @@ final class TesseraEditorModel {
   private var updateTask: Task<Void, Never>?
 
   init(
-    tesseraItems: [EditableItem] = EditableItem.demoItems,
+    tesseraItems: [EditableItem]? = nil,
     tesseraSize: CGSize = CGSize(width: 256, height: 256),
     tesseraSeed: UInt64 = 0,
     minimumSpacing: CGFloat = 10,
     density: Double = 0.8,
     baseScaleRange: ClosedRange<CGFloat> = 0.5...1.2,
   ) {
+    let tesseraItems = tesseraItems ?? EditableItem.demoItems
+    
     self.tesseraItems = tesseraItems
     self.tesseraSize = tesseraSize
     self.tesseraSeed = tesseraSeed
@@ -89,8 +91,8 @@ final class TesseraEditorModel {
 
   private func scheduleUpdate(debounce: Duration = .milliseconds(200)) {
     updateTask?.cancel()
-    updateTask = Task { @MainActor in
-      try? await Task.sleep(for: debounce )
+    updateTask = Task {
+      try? await Task.sleep(for: debounce)
       liveTessera = makeTessera()
     }
   }

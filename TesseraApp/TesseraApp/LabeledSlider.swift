@@ -1,5 +1,6 @@
 // By Dennis Müller
 
+import CompactSlider
 import SwiftUI
 
 struct LabeledSlider<Value: BinaryFloatingPoint>: View where Value.Stride: BinaryFloatingPoint {
@@ -9,19 +10,33 @@ struct LabeledSlider<Value: BinaryFloatingPoint>: View where Value.Stride: Binar
   var step: Value = 1
   var onEditingChanged: ((Bool) -> Void)?
 
+  @State private var isDragging = false
+
   var body: some View {
     HStack(spacing: 12) {
       Text(label)
         .font(.caption)
         .foregroundStyle(.secondary)
-      Slider(
+
+      SystemSlider(
         value: $value,
         in: range,
-        step: Value.Stride(step),
-        onEditingChanged: { isEditing in
-          onEditingChanged?(isEditing)
-        },
+        step: step
       )
+      .compactSliderScale(visibility: .hidden)
+      .compactSliderOnChange { configuration in
+        handleDragChange(configuration)
+      }
+    }
+  }
+
+  private func handleDragChange(_ configuration: CompactSliderStyleConfiguration) {
+    let isCurrentlyDragging = configuration.focusState.isDragging
+    if isDragging == isCurrentlyDragging { return }
+
+    Task {
+      onEditingChanged?(isCurrentlyDragging)
+      isDragging = isCurrentlyDragging
     }
   }
 }

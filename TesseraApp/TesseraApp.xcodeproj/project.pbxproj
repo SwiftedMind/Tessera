@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4E4853382EE93BF6003BC882 /* CompactSlider in Frameworks */ = {isa = PBXBuildFile; productRef = 4E4853372EE93BF6003BC882 /* CompactSlider */; };
 		4EBD42D42EE865D50092368C /* Tessera in Frameworks */ = {isa = PBXBuildFile; productRef = 4EBD42D32EE865D50092368C /* Tessera */; };
 /* End PBXBuildFile section */
 
@@ -57,6 +58,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4EBD42D42EE865D50092368C /* Tessera in Frameworks */,
+				4E4853382EE93BF6003BC882 /* CompactSlider in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -118,6 +120,7 @@
 			name = TesseraApp;
 			packageProductDependencies = (
 				4EBD42D32EE865D50092368C /* Tessera */,
+				4E4853372EE93BF6003BC882 /* CompactSlider */,
 			);
 			productName = TesseraApp;
 			productReference = 4E2C93E72EE761A700984B85 /* TesseraApp.app */;
@@ -201,6 +204,9 @@
 			);
 			mainGroup = 4E2C93DE2EE761A700984B85;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				4E4853362EE93BF6003BC882 /* XCRemoteSwiftPackageReference "CompactSlider" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4E2C93E82EE761A700984B85 /* Products */;
 			projectDirPath = "";
@@ -602,7 +608,23 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		4E4853362EE93BF6003BC882 /* XCRemoteSwiftPackageReference "CompactSlider" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/buh/CompactSlider";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
+		4E4853372EE93BF6003BC882 /* CompactSlider */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4E4853362EE93BF6003BC882 /* XCRemoteSwiftPackageReference "CompactSlider" */;
+			productName = CompactSlider;
+		};
 		4EBD42D32EE865D50092368C /* Tessera */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Tessera;

@@ -3,44 +3,30 @@
 import SwiftUI
 
 struct ScaleRangeView: View {
-  @Binding var minScale: CGFloat
-  @Binding var maxScale: CGFloat
+  @Binding var scaleRange: ClosedRange<CGFloat>
   var onCommit: () -> Void
 
-  var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      HStack {
-        Text("Scale")
-        Spacer()
-        Text(
-          "\(minScale, format: .number.precision(.fractionLength(2)))x – \(maxScale, format: .number.precision(.fractionLength(2)))x",
-        )
-        .foregroundStyle(.secondary)
-      }
-      LabeledSlider(label: "Min", value: $minScale, range: 0.3...2, step: 0.05) { isEditing in
-        if isEditing == false { commitBounds() }
-      }
-      LabeledSlider(label: "Max", value: $maxScale, range: 0.3...2, step: 0.05) { isEditing in
-        if isEditing == false { commitBounds() }
-      }
-    }
-  }
+  private let bounds: ClosedRange<CGFloat> = 0.3...2
+  private let step: CGFloat = 0.05
 
-  private func commitBounds() {
-    let clampedMin = min(max(minScale, 0.3), 2)
-    let clampedMax = min(max(maxScale, 0.3), 2)
-    if clampedMin > clampedMax {
-      minScale = clampedMax
-      maxScale = clampedMax
-    } else {
-      minScale = clampedMin
-      maxScale = clampedMax
-    }
-    onCommit()
+  var body: some View {
+    RangeSliderView(
+      title: "Scale",
+      range: $scaleRange,
+      bounds: bounds,
+      step: step,
+      valueLabel: { range in
+        Text(
+          "\(range.lowerBound, format: .number.precision(.fractionLength(2)))x – \(range.upperBound, format: .number.precision(.fractionLength(2)))x"
+        )
+      },
+      onCommit: onCommit
+    )
   }
 }
 
 #Preview {
-  ScaleRangeView(minScale: .constant(0.7), maxScale: .constant(1.3), onCommit: {})
+  @Previewable @State var scaleRange: ClosedRange<CGFloat> = 0.7...1.3
+  ScaleRangeView(scaleRange: $scaleRange, onCommit: {})
     .padding()
 }

@@ -1,10 +1,12 @@
 // By Dennis Müller
 
+import CompactSlider
 import SwiftUI
 
 struct PatternControls: View {
   @Environment(TesseraEditorModel.self) private var editor
   @State private var seedInput: String = ""
+  @State private var isDensitySliderDragging = false
 
   var body: some View {
     @Bindable var editor = editor
@@ -34,20 +36,24 @@ struct PatternControls: View {
 
         VStack(alignment: .leading, spacing: 8) {
           Text("Density")
-          Slider(
+          SystemSlider(
             value: $editor.densityDraft,
             in: 0.1...1,
-            step: 0.02,
-          ) {} minimumValueLabel: {
-            Text("Sparse")
-          } maximumValueLabel: {
-            Text("Full")
-          } onEditingChanged: { isEditing in
-            if isEditing == false {
-              editor.commitDensityDraft()
-            }
+            step: 0.02
+          )
+          .compactSliderScale(visibility: .hidden)
+          .compactSliderOnChange { configuration in
+            handleDensitySliderChange(configuration)
           }
-          .labelsHidden()
+          HStack {
+            Text("Sparse")
+              .font(.caption)
+              .foregroundStyle(.secondary)
+            Spacer()
+            Text("Full")
+              .font(.caption)
+              .foregroundStyle(.secondary)
+          }
         }
 
         VStack(alignment: .leading, spacing: 8) {
@@ -114,6 +120,19 @@ struct PatternControls: View {
     guard let parsedSeed = UInt64(newValue.filter(\.isWholeNumber)) else { return }
 
     editor.tesseraSeed = parsedSeed
+  }
+
+  private func handleDensitySliderChange(_ configuration: CompactSliderStyleConfiguration) {
+    let isCurrentlyDragging = configuration.focusState.isDragging
+    if isDensitySliderDragging == isCurrentlyDragging { return }
+
+    let wasDragging = isDensitySliderDragging
+    Task {
+      if wasDragging, isCurrentlyDragging == false {
+        editor.commitDensityDraft()
+      }
+      isDensitySliderDragging = isCurrentlyDragging
+    }
   }
 
   private func applySeedInput() {

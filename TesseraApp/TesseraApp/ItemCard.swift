@@ -1,16 +1,16 @@
 // By Dennis Müller
 
+import CompactSlider
 import SwiftUI
 
 struct ItemCard: View {
   @Binding var item: EditableItem
   @Binding var expandedItemID: EditableItem.ID?
-  var onRemove: () -> Void
   @State private var weightDraft: Double
-  @State private var minRotationDraft: Double
-  @State private var maxRotationDraft: Double
-  @State private var minScaleDraft: CGFloat
-  @State private var maxScaleDraft: CGFloat
+  @State private var rotationDraft: ClosedRange<Double>
+  @State private var scaleRangeDraft: ClosedRange<CGFloat>
+  @State private var isWeightSliderDragging = false
+  var onRemove: () -> Void
 
   init(
     item: Binding<EditableItem>,
@@ -21,10 +21,8 @@ struct ItemCard: View {
     _expandedItemID = expandedItemID
     self.onRemove = onRemove
     _weightDraft = State(initialValue: item.wrappedValue.weight)
-    _minRotationDraft = State(initialValue: item.wrappedValue.minimumRotation)
-    _maxRotationDraft = State(initialValue: item.wrappedValue.maximumRotation)
-    _minScaleDraft = State(initialValue: item.wrappedValue.minimumScale)
-    _maxScaleDraft = State(initialValue: item.wrappedValue.maximumScale)
+    _rotationDraft = State(initialValue: item.wrappedValue.minimumRotation...item.wrappedValue.maximumRotation)
+    _scaleRangeDraft = State(initialValue: item.wrappedValue.minimumScale...item.wrappedValue.maximumScale)
   }
 
   private var isExpanded: Bool {
@@ -60,28 +58,32 @@ struct ItemCard: View {
         VStack(alignment: .leading, spacing: 12) {
           VStack(alignment: .leading, spacing: 8) {
             Text("Weight")
-            Slider(
+            SystemSlider(
               value: $weightDraft,
               in: 0.2...6,
-              step: 0.1,
-            ) {} minimumValueLabel: {
+              step: 0.1
+            )
+            .compactSliderScale(visibility: .hidden)
+            .compactSliderOnChange { configuration in
+              handleWeightSliderChange(configuration)
+            }
+            HStack {
               Text("Low")
-            } maximumValueLabel: {
+                .font(.caption)
+                .foregroundStyle(.secondary)
+              Spacer()
               Text("High")
-            } onEditingChanged: { isEditing in
-              if isEditing == false {
-                item.weight = weightDraft
-              }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
           }
 
           VStack(alignment: .leading, spacing: 8) {
             AngleRangeView(
-              minimumAngle: $minRotationDraft,
-              maximumAngle: $maxRotationDraft,
+              angleRange: $rotationDraft,
               onCommit: {
-                item.minimumRotation = minRotationDraft
-                item.maximumRotation = maxRotationDraft
+                item.minimumRotation = rotationDraft.lowerBound
+                item.maximumRotation = rotationDraft.upperBound
               },
             )
           }
@@ -95,16 +97,17 @@ struct ItemCard: View {
             }
             if item.usesCustomScaleRange {
               ScaleRangeView(
-                minScale: $minScaleDraft,
-                maxScale: $maxScaleDraft,
+                scaleRange: $scaleRangeDraft,
                 onCommit: {
-                  item.minimumScale = minScaleDraft
-                  item.maximumScale = maxScaleDraft
+                  item.minimumScale = scaleRangeDraft.lowerBound
+                  item.maximumScale = scaleRangeDraft.upperBound
                 },
               )
               .transition(.opacity)
-              .onChange(of: minScaleDraft) { _, newValue in item.minimumScale = newValue }
-              .onChange(of: maxScaleDraft) { _, newValue in item.maximumScale = newValue }
+              .onChange(of: scaleRangeDraft) { _, newValue in
+                item.minimumScale = newValue.lowerBound
+                item.maximumScale = newValue.upperBound
+              }
             }
           }
         }
@@ -127,6 +130,19 @@ struct ItemCard: View {
       expandedItemID = nil
     } else {
       expandedItemID = item.id
+    }
+  }
+
+  private func handleWeightSliderChange(_ configuration: CompactSliderStyleConfiguration) {
+    let isCurrentlyDragging = configuration.focusState.isDragging
+    if isWeightSliderDragging == isCurrentlyDragging { return }
+
+    let wasDragging = isWeightSliderDragging
+    Task {
+      if wasDragging, isCurrentlyDragging == false {
+        item.weight = weightDraft
+      }
+      isWeightSliderDragging = isCurrentlyDragging
     }
   }
 }
