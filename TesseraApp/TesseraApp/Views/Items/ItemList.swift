@@ -34,7 +34,7 @@ struct ItemList: View {
         }
       }
       .animation(.default, value: expandedItemID)
-      .animation(.default, value: editor.tesseraItems.count)
+      .animation(.default, value: editor.tesseraItems)
     }
   }
 

@@ -9,7 +9,7 @@ struct OptionRow<Content: View, Trailing: View>: View {
   @ViewBuilder var content: () -> Content
 
   init(
-    title: LocalizedStringKey? = nil,
+    _ title: LocalizedStringKey? = nil,
     subtitle: LocalizedStringKey? = nil,
     @ViewBuilder trailing: @escaping () -> Trailing = { EmptyView() },
     @ViewBuilder content: @escaping () -> Content,

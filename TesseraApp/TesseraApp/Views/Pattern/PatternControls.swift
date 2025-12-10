@@ -41,7 +41,7 @@ struct PatternControls: View {
   }
 
   private func tileSizeRow() -> some View {
-    OptionRow(title: "Tile Size") {
+    OptionRow("Tile Size") {
       HStack(spacing: .medium) {
         OptionNumberField(
           title: "Width",
@@ -60,10 +60,10 @@ struct PatternControls: View {
   }
 
   private func spacingRow() -> some View {
-    OptionRow(title: "Minimum Spacing") {
+    OptionRow("Minimum Spacing") {
       Text(patternDraft.minimumSpacing.formatted())
     } content: {
-      VStack(alignment: .leading, spacing: .mediumTight) {
+      VStack(alignment: .leading, spacing: .tight) {
         SystemSlider(
           value: $patternDraft.minimumSpacing,
           in: 0...maximumSpacing,
@@ -89,7 +89,7 @@ struct PatternControls: View {
   }
 
   private func densityRow() -> some View {
-    OptionRow(title: "Density") {
+    OptionRow("Density") {
       Text(patternDraft.density.formatted())
     } content: {
       SystemSlider(
@@ -112,37 +112,32 @@ struct PatternControls: View {
   }
 
   private func scaleRow() -> some View {
-    OptionRow(title: "Tile Scaling") {
+    OptionRow("Scale Range") {
+      let lower = Double(patternDraft.baseScaleRange.lowerBound)
+        .formatted(FloatingPointFormatStyle<Double>.number.precision(.fractionLength(2)))
+      let upper = Double(patternDraft.baseScaleRange.upperBound)
+        .formatted(FloatingPointFormatStyle<Double>.number.precision(.fractionLength(2)))
+      Text("\(lower)× – \(upper)×")
+    } content: {
       RangeSliderView(
-        title: "Scale Range",
         range: $patternDraft.baseScaleRange,
         bounds: 0.3...1.8,
         step: 0.05,
-        valueLabel: { range in
-          let lower = Double(range.lowerBound)
-            .formatted(FloatingPointFormatStyle<Double>.number.precision(.fractionLength(2)))
-          let upper = Double(range.upperBound)
-            .formatted(FloatingPointFormatStyle<Double>.number.precision(.fractionLength(2)))
-          return Text("\(lower)× – \(upper)×")
-        },
-        onCommit: applyPatternDraft,
       )
+      .onSliderCommit(applyPatternDraft)
     }
   }
 
   private func seedRow() -> some View {
-    OptionRow(
-      title: "Seed",
-      trailing: {
-        Button {
-          editor.shuffleSeed()
-          patternDraft.seedText = editor.tesseraSeed.description
-        } label: {
-          Label("Randomized", systemImage: "arrow.clockwise")
-        }
-        .buttonStyle(.plain)
-      },
-    ) {
+    OptionRow {
+      Button {
+        editor.shuffleSeed()
+        patternDraft.seedText = editor.tesseraSeed.description
+      } label: {
+        Label("Randomized", systemImage: "arrow.clockwise")
+      }
+      .buttonStyle(.plain)
+    } content: {
       OptionTextField(text: $patternDraft.seedText, onCommit: applyPatternDraft)
     }
   }

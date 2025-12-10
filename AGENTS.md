@@ -14,12 +14,12 @@ Pay attention to these general instructions and closely follow them!
 - Whenever you make changes to unit tests, run the test suite to verify the changes.
 - Always prefer readability over conciseness/compactness.
 - Never commit unless instructed to do so.
-- Whenever you are working in the TesseraApp directory, also read `TesseraApp/AGENTS.md`.
 
 ### **IMPORTANT**: Before you start
 
 - Always scan the Internal and External Resources lists for anything that applies to the work you are doing (features, providers, database, AI tools, tests, docstrings, changelog, commits, etc.) and read those guidelines before making changes.
 - When asked to commit changes to the repository, always read and understand the commit guidelines before doing anything!
+- When you are working in the TesseraApp directory, on the Mac app project, always read and follow `TesseraApp/AGENTS.md`.
 
 ### When you are done
 

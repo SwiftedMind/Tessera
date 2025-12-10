@@ -4,38 +4,22 @@ import CompactSlider
 import SwiftUI
 
 struct RangeSliderView: View {
-  var title: String
   @Binding var range: ClosedRange<Double>
   var bounds: ClosedRange<Double>
   var step: Double
-  var valueLabel: (ClosedRange<Double>) -> Text
-  var onCommit: () -> Void = {}
 
   init(
-    title: String,
     range: Binding<ClosedRange<Double>>,
     bounds: ClosedRange<Double>,
     step: Double,
-    valueLabel: @escaping (ClosedRange<Double>) -> Text,
-    onCommit: @escaping () -> Void = {},
   ) {
-    self.title = title
     _range = range
     self.bounds = bounds
     self.step = step
-    self.valueLabel = valueLabel
-    self.onCommit = onCommit
   }
 
   var body: some View {
     VStack(alignment: .leading, spacing: .mediumTight) {
-      HStack {
-        Text(title)
-        Spacer()
-        valueLabel(currentRange)
-          .foregroundStyle(.secondary)
-      }
-
       SystemSlider(
         from: lowerBoundBinding,
         to: upperBoundBinding,
@@ -43,7 +27,6 @@ struct RangeSliderView: View {
         step: step,
       )
       .compactSliderScale(visibility: .hidden)
-      .onSliderCommit(onCommit)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .onChange(of: range) {
@@ -52,10 +35,6 @@ struct RangeSliderView: View {
     .onAppear {
       clampRangeIfNeeded()
     }
-  }
-
-  private var currentRange: ClosedRange<Double> {
-    clampedRange
   }
 
   private var clampedRange: ClosedRange<Double> {
@@ -99,17 +78,9 @@ struct RangeSliderView: View {
 #Preview {
   @Previewable @State var range = 0.5...1.2
   RangeSliderView(
-    title: "Base Scale",
     range: $range,
     bounds: 0.3...1.8,
     step: 0.05,
-    valueLabel: { range in
-      let lower = Double(range.lowerBound)
-        .formatted(FloatingPointFormatStyle<Double>.number.precision(.fractionLength(2)))
-      let upper = Double(range.upperBound)
-        .formatted(FloatingPointFormatStyle<Double>.number.precision(.fractionLength(2)))
-      return Text("\(lower)× – \(upper)×")
-    },
   )
   .padding(.large)
 }
