@@ -111,8 +111,8 @@ struct PatternControls: View {
     .onAppear {
       seedInput = editor.tesseraSeed.description
     }
-    .onChange(of: editor.tesseraSeed) { newSeed in
-      seedInput = newSeed.description
+    .onChange(of: editor.tesseraSeed) {
+      seedInput = editor.tesseraSeed.description
     }
   }
 

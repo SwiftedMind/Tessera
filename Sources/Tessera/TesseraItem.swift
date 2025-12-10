@@ -7,7 +7,7 @@ public struct TesseraItem: Identifiable {
   public var id: UUID
   public var weight: Double
   public var allowedRotationRange: ClosedRange<Angle>
-  public var scaleRange: ClosedRange<CGFloat>?
+  public var scaleRange: ClosedRange<Double>?
   public var collisionShape: CollisionShape
   private let builder: () -> AnyView
 
@@ -23,7 +23,7 @@ public struct TesseraItem: Identifiable {
     id: UUID = UUID(),
     weight: Double = 1,
     allowedRotationRange: ClosedRange<Angle> = Angle.fullCircle,
-    scaleRange: ClosedRange<CGFloat>? = nil,
+    scaleRange: ClosedRange<Double>? = nil,
     collisionShape: CollisionShape,
     @ViewBuilder content: @escaping () -> some View,
   ) {
@@ -47,7 +47,7 @@ public struct TesseraItem: Identifiable {
     id: UUID = UUID(),
     weight: Double = 1,
     allowedRotationRange: ClosedRange<Angle> = Angle.fullCircle,
-    scaleRange: ClosedRange<CGFloat>? = nil,
+    scaleRange: ClosedRange<Double>? = nil,
     approximateSize: CGSize = CGSize(width: 30, height: 30),
     @ViewBuilder content: @escaping () -> some View,
   ) {

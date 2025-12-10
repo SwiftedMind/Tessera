@@ -9,7 +9,11 @@ import Tessera
 final class TesseraEditorModel {
   var tesseraItems: [EditableItem] {
     didSet {
-      scheduleUpdate(debounce: .seconds(1))
+      if oldValue.count != tesseraItems.count {
+        scheduleUpdate(debounce: .seconds(1))
+      } else {
+        scheduleUpdate()
+      }
     }
   }
   
@@ -40,7 +44,7 @@ final class TesseraEditorModel {
     }
   }
 
-  var baseScaleRange: ClosedRange<CGFloat> {
+  var baseScaleRange: ClosedRange<Double> {
     didSet {
       scheduleUpdate()
     }
@@ -54,9 +58,9 @@ final class TesseraEditorModel {
     tesseraItems: [EditableItem]? = nil,
     tesseraSize: CGSize = CGSize(width: 256, height: 256),
     tesseraSeed: UInt64 = 0,
-    minimumSpacing: CGFloat = 10,
+    minimumSpacing: Double = 10,
     density: Double = 0.8,
-    baseScaleRange: ClosedRange<CGFloat> = 0.5...1.2,
+    baseScaleRange: ClosedRange<Double> = 0.5...1.2,
   ) {
     let tesseraItems = tesseraItems ?? EditableItem.demoItems
     
@@ -89,11 +93,13 @@ final class TesseraEditorModel {
     liveTessera = makeTessera()
   }
 
-  private func scheduleUpdate(debounce: Duration = .milliseconds(200)) {
+  private func scheduleUpdate(debounce: Duration = .milliseconds(300)) {
     updateTask?.cancel()
     updateTask = Task {
-      try? await Task.sleep(for: debounce)
-      liveTessera = makeTessera()
+      do {
+        try await Task.sleep(for: debounce)
+        liveTessera = makeTessera()
+      } catch {}
     }
   }
 

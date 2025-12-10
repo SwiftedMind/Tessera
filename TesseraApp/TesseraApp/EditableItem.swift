@@ -37,7 +37,7 @@ struct EditableItem: Identifiable, Equatable {
     Angle.degrees(minimumRotation)...Angle.degrees(maximumRotation)
   }
 
-  var scaleRange: ClosedRange<CGFloat>? {
+  var scaleRange: ClosedRange<Double>? {
     guard usesCustomScaleRange else { return nil }
 
     return minimumScale...maximumScale
@@ -131,7 +131,7 @@ extension EditableItem {
       id: UUID,
       weight: Double,
       rotationRange: ClosedRange<Angle>,
-      scaleRange: ClosedRange<CGFloat>?,
+      scaleRange: ClosedRange<Double>?,
     ) -> TesseraItem {
       switch self {
       case .squareOutline:

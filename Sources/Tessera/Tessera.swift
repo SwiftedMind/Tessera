@@ -11,10 +11,10 @@ public struct Tessera: View {
   public var size: CGSize
   public var items: [TesseraItem]
   public var seed: UInt64
-  public var minimumSpacing: CGFloat
+  public var minimumSpacing: Double
   /// Desired fill density between 0 and 1; scales how many items are attempted.
   public var density: Double
-  public var baseScaleRange: ClosedRange<CGFloat>
+  public var baseScaleRange: ClosedRange<Double>
 
   /// Creates a tessera definition.
   /// - Parameters:
@@ -28,9 +28,9 @@ public struct Tessera: View {
     size: CGSize,
     items: [TesseraItem],
     seed: UInt64 = Tessera.randomSeed(),
-    minimumSpacing: CGFloat,
+    minimumSpacing: Double,
     density: Double = 0.5,
-    baseScaleRange: ClosedRange<CGFloat> = 0.9...1.1,
+    baseScaleRange: ClosedRange<Double> = 0.9...1.1,
   ) {
     self.size = size
     self.items = items

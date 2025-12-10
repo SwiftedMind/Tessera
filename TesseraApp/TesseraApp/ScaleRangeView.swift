@@ -3,10 +3,10 @@
 import SwiftUI
 
 struct ScaleRangeView: View {
-  @Binding var scaleRange: ClosedRange<CGFloat>
+  @Binding var scaleRange: ClosedRange<Double>
   var onCommit: () -> Void
 
-  private let bounds: ClosedRange<CGFloat> = 0.3...2
+  private let bounds: ClosedRange<Double> = 0.3...2
   private let step: CGFloat = 0.05
 
   var body: some View {
@@ -26,7 +26,7 @@ struct ScaleRangeView: View {
 }
 
 #Preview {
-  @Previewable @State var scaleRange: ClosedRange<CGFloat> = 0.7...1.3
+  @Previewable @State var scaleRange: ClosedRange<Double> = 0.7...1.3
   ScaleRangeView(scaleRange: $scaleRange, onCommit: {})
     .padding()
 }

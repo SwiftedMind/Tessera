@@ -45,7 +45,7 @@ enum ShapePlacementEngine {
       guard let selectedItem = pickItem(from: tessera.items, using: &randomGenerator) else { break }
 
       let scaleRange = selectedItem.scaleRange ?? tessera.baseScaleRange
-      let scale = CGFloat.random(in: scaleRange, using: &randomGenerator)
+      let scale = Double.random(in: scaleRange, using: &randomGenerator)
       let rotation = randomAngle(in: selectedItem.allowedRotationRange, using: &randomGenerator)
 
       guard let selectedPolygon = polygonCache[selectedItem.id] else { continue }

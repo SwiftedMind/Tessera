@@ -8,7 +8,7 @@ struct ItemCard: View {
   @Binding var expandedItemID: EditableItem.ID?
   @State private var weightDraft: Double
   @State private var rotationDraft: ClosedRange<Double>
-  @State private var scaleRangeDraft: ClosedRange<CGFloat>
+  @State private var scaleRangeDraft: ClosedRange<Double>
   @State private var isWeightSliderDragging = false
   var onRemove: () -> Void
 
