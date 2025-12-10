@@ -1,5 +1,7 @@
 # AGENTS.md — TesseraApp Architecture & Contribution Guide
 
+> **Read this file first whenever you touch anything inside `TesseraApp/`.**
+
 TesseraApp is a macOS SwiftUI editor that uses the Tessera Swift package to design, preview, and export seamless tiling patterns.
 
 ---

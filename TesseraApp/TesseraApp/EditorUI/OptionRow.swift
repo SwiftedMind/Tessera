@@ -5,19 +5,19 @@ import SwiftUI
 struct OptionRow<Content: View, Trailing: View>: View {
   var title: LocalizedStringKey?
   var subtitle: LocalizedStringKey?
-  @ViewBuilder var trailing: () -> Trailing
   @ViewBuilder var content: () -> Content
+  @ViewBuilder var trailing: () -> Trailing
 
   init(
     _ title: LocalizedStringKey? = nil,
     subtitle: LocalizedStringKey? = nil,
-    @ViewBuilder trailing: @escaping () -> Trailing = { EmptyView() },
     @ViewBuilder content: @escaping () -> Content,
+    @ViewBuilder trailing: @escaping () -> Trailing = { EmptyView() },
   ) {
     self.title = title
     self.subtitle = subtitle
-    self.trailing = trailing
     self.content = content
+    self.trailing = trailing
   }
 
   var body: some View {

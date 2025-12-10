@@ -61,8 +61,6 @@ struct PatternControls: View {
 
   private func spacingRow() -> some View {
     OptionRow("Minimum Spacing") {
-      Text(patternDraft.minimumSpacing.formatted())
-    } content: {
       VStack(alignment: .leading, spacing: .tight) {
         SystemSlider(
           value: $patternDraft.minimumSpacing,
@@ -85,13 +83,13 @@ struct PatternControls: View {
             .foregroundStyle(.secondary)
         }
       }
+    } trailing: {
+      Text(patternDraft.minimumSpacing.formatted())
     }
   }
 
   private func densityRow() -> some View {
     OptionRow("Density") {
-      Text(patternDraft.density.formatted())
-    } content: {
       SystemSlider(
         value: $patternDraft.density,
         in: 0.1...1,
@@ -108,28 +106,32 @@ struct PatternControls: View {
           .font(.caption)
           .foregroundStyle(.secondary)
       }
+    } trailing: {
+      Text(patternDraft.density.formatted())
     }
   }
 
   private func scaleRow() -> some View {
     OptionRow("Scale Range") {
-      let lower = Double(patternDraft.baseScaleRange.lowerBound)
-        .formatted(FloatingPointFormatStyle<Double>.number.precision(.fractionLength(2)))
-      let upper = Double(patternDraft.baseScaleRange.upperBound)
-        .formatted(FloatingPointFormatStyle<Double>.number.precision(.fractionLength(2)))
-      Text("\(lower)× – \(upper)×")
-    } content: {
       RangeSliderView(
         range: $patternDraft.baseScaleRange,
         bounds: 0.3...1.8,
         step: 0.05,
       )
       .onSliderCommit(applyPatternDraft)
+    } trailing: {
+      let lower = Double(patternDraft.baseScaleRange.lowerBound)
+        .formatted(FloatingPointFormatStyle<Double>.number.precision(.fractionLength(2)))
+      let upper = Double(patternDraft.baseScaleRange.upperBound)
+        .formatted(FloatingPointFormatStyle<Double>.number.precision(.fractionLength(2)))
+      Text("\(lower)× – \(upper)×")
     }
   }
 
   private func seedRow() -> some View {
     OptionRow {
+      OptionTextField(text: $patternDraft.seedText, onCommit: applyPatternDraft)
+    } trailing: {
       Button {
         editor.shuffleSeed()
         patternDraft.seedText = editor.tesseraSeed.description
@@ -137,8 +139,6 @@ struct PatternControls: View {
         Label("Randomized", systemImage: "arrow.clockwise")
       }
       .buttonStyle(.plain)
-    } content: {
-      OptionTextField(text: $patternDraft.seedText, onCommit: applyPatternDraft)
     }
   }
 

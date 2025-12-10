@@ -119,15 +119,15 @@ struct ItemCard: View {
 
   @ViewBuilder private var rotationOption: some View {
     OptionRow("Rotation") {
-      let lower = rotationDraft.lowerBound.formatted(.number.precision(.fractionLength(0)))
-      let upper = rotationDraft.upperBound.formatted(.number.precision(.fractionLength(0)))
-      Text("\(lower)° – \(upper)°")
-    } content: {
       RangeSliderView(
         range: $rotationDraft,
         bounds: -180...180,
         step: 1,
       )
+    } trailing: {
+      let lower = rotationDraft.lowerBound.formatted(.number.precision(.fractionLength(0)))
+      let upper = rotationDraft.upperBound.formatted(.number.precision(.fractionLength(0)))
+      Text("\(lower)° – \(upper)°")
     }
     .onSliderCommit {
       item.minimumRotation = rotationDraft.lowerBound
@@ -137,21 +137,23 @@ struct ItemCard: View {
 
   @ViewBuilder private var customScaleRangeOption: some View {
     OptionRow("Global Overrides") {
+      EmptyView()
+    } trailing: {
       Toggle(isOn: $item.usesCustomScaleRange) {
         Text("Enabled")
       }
-    } content: {}
+    }
     if item.usesCustomScaleRange {
       OptionRow("Scale Range") {
-        let lower = scaleRangeDraft.lowerBound.formatted(.number.precision(.fractionLength(2)))
-        let upper = scaleRangeDraft.upperBound.formatted(.number.precision(.fractionLength(2)))
-        Text("\(lower)x – \(upper)x")
-      } content: {
         RangeSliderView(
           range: $scaleRangeDraft,
           bounds: 0.3...2,
           step: 0.05,
         )
+      } trailing: {
+        let lower = scaleRangeDraft.lowerBound.formatted(.number.precision(.fractionLength(2)))
+        let upper = scaleRangeDraft.upperBound.formatted(.number.precision(.fractionLength(2)))
+        Text("\(lower)x – \(upper)x")
       }
       .onSliderCommit {
         item.minimumScale = scaleRangeDraft.lowerBound

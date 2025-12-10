@@ -19,7 +19,7 @@ Pay attention to these general instructions and closely follow them!
 
 - Always scan the Internal and External Resources lists for anything that applies to the work you are doing (features, providers, database, AI tools, tests, docstrings, changelog, commits, etc.) and read those guidelines before making changes.
 - When asked to commit changes to the repository, always read and understand the commit guidelines before doing anything!
-- When you are working in the TesseraApp directory, on the Mac app project, always read and follow `TesseraApp/AGENTS.md`.
+- If you touch anything inside `TesseraApp/`, read `TesseraApp/AGENTS.md` first; its rules apply alongside this file.
 
 ### When you are done
 
