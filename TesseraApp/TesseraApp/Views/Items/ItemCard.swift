@@ -9,7 +9,6 @@ struct ItemCard: View {
   @State private var weightDraft: Double
   @State private var rotationDraft: ClosedRange<Double>
   @State private var scaleRangeDraft: ClosedRange<Double>
-  @State private var isWeightSliderDragging = false
   var onRemove: () -> Void
 
   init(
@@ -39,8 +38,6 @@ struct ItemCard: View {
             .rotationEffect(.degrees(isExpanded ? 90 : 0))
             .foregroundStyle(.secondary)
             .animation(.default, value: isExpanded)
-          item.preset.preview
-            .frame(width: 15, height: 15)
           Text(item.preset.title)
             .font(.headline)
           Spacer()
@@ -56,58 +53,78 @@ struct ItemCard: View {
 
       if isExpanded {
         VStack(alignment: .leading, spacing: 12) {
-          VStack(alignment: .leading, spacing: 8) {
-            Text("Weight")
-            SystemSlider(
-              value: $weightDraft,
-              in: 0.2...6,
-              step: 0.1
-            )
-            .compactSliderScale(visibility: .hidden)
-            .compactSliderOnChange { configuration in
-              handleWeightSliderChange(configuration)
-            }
-            HStack {
-              Text("Low")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-              Spacer()
-              Text("High")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+          OptionRow(title: "Weight") {
+            VStack(alignment: .leading, spacing: 8) {
+              SystemSlider(
+                value: $weightDraft,
+                in: 0.2...6,
+                step: 0.1,
+              )
+              .compactSliderScale(visibility: .hidden)
+              .onSliderCommit {
+                item.weight = weightDraft
+              }
+              HStack {
+                Text("Low")
+                  .font(.caption)
+                  .foregroundStyle(.secondary)
+                Spacer()
+                Text("High")
+                  .font(.caption)
+                  .foregroundStyle(.secondary)
+              }
             }
           }
 
-          VStack(alignment: .leading, spacing: 8) {
-            AngleRangeView(
-              angleRange: $rotationDraft,
-              onCommit: {
-                item.minimumRotation = rotationDraft.lowerBound
-                item.maximumRotation = rotationDraft.upperBound
-              },
-            )
-          }
+          RangeSliderView(
+            title: "Rotation",
+            range: $rotationDraft,
+            bounds: -180...180,
+            step: 1,
+            valueLabel: { range in
+              let lower = range.lowerBound.formatted(
+                FloatingPointFormatStyle<Double>.number.precision(.fractionLength(0)),
+              )
+              let upper = range.upperBound.formatted(
+                FloatingPointFormatStyle<Double>.number.precision(.fractionLength(0)),
+              )
+              return Text("\(lower)° – \(upper)°")
+            },
+            onCommit: {
+              item.minimumRotation = rotationDraft.lowerBound
+              item.maximumRotation = rotationDraft.upperBound
+            },
+          )
 
-          VStack(alignment: .leading, spacing: 8) {
-            HStack {
-              Text("Override Scale Range")
+          OptionRow(
+            title: "Scale",
+            trailing: {
               Toggle(isOn: $item.usesCustomScaleRange.animation()) {
                 Text("Custom")
               }
-            }
+            },
+          ) {
             if item.usesCustomScaleRange {
-              ScaleRangeView(
-                scaleRange: $scaleRangeDraft,
+              RangeSliderView(
+                title: "Scale",
+                range: $scaleRangeDraft,
+                bounds: 0.3...2,
+                step: 0.05,
+                valueLabel: { range in
+                  Text(
+                    "\(range.lowerBound, format: .number.precision(.fractionLength(2)))x – \(range.upperBound, format: .number.precision(.fractionLength(2)))x",
+                  )
+                },
                 onCommit: {
                   item.minimumScale = scaleRangeDraft.lowerBound
                   item.maximumScale = scaleRangeDraft.upperBound
                 },
               )
               .transition(.opacity)
-              .onChange(of: scaleRangeDraft) { _, newValue in
-                item.minimumScale = newValue.lowerBound
-                item.maximumScale = newValue.upperBound
-              }
+            } else {
+              Text("Uses base scale range")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
           }
         }
@@ -123,6 +140,23 @@ struct ItemCard: View {
     .clipShape(RoundedRectangle(cornerRadius: 14))
     .animation(.default, value: expandedItemID)
     .geometryGroup()
+    .onChange(of: item.weight) {
+      if weightDraft != item.weight {
+        weightDraft = item.weight
+      }
+    }
+    .onChange(of: item.minimumRotation) {
+      rotationDraft = item.minimumRotation...item.maximumRotation
+    }
+    .onChange(of: item.maximumRotation) {
+      rotationDraft = item.minimumRotation...item.maximumRotation
+    }
+    .onChange(of: item.minimumScale) {
+      scaleRangeDraft = item.minimumScale...item.maximumScale
+    }
+    .onChange(of: item.maximumScale) {
+      scaleRangeDraft = item.minimumScale...item.maximumScale
+    }
   }
 
   private func toggleExpansion() {
@@ -132,25 +166,12 @@ struct ItemCard: View {
       expandedItemID = item.id
     }
   }
-
-  private func handleWeightSliderChange(_ configuration: CompactSliderStyleConfiguration) {
-    let isCurrentlyDragging = configuration.focusState.isDragging
-    if isWeightSliderDragging == isCurrentlyDragging { return }
-
-    let wasDragging = isWeightSliderDragging
-    Task {
-      if wasDragging, isCurrentlyDragging == false {
-        item.weight = weightDraft
-      }
-      isWeightSliderDragging = isCurrentlyDragging
-    }
-  }
 }
 
 #Preview {
   @Previewable @State var item: EditableItem = .demoItems[0]
   @Previewable @State var expandedItemID: EditableItem.ID?
-  
+
   ItemCard(item: $item, expandedItemID: $expandedItemID) {}
     .padding()
     .frame(height: 600)

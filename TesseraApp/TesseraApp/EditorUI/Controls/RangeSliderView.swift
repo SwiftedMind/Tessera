@@ -11,8 +11,6 @@ struct RangeSliderView: View {
   var valueLabel: (ClosedRange<Double>) -> Text
   var onCommit: () -> Void = {}
 
-  @State private var isDragging = false
-
   init(
     title: String,
     range: Binding<ClosedRange<Double>>,
@@ -45,9 +43,7 @@ struct RangeSliderView: View {
         step: step,
       )
       .compactSliderScale(visibility: .hidden)
-      .compactSliderOnChange { configuration in
-        handleSliderChange(configuration)
-      }
+      .onSliderCommit(onCommit)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .onChange(of: range) {
@@ -84,19 +80,6 @@ struct RangeSliderView: View {
         range = updatedRange
       },
     )
-  }
-
-  private func handleSliderChange(_ configuration: CompactSliderStyleConfiguration) {
-    let isCurrentlyDragging = configuration.focusState.isDragging
-    if isDragging == isCurrentlyDragging { return }
-
-    let wasDragging = isDragging
-    Task {
-      if wasDragging, isCurrentlyDragging == false {
-        onCommit()
-      }
-      isDragging = isCurrentlyDragging
-    }
   }
 
   private func clampRangeIfNeeded() {

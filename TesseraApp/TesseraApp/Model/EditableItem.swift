@@ -212,7 +212,3 @@ extension EditableItem {
     }
   }
 }
-
-#Preview {
-  EditableItem.demoItems.first?.preset.preview
-}

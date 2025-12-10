@@ -10,8 +10,6 @@ struct LabeledSlider<Value: BinaryFloatingPoint>: View where Value.Stride: Binar
   var step: Value = 1
   var onEditingChanged: ((Bool) -> Void)?
 
-  @State private var isDragging = false
-
   var body: some View {
     HStack(spacing: 12) {
       Text(label)
@@ -21,22 +19,12 @@ struct LabeledSlider<Value: BinaryFloatingPoint>: View where Value.Stride: Binar
       SystemSlider(
         value: $value,
         in: range,
-        step: step
+        step: step,
       )
       .compactSliderScale(visibility: .hidden)
-      .compactSliderOnChange { configuration in
-        handleDragChange(configuration)
+      .onSliderCommit {
+        onEditingChanged?(false)
       }
-    }
-  }
-
-  private func handleDragChange(_ configuration: CompactSliderStyleConfiguration) {
-    let isCurrentlyDragging = configuration.focusState.isDragging
-    if isDragging == isCurrentlyDragging { return }
-
-    Task {
-      onEditingChanged?(isCurrentlyDragging)
-      isDragging = isCurrentlyDragging
     }
   }
 }

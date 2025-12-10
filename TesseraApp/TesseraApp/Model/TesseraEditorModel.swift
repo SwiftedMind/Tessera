@@ -16,27 +16,27 @@ final class TesseraEditorModel {
       }
     }
   }
-  
+
   var tesseraSize: CGSize {
     didSet {
       scheduleUpdate()
     }
   }
-  
+
   var tesseraSeed: UInt64 {
     didSet {
       scheduleUpdate()
     }
   }
-  
+
   var minimumSpacing: CGFloat {
     didSet {
       scheduleUpdate()
     }
   }
-  
+
   var densityDraft: Double
-  
+
   var density: Double {
     didSet {
       densityDraft = density
@@ -49,7 +49,7 @@ final class TesseraEditorModel {
       scheduleUpdate()
     }
   }
-  
+
   private(set) var liveTessera: Tessera
 
   private var updateTask: Task<Void, Never>?
@@ -63,7 +63,7 @@ final class TesseraEditorModel {
     baseScaleRange: ClosedRange<Double> = 0.5...1.2,
   ) {
     let tesseraItems = tesseraItems ?? EditableItem.demoItems
-    
+
     self.tesseraItems = tesseraItems
     self.tesseraSize = tesseraSize
     self.tesseraSeed = tesseraSeed
