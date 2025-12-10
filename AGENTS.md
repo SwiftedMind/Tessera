@@ -14,6 +14,7 @@ Pay attention to these general instructions and closely follow them!
 - Whenever you make changes to unit tests, run the test suite to verify the changes.
 - Always prefer readability over conciseness/compactness.
 - Never commit unless instructed to do so.
+- Whenever you are working in the TesseraApp directory, also read `TesseraApp/AGENTS.md`.
 
 ### **IMPORTANT**: Before you start
 
