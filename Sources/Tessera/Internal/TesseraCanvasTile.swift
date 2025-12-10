@@ -9,6 +9,11 @@ struct TesseraCanvasTile: View {
 
   var body: some View {
     Canvas { context, size in
+      let wrappedOffset = CGSize(
+        width: tessera.patternOffset.width.truncatingRemainder(dividingBy: size.width),
+        height: tessera.patternOffset.height.truncatingRemainder(dividingBy: size.height),
+      )
+
       var randomGenerator = SeededGenerator(seed: seed)
       let placedItems = ShapePlacementEngine.placeItems(
         in: size,
@@ -33,7 +38,7 @@ struct TesseraCanvasTile: View {
 
         for offset in offsets {
           var symbolContext = context
-          symbolContext.translateBy(x: offset.width, y: offset.height)
+          symbolContext.translateBy(x: offset.width + wrappedOffset.width, y: offset.height + wrappedOffset.height)
           symbolContext.translateBy(x: placedItem.position.x, y: placedItem.position.y)
           symbolContext.rotate(by: placedItem.rotation)
           symbolContext.scaleBy(x: placedItem.scale, y: placedItem.scale)

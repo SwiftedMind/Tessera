@@ -15,6 +15,8 @@ public struct Tessera: View {
   /// Desired fill density between 0 and 1; scales how many items are attempted.
   public var density: Double
   public var baseScaleRange: ClosedRange<Double>
+  /// Offsets applied to the tile content before wrapping.
+  public var patternOffset: CGSize
 
   /// Creates a tessera definition.
   /// - Parameters:
@@ -24,6 +26,7 @@ public struct Tessera: View {
   ///   - minimumSpacing: Minimum distance between item centers.
   ///   - density: Desired fill density between 0 and 1.
   ///   - baseScaleRange: Default scale range applied when an item does not provide its own scale range.
+  ///   - patternOffset: Positional offset applied to all items before wrapping; values wrap within the tile size.
   public init(
     size: CGSize,
     items: [TesseraItem],
@@ -31,6 +34,7 @@ public struct Tessera: View {
     minimumSpacing: Double,
     density: Double = 0.5,
     baseScaleRange: ClosedRange<Double> = 0.9...1.1,
+    patternOffset: CGSize = .zero,
   ) {
     self.size = size
     self.items = items
@@ -38,6 +42,7 @@ public struct Tessera: View {
     self.minimumSpacing = minimumSpacing
     self.density = density
     self.baseScaleRange = baseScaleRange
+    self.patternOffset = patternOffset
   }
 
   /// Renders the tessera as a single tile view.

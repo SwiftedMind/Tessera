@@ -14,6 +14,7 @@ struct PatternControls: View {
     VStack(alignment: .leading, spacing: .large) {
       tileSizeRow()
       spacingRow()
+      offsetRow()
       densityRow()
       scaleRow()
       seedRow()
@@ -38,6 +39,10 @@ struct PatternControls: View {
     .onChange(of: editor.baseScaleRange) {
       patternDraft.baseScaleRange = editor.baseScaleRange
     }
+    .onChange(of: editor.patternOffset) {
+      patternDraft.offsetX = editor.patternOffset.width
+      patternDraft.offsetY = editor.patternOffset.height
+    }
   }
 
   private func tileSizeRow() -> some View {
@@ -55,6 +60,39 @@ struct PatternControls: View {
           range: 64...512,
           onCommit: applyPatternDraft,
         )
+      }
+    }
+  }
+
+  private func offsetRow() -> some View {
+    OptionRow("Offset") {
+      SystemSlider(
+        value: $patternDraft.offsetX,
+        in: -maximumOffsetX...maximumOffsetX,
+        step: 1,
+      )
+      .compactSliderScale(visibility: .hidden)
+      .onSliderCommit(applyPatternDraft)
+
+      SystemSlider(
+        value: $patternDraft.offsetY,
+        in: -maximumOffsetY...maximumOffsetY,
+        step: 1,
+      )
+      .compactSliderScale(visibility: .hidden)
+      .onSliderCommit(applyPatternDraft)
+    } trailing: {
+      HStack(spacing: .tight) {
+        Text("X: \(patternDraft.offsetX.formatted()), Y: \(patternDraft.offsetY.formatted())")
+        Button {
+          patternDraft.offsetX = 0
+          patternDraft.offsetY = 0
+          applyPatternDraft()
+        } label: {
+          Image(systemName: "arrow.clockwise")
+        }
+        .buttonStyle(.plain)
+        .disabled(patternDraft.offsetX == 0 && patternDraft.offsetY == 0)
       }
     }
   }
@@ -136,7 +174,7 @@ struct PatternControls: View {
         editor.shuffleSeed()
         patternDraft.seedText = editor.tesseraSeed.description
       } label: {
-        Label("Randomized", systemImage: "arrow.clockwise")
+        Label("Shuffle", systemImage: "arrow.clockwise")
       }
       .buttonStyle(.plain)
     }
@@ -149,6 +187,7 @@ struct PatternControls: View {
     editor.densityDraft = patternDraft.density
     editor.commitDensityDraft()
     editor.baseScaleRange = patternDraft.baseScaleRange
+    editor.patternOffset = CGSize(width: patternDraft.offsetX, height: patternDraft.offsetY)
     if let parsedSeed = UInt64(patternDraft.seedText.filter(\.isWholeNumber)) {
       editor.tesseraSeed = parsedSeed
       patternDraft.seedText = parsedSeed.description
@@ -164,6 +203,8 @@ struct PatternControls: View {
       minimumSpacing: editor.minimumSpacing,
       density: editor.density,
       baseScaleRange: editor.baseScaleRange,
+      offsetX: editor.patternOffset.width,
+      offsetY: editor.patternOffset.height,
       seedText: editor.tesseraSeed.description,
     )
     clampMinimumSpacing(to: maximumSpacing)
@@ -178,6 +219,14 @@ private extension PatternControls {
 
   var maximumSpacingForDraft: CGFloat {
     min(patternDraft.tileWidth, patternDraft.tileHeight) / 2
+  }
+
+  var maximumOffsetX: CGFloat {
+    patternDraft.tileWidth
+  }
+
+  var maximumOffsetY: CGFloat {
+    patternDraft.tileHeight
   }
 
   var maximumSpacingLabel: String {
@@ -201,5 +250,7 @@ private struct PatternDraft {
   var minimumSpacing: CGFloat = 10
   var density: Double = 0.8
   var baseScaleRange: ClosedRange<Double> = 0.5...1.2
+  var offsetX: CGFloat = 0
+  var offsetY: CGFloat = 0
   var seedText: String = "0"
 }

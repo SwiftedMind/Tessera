@@ -10,7 +10,7 @@ final class TesseraEditorModel {
   var tesseraItems: [EditableItem] {
     didSet {
       if oldValue.count != tesseraItems.count {
-        scheduleUpdate(debounce: .seconds(1))
+        scheduleUpdate(debounce: .seconds(0.8))
       } else {
         scheduleUpdate()
       }
@@ -50,6 +50,12 @@ final class TesseraEditorModel {
     }
   }
 
+  var patternOffset: CGSize {
+    didSet {
+      scheduleUpdate()
+    }
+  }
+
   private(set) var liveTessera: Tessera
 
   private var updateTask: Task<Void, Never>?
@@ -61,6 +67,7 @@ final class TesseraEditorModel {
     minimumSpacing: Double = 10,
     density: Double = 0.8,
     baseScaleRange: ClosedRange<Double> = 0.5...1.2,
+    patternOffset: CGSize = .zero,
   ) {
     let tesseraItems = tesseraItems ?? EditableItem.demoItems
 
@@ -71,6 +78,7 @@ final class TesseraEditorModel {
     self.density = density
     densityDraft = density
     self.baseScaleRange = baseScaleRange
+    self.patternOffset = patternOffset
     liveTessera = Tessera(
       size: tesseraSize,
       items: tesseraItems.map { $0.makeTesseraItem() },
@@ -78,6 +86,7 @@ final class TesseraEditorModel {
       minimumSpacing: minimumSpacing,
       density: density,
       baseScaleRange: baseScaleRange,
+      patternOffset: patternOffset,
     )
   }
 
@@ -93,7 +102,7 @@ final class TesseraEditorModel {
     liveTessera = makeTessera()
   }
 
-  private func scheduleUpdate(debounce: Duration = .milliseconds(300)) {
+  private func scheduleUpdate(debounce: Duration = .milliseconds(0)) {
     updateTask?.cancel()
     updateTask = Task {
       do {
@@ -111,6 +120,7 @@ final class TesseraEditorModel {
       minimumSpacing: minimumSpacing,
       density: density,
       baseScaleRange: baseScaleRange,
+      patternOffset: patternOffset,
     )
   }
 }
