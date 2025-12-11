@@ -15,9 +15,13 @@ struct ItemList: View {
           .font(.headline)
         Spacer()
         Menu {
-          ForEach(EditableItem.Preset.allPresets) { preset in
-            Button(preset.title) {
-              editor.tesseraItems.append(EditableItem(preset: preset))
+          ForEach(EditableItem.Preset.allPresetGroups) { group in
+            Menu(group.title) {
+              ForEach(group.presets) { preset in
+                Button(preset.title) {
+                  editor.tesseraItems.append(EditableItem(preset: preset))
+                }
+              }
             }
           }
         } label: {
