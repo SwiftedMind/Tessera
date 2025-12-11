@@ -1,5 +1,6 @@
 // By Dennis Müller
 
+import CoreText
 import SwiftUI
 import Tessera
 
@@ -357,6 +358,8 @@ extension EditableItem {
           .frame(width: style.size.width, height: style.size.height)
       case .partyPopper:
         Image(systemName: symbolName(from: options))
+          .resizable()
+          .aspectRatio(contentMode: .fit)
           .foregroundStyle(style.color)
           .font(.system(size: style.fontSize, weight: .regular))
           .frame(width: style.size.width, height: style.size.height)
@@ -416,6 +419,37 @@ extension EditableItem {
 
     private func textContent(from options: PresetSpecificOptions) -> String {
       options.textContent ?? "Text"
+    }
+
+    func measuredSize(for style: ItemStyle, options: PresetSpecificOptions) -> CGSize {
+      switch self {
+      case .text:
+        measuredTextSize(for: style, options: options)
+      default:
+        style.size
+      }
+    }
+
+    private func measuredTextSize(for style: ItemStyle, options: PresetSpecificOptions) -> CGSize {
+      let content = textContent(from: options)
+      let uiFont = NSFont.systemFont(ofSize: style.fontSize, weight: .semibold)
+
+      let attributes: [NSAttributedString.Key: Any] = [.font: uiFont]
+
+      let attributed = NSAttributedString(string: content, attributes: attributes)
+      let line = CTLineCreateWithAttributedString(attributed)
+
+      let width = ceil(CTLineGetTypographicBounds(line, nil, nil, nil))
+
+      let ctFont = CTFontCreateWithName(uiFont.fontName as CFString, uiFont.pointSize, nil)
+      let ascent = CTFontGetAscent(ctFont)
+      let descent = CTFontGetDescent(ctFont)
+      let leading = CTFontGetLeading(ctFont)
+
+      let height = ceil(ascent + descent + leading)
+      let padding: CGFloat = 2
+
+      return CGSize(width: width + padding, height: height + padding)
     }
   }
 }

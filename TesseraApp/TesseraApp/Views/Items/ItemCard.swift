@@ -31,8 +31,17 @@ struct ItemCard: View {
     _weightDraft = State(initialValue: item.wrappedValue.weight)
     _rotationDraft = State(initialValue: item.wrappedValue.minimumRotation...item.wrappedValue.maximumRotation)
     _scaleRangeDraft = State(initialValue: item.wrappedValue.minimumScale...item.wrappedValue.maximumScale)
-    _widthDraft = State(initialValue: item.wrappedValue.style.size.width)
-    _heightDraft = State(initialValue: item.wrappedValue.style.size.height)
+    if item.wrappedValue.preset.capabilities.supportsTextContent {
+      let measuredSize = item.wrappedValue.preset.measuredSize(
+        for: item.wrappedValue.style,
+        options: item.wrappedValue.specificOptions,
+      )
+      _widthDraft = State(initialValue: measuredSize.width)
+      _heightDraft = State(initialValue: measuredSize.height)
+    } else {
+      _widthDraft = State(initialValue: item.wrappedValue.style.size.width)
+      _heightDraft = State(initialValue: item.wrappedValue.style.size.height)
+    }
     _lineWidthDraft = State(initialValue: item.wrappedValue.style.lineWidth)
     _fontSizeDraft = State(initialValue: item.wrappedValue.style.fontSize)
     _colorDraft = State(initialValue: item.wrappedValue.style.color)
@@ -55,7 +64,7 @@ struct ItemCard: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: .medium) {
+    VStack(alignment: .leading, spacing: 0) {
       header
       if isExpanded {
         VStack(alignment: .leading, spacing: .medium) {
@@ -68,10 +77,10 @@ struct ItemCard: View {
           presetSpecificOption
           customScaleRangeOption
         }
+        .padding([.horizontal, .bottom], .mediumRelaxed)
         .transition(.opacity)
       }
     }
-    .padding(.mediumRelaxed)
     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     .overlay(
       RoundedRectangle(cornerRadius: 14)
@@ -115,11 +124,19 @@ struct ItemCard: View {
       if let textContent = item.specificOptions.textContent {
         textContentDraft = textContent
       }
+      if item.preset.capabilities.supportsTextContent {
+        refreshTextSize()
+      }
     }
     .onChange(of: editor.tesseraSize) {
       widthDraft = min(widthDraft, editor.tesseraSize.width)
       heightDraft = min(heightDraft, editor.tesseraSize.height)
       applySizeDraft()
+    }
+    .onAppear {
+      if item.preset.capabilities.supportsTextContent {
+        refreshTextSize()
+      }
     }
   }
 
@@ -141,6 +158,7 @@ struct ItemCard: View {
         }
         .buttonStyle(.plain)
       }
+      .padding(.mediumRelaxed)
       .contentShape(.rect)
     }
     .buttonStyle(.plain)
@@ -190,35 +208,43 @@ struct ItemCard: View {
   }
 
   @ViewBuilder private var sizeOption: some View {
-    OptionRow("Size") {
-      HStack(spacing: .medium) {
-        VStack(alignment: .leading, spacing: .extraSmall) {
-          Text("Width")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-          SystemSlider(
-            value: $widthDraft,
-            in: 8...maximumWidth,
-            step: 1,
-          )
-          .compactSliderScale(visibility: .hidden)
-          .onSliderCommit(applySizeDraft)
-        }
-        VStack(alignment: .leading, spacing: .extraSmall) {
-          Text("Height")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-          SystemSlider(
-            value: $heightDraft,
-            in: 8...maximumHeight,
-            step: 1,
-          )
-          .compactSliderScale(visibility: .hidden)
-          .onSliderCommit(applySizeDraft)
-        }
+    if item.preset.capabilities.supportsTextContent {
+      OptionRow("Size") {
+        EmptyView()
+      } trailing: {
+        Text("Auto (\(widthDraft.formatted()) × \(heightDraft.formatted()))")
       }
-    } trailing: {
-      Text("\(widthDraft.formatted()) × \(heightDraft.formatted())")
+    } else {
+      OptionRow("Size") {
+        HStack(spacing: .medium) {
+          VStack(alignment: .leading, spacing: .extraSmall) {
+            Text("Width")
+              .font(.caption)
+              .foregroundStyle(.secondary)
+            SystemSlider(
+              value: $widthDraft,
+              in: 8...maximumWidth,
+              step: 1,
+            )
+            .compactSliderScale(visibility: .hidden)
+            .onSliderCommit(applySizeDraft)
+          }
+          VStack(alignment: .leading, spacing: .extraSmall) {
+            Text("Height")
+              .font(.caption)
+              .foregroundStyle(.secondary)
+            SystemSlider(
+              value: $heightDraft,
+              in: 8...maximumHeight,
+              step: 1,
+            )
+            .compactSliderScale(visibility: .hidden)
+            .onSliderCommit(applySizeDraft)
+          }
+        }
+      } trailing: {
+        Text("\(widthDraft.formatted()) × \(heightDraft.formatted())")
+      }
     }
   }
 
@@ -261,6 +287,9 @@ struct ItemCard: View {
         .compactSliderScale(visibility: .hidden)
         .onSliderCommit {
           item.style.fontSize = fontSizeDraft
+          if item.preset.capabilities.supportsTextContent {
+            refreshTextSize()
+          }
         }
       } trailing: {
         Text(fontSizeDraft.formatted(.number.precision(.fractionLength(0))))
@@ -300,9 +329,7 @@ struct ItemCard: View {
         OptionTextField(text: $textContentDraft)
           .onSubmit {
             item.specificOptions = item.specificOptions.updatingTextContent(textContentDraft)
-          }
-          .onChange(of: textContentDraft) {
-            item.specificOptions = item.specificOptions.updatingTextContent(textContentDraft)
+            refreshTextSize()
           }
       }
     }
@@ -342,6 +369,17 @@ struct ItemCard: View {
     widthDraft = clampedWidth
     heightDraft = clampedHeight
     item.style.size = CGSize(width: clampedWidth, height: clampedHeight)
+  }
+
+  private func refreshTextSize() {
+    guard item.preset.capabilities.supportsTextContent else { return }
+
+    let measuredSize = item.preset.measuredSize(for: item.style, options: item.specificOptions)
+    if measuredSize != item.style.size {
+      item.style.size = measuredSize
+    }
+    widthDraft = measuredSize.width
+    heightDraft = measuredSize.height
   }
 
   private func toggleExpansion() {
