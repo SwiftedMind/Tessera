@@ -1,6 +1,7 @@
 // By Dennis Müller
 
 import SwiftUI
+import Tessera
 
 struct EditableItemTemplate: Identifiable {
   var id: String
@@ -24,11 +25,29 @@ struct EditableItemTemplate: Identifiable {
 }
 
 extension EditableItemTemplate {
-  static let allTemplates: [EditableItemTemplate] = [
-    .emojiPicnic,
-    .geometricGlow,
-    .typeSpecimen,
-  ]
+  static var allTemplates: [EditableItemTemplate] {
+    [
+      .random,
+      .emojiPicnic,
+      .geometricGlow,
+      .typeSpecimen,
+    ]
+  }
+
+  static var random: EditableItemTemplate {
+    let builder = RandomTemplateBuilder()
+
+    return EditableItemTemplate(
+      id: "random",
+      title: "Random",
+      iconName: "die.face.5.fill",
+      description: "Creates a fresh mix of shapes, symbols, and emoji every time.",
+      configuration: builder.makeConfiguration(),
+      makeItems: {
+        builder.makeItems()
+      },
+    )
+  }
 
   static var emojiPicnic: EditableItemTemplate {
     EditableItemTemplate(
@@ -317,7 +336,7 @@ extension EditableItemTemplate {
               lineWidth: 1,
               fontSize: 30,
             ),
-            specificOptions: PresetSpecificOptions.text(content: "-")
+            specificOptions: PresetSpecificOptions.text(content: "-"),
           ),
           EditableItem(
             customName: "Equals Mark",
@@ -334,7 +353,7 @@ extension EditableItemTemplate {
               lineWidth: 1,
               fontSize: 30,
             ),
-            specificOptions: PresetSpecificOptions.text(content: "=")
+            specificOptions: PresetSpecificOptions.text(content: "="),
           ),
         ]
       },
