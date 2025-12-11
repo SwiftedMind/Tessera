@@ -5,12 +5,16 @@ import Tessera
 
 struct PatternStage: View {
   @Environment(TesseraEditorModel.self) private var editor
-  
+
   var tessera: Tessera
   @Binding var repeatPattern: Bool
 
   var body: some View {
     ZStack {
+      if let stageBackgroundColor = editor.stageBackgroundColor {
+        stageBackgroundColor
+          .ignoresSafeArea()
+      }
       patternContent
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -26,9 +30,17 @@ struct PatternStage: View {
   @ViewBuilder
   private var patternContent: some View {
     if tessera.items.isEmpty {
-      emptyState
-        .padding(.horizontal, .large)
-        .transition(.opacity.combined(with: .scale(1.2)))
+      if editor.stageBackgroundColor != nil {
+        emptyState
+          .padding(.large)
+          .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+          .padding(.horizontal, .large)
+          .transition(.opacity.combined(with: .scale(1.2)))
+      } else {
+        emptyState
+          .padding(.horizontal, .large)
+          .transition(.opacity.combined(with: .scale(1.2)))
+      }
     } else if repeatPattern {
       TesseraPattern(tessera, seed: tessera.seed)
         .transition(.opacity)
@@ -41,12 +53,31 @@ struct PatternStage: View {
     }
   }
 
-  private var controlBar: some View {
-    HStack(spacing: .medium) {
+  @ViewBuilder private var controlBar: some View {
+    @Bindable var editor = editor
+
+    HStack(spacing: .extraLarge) {
       Toggle(isOn: $repeatPattern) {
         Label("Repeat", systemImage: "square.grid.3x3.fill")
       }
       .toggleStyle(.switch)
+      
+      HStack(spacing: .medium) {
+        Toggle(isOn: stageBackgroundEnabled) {
+          Label("Background", systemImage: "paintpalette.fill")
+        }
+        .toggleStyle(.switch)
+        
+        if editor.stageBackgroundColor != nil {
+          ColorPicker(
+            "",
+            selection: $editor.stageBackgroundColor.withDefault(.white),
+            supportsOpacity: true,
+          )
+          .labelsHidden()
+          .frame(width: 44)
+        }
+      }
     }
     .padding(.horizontal, .mediumRelaxed)
     .padding(.vertical, .mediumTight)
@@ -78,11 +109,11 @@ struct PatternStage: View {
           Label("Choose Template", systemImage: "square.grid.2x2")
         }
       }
-        .multilineTextAlignment(.center)
+      .multilineTextAlignment(.center)
     }
     .frame(maxWidth: 360)
   }
-  
+
   private func applyTemplate(_ template: EditableItemTemplate) {
     editor.tesseraItems = template.items()
     let configuration = template.configuration
@@ -108,6 +139,32 @@ struct PatternStage: View {
     }
 
     editor.refreshLiveTessera()
+  }
+
+  private var stageBackgroundEnabled: Binding<Bool> {
+    Binding(
+      get: { editor.stageBackgroundColor != nil },
+      set: { isEnabled in
+        if isEnabled {
+          if editor.stageBackgroundColor == nil {
+            editor.stageBackgroundColor = .white
+          }
+        } else {
+          editor.stageBackgroundColor = nil
+        }
+      },
+    )
+  }
+}
+
+private extension Binding where Value == Color? {
+  func withDefault(_ defaultColor: Color) -> Binding<Color> {
+    Binding<Color>(
+      get: { wrappedValue ?? defaultColor },
+      set: { newColor in
+        wrappedValue = newColor
+      },
+    )
   }
 }
 

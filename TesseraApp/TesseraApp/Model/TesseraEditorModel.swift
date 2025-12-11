@@ -17,6 +17,11 @@ final class TesseraEditorModel {
     }
   }
 
+  /// Background color shown behind the stage preview.
+  ///
+  /// Set to `nil` to show no background.
+  var stageBackgroundColor: Color?
+
   var tesseraSize: CGSize {
     didSet {
       scheduleUpdate()
@@ -71,10 +76,12 @@ final class TesseraEditorModel {
     density: Double = 0.8,
     baseScaleRange: ClosedRange<Double> = 0.5...1.2,
     patternOffset: CGSize = .zero,
+    stageBackgroundColor: Color? = nil,
   ) {
     let tesseraItems = tesseraItems ?? []
 
     self.tesseraItems = tesseraItems
+    self.stageBackgroundColor = stageBackgroundColor
     self.tesseraSize = tesseraSize
     self.tesseraSeed = tesseraSeed
     self.minimumSpacing = minimumSpacing
