@@ -5,7 +5,6 @@ import SwiftUI
 struct OptionTextField: View {
   @Binding var text: String
   var placeholder: LocalizedStringKey = ""
-  var onCommit: () -> Void = {}
 
   var body: some View {
     TextField(placeholder, text: $text)
@@ -16,6 +15,5 @@ struct OptionTextField: View {
       .lineLimit(1)
       .minimumScaleFactor(0.6)
       .submitLabel(.done)
-      .onSubmit(onCommit)
   }
 }

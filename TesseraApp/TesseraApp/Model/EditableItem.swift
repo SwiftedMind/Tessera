@@ -72,6 +72,7 @@ enum PresetSpecificOptions: Equatable {
   case none
   case roundedRectangle(cornerRadius: CGFloat)
   case systemSymbol(name: String)
+  case text(content: String)
 
   var cornerRadius: CGFloat? {
     switch self {
@@ -91,9 +92,19 @@ enum PresetSpecificOptions: Equatable {
     }
   }
 
+  var textContent: String? {
+    switch self {
+    case let .text(content):
+      content
+    default:
+      nil
+    }
+  }
+
   enum Kind {
     case roundedRectangleCornerRadius
     case systemSymbol
+    case textContent
   }
 
   var kind: Kind? {
@@ -104,6 +115,8 @@ enum PresetSpecificOptions: Equatable {
       .roundedRectangleCornerRadius
     case .systemSymbol:
       .systemSymbol
+    case .text:
+      .textContent
     }
   }
 
@@ -113,6 +126,10 @@ enum PresetSpecificOptions: Equatable {
 
   func updatingSymbolName(_ name: String) -> PresetSpecificOptions {
     .systemSymbol(name: name)
+  }
+
+  func updatingTextContent(_ content: String) -> PresetSpecificOptions {
+    .text(content: content)
   }
 }
 
@@ -137,6 +154,7 @@ extension EditableItem {
     case minus
     case equals
     case circleOutline
+    case text
 
     var id: String { rawValue }
 
@@ -148,6 +166,7 @@ extension EditableItem {
       case .minus: "Minus"
       case .equals: "Equals"
       case .circleOutline: "Circle Outline"
+      case .text: "Text"
       }
     }
 
@@ -159,6 +178,7 @@ extension EditableItem {
       case .minus: "minus"
       case .equals: "equal"
       case .circleOutline: "circle"
+      case .text: "text.alignleft"
       }
     }
 
@@ -176,6 +196,8 @@ extension EditableItem {
         ItemStyle(size: CGSize(width: 36, height: 12), color: .gray, lineWidth: 1, fontSize: 34)
       case .circleOutline:
         ItemStyle(size: CGSize(width: 26, height: 26), color: .gray.opacity(0.2), lineWidth: 4, fontSize: 32)
+      case .text:
+        ItemStyle(size: CGSize(width: 36, height: 24), color: .primary, lineWidth: 1, fontSize: 32)
       }
     }
 
@@ -185,6 +207,8 @@ extension EditableItem {
         .roundedRectangle(cornerRadius: 6)
       case .partyPopper:
         .systemSymbol(name: defaultSymbolName)
+      case .text:
+        .text(content: "Text")
       case .squareOutline, .minus, .equals, .circleOutline:
         .none
       }
@@ -200,6 +224,7 @@ extension EditableItem {
           supportsFontSize: false,
           supportsCornerRadius: false,
           supportsSymbolSelection: false,
+          supportsTextContent: false,
         )
       case .roundedOutline:
         PresetCapabilities(
@@ -209,6 +234,7 @@ extension EditableItem {
           supportsFontSize: false,
           supportsCornerRadius: true,
           supportsSymbolSelection: false,
+          supportsTextContent: false,
         )
       case .circleOutline:
         PresetCapabilities(
@@ -218,6 +244,7 @@ extension EditableItem {
           supportsFontSize: false,
           supportsCornerRadius: false,
           supportsSymbolSelection: false,
+          supportsTextContent: false,
         )
       case .partyPopper:
         PresetCapabilities(
@@ -227,6 +254,7 @@ extension EditableItem {
           supportsFontSize: true,
           supportsCornerRadius: false,
           supportsSymbolSelection: true,
+          supportsTextContent: false,
         )
       case .minus, .equals:
         PresetCapabilities(
@@ -236,6 +264,17 @@ extension EditableItem {
           supportsFontSize: true,
           supportsCornerRadius: false,
           supportsSymbolSelection: false,
+          supportsTextContent: false,
+        )
+      case .text:
+        PresetCapabilities(
+          usesStrokeStyle: false,
+          usesFillStyle: false,
+          supportsLineWidth: false,
+          supportsFontSize: true,
+          supportsCornerRadius: false,
+          supportsSymbolSelection: false,
+          supportsTextContent: true,
         )
       }
     }
@@ -331,6 +370,11 @@ extension EditableItem {
           .foregroundStyle(style.color)
           .font(.system(size: style.fontSize, weight: .bold))
           .frame(width: style.size.width, height: style.size.height)
+      case .text:
+        Text(textContent(from: options))
+          .foregroundStyle(style.color)
+          .font(.system(size: style.fontSize, weight: .semibold))
+          .frame(width: style.size.width, height: style.size.height)
       }
     }
 
@@ -346,6 +390,8 @@ extension EditableItem {
         .rectangle(size: style.size)
       case .partyPopper:
         .circle(radius: max(style.size.width, style.size.height) / 2)
+      case .text:
+        .rectangle(size: style.size)
       }
     }
 
@@ -367,6 +413,10 @@ extension EditableItem {
     private func symbolName(from options: PresetSpecificOptions) -> String {
       options.systemSymbolName ?? defaultSymbolName
     }
+
+    private func textContent(from options: PresetSpecificOptions) -> String {
+      options.textContent ?? "Text"
+    }
   }
 }
 
@@ -378,5 +428,6 @@ extension EditableItem.Preset {
     var supportsFontSize: Bool
     var supportsCornerRadius: Bool
     var supportsSymbolSelection: Bool
+    var supportsTextContent: Bool
   }
 }

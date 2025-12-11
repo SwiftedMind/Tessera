@@ -169,7 +169,10 @@ struct PatternControls: View {
 
   private func seedRow() -> some View {
     OptionRow {
-      OptionTextField(text: $patternDraft.seedText, onCommit: applyPatternDraft)
+      OptionTextField(text: $patternDraft.seedText)
+        .onSubmit {
+          applyPatternDraft()
+        }
     } trailing: {
       Button {
         editor.shuffleSeed()

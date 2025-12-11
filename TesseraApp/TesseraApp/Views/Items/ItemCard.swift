@@ -17,6 +17,7 @@ struct ItemCard: View {
   @State private var colorDraft: Color
   @State private var cornerRadiusDraft: Double
   @State private var symbolNameDraft: String
+  @State private var textContentDraft: String
   var onRemove: () -> Void
 
   init(
@@ -38,6 +39,7 @@ struct ItemCard: View {
     _cornerRadiusDraft = State(initialValue: item.wrappedValue.specificOptions.cornerRadius ?? 6)
     _symbolNameDraft = State(initialValue: item.wrappedValue.specificOptions.systemSymbolName ?? item.wrappedValue
       .preset.defaultSymbolName)
+    _textContentDraft = State(initialValue: item.wrappedValue.specificOptions.textContent ?? "Text")
   }
 
   private var isExpanded: Bool {
@@ -109,6 +111,9 @@ struct ItemCard: View {
       }
       if let symbol = item.specificOptions.systemSymbolName {
         symbolNameDraft = symbol
+      }
+      if let textContent = item.specificOptions.textContent {
+        textContentDraft = textContent
       }
     }
     .onChange(of: editor.tesseraSize) {
@@ -289,6 +294,16 @@ struct ItemCard: View {
         .onChange(of: symbolNameDraft) {
           item.specificOptions = item.specificOptions.updatingSymbolName(symbolNameDraft)
         }
+      }
+    } else if item.preset.capabilities.supportsTextContent {
+      OptionRow("Text") {
+        OptionTextField(text: $textContentDraft)
+          .onSubmit {
+            item.specificOptions = item.specificOptions.updatingTextContent(textContentDraft)
+          }
+          .onChange(of: textContentDraft) {
+            item.specificOptions = item.specificOptions.updatingTextContent(textContentDraft)
+          }
       }
     }
   }
