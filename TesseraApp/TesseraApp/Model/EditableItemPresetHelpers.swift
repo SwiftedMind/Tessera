@@ -83,19 +83,19 @@ enum EditableItemPresetHelpers {
     return CGSize(width: width + padding, height: height + padding)
   }
 
-  /// Loads an image from a URL and wraps it in a SwiftUI Image.
+  /// Loads an embedded image playground asset and wraps it in a SwiftUI Image.
   ///
-  /// - Parameter options: Preset options that may include an image playground URL.
-  /// - Returns: A SwiftUI image when the URL can be loaded, otherwise `nil`.
+  /// - Parameter options: Preset options that may include embedded image data.
+  /// - Returns: A SwiftUI image when embedded data is available, otherwise `nil`.
   static func playgroundImage(from options: PresetSpecificOptions) -> Image? {
-    guard let url = options.imagePlaygroundURL else { return nil }
+    guard let data = options.imagePlaygroundImageData else { return nil }
 
     #if os(macOS)
-    guard let nsImage = NSImage(contentsOf: url) else { return nil }
+    guard let nsImage = NSImage(data: data) else { return nil }
 
     return Image(nsImage: nsImage)
     #else
-    guard let uiImage = UIImage(contentsOfFile: url.path) else { return nil }
+    guard let uiImage = UIImage(data: data) else { return nil }
 
     return Image(uiImage: uiImage)
     #endif

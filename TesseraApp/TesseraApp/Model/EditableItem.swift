@@ -87,7 +87,7 @@ enum PresetSpecificOptions: Equatable {
   case roundedRectangle(cornerRadius: CGFloat)
   case systemSymbol(name: String)
   case text(content: String)
-  case imagePlayground(url: URL?)
+  case imagePlayground(assetID: UUID?, imageData: Data?, fileExtension: String?)
 
   var cornerRadius: CGFloat? {
     switch self {
@@ -116,10 +116,28 @@ enum PresetSpecificOptions: Equatable {
     }
   }
 
-  var imagePlaygroundURL: URL? {
+  var imagePlaygroundAssetID: UUID? {
     switch self {
-    case let .imagePlayground(url):
-      url
+    case let .imagePlayground(assetID, _, _):
+      assetID
+    default:
+      nil
+    }
+  }
+
+  var imagePlaygroundImageData: Data? {
+    switch self {
+    case let .imagePlayground(_, imageData, _):
+      imageData
+    default:
+      nil
+    }
+  }
+
+  var imagePlaygroundFileExtension: String? {
+    switch self {
+    case let .imagePlayground(_, _, fileExtension):
+      fileExtension
     default:
       nil
     }
@@ -159,8 +177,12 @@ enum PresetSpecificOptions: Equatable {
     .text(content: content)
   }
 
-  func updatingImagePlayground(url: URL?) -> PresetSpecificOptions {
-    .imagePlayground(url: url)
+  func updatingImagePlayground(
+    assetID: UUID?,
+    imageData: Data?,
+    fileExtension: String?,
+  ) -> PresetSpecificOptions {
+    .imagePlayground(assetID: assetID, imageData: imageData, fileExtension: fileExtension)
   }
 }
 
@@ -172,5 +194,110 @@ extension EditableItem {
       EditableItem(preset: .symbol, weight: 1.2, minimumRotation: -40, maximumRotation: 40),
       EditableItem(preset: .circleOutline, weight: 0.7),
     ]
+  }
+}
+
+// MARK: - Document Conversion
+
+extension EditableItem {
+  init(payload: EditableItemPayload) {
+    self.init(payload: payload, embeddedAssets: [:])
+  }
+
+  init(payload: EditableItemPayload, embeddedAssets: [UUID: EmbeddedImageAsset]) {
+    let preset = EditableItem.Preset.preset(withID: payload.presetID) ?? .squareOutline
+    let style = ItemStyle(payload: payload.style)
+    let specificOptions = PresetSpecificOptions(payload: payload.specificOptions, embeddedAssets: embeddedAssets)
+
+    self.init(
+      id: payload.id,
+      customName: payload.customName,
+      preset: preset,
+      isVisible: payload.isVisible,
+      weight: payload.weight,
+      minimumRotation: payload.minimumRotation,
+      maximumRotation: payload.maximumRotation,
+      usesCustomScaleRange: payload.usesCustomScaleRange,
+      minimumScale: payload.minimumScale,
+      maximumScale: payload.maximumScale,
+      style: style,
+      specificOptions: specificOptions,
+    )
+  }
+
+  var payload: EditableItemPayload {
+    EditableItemPayload(
+      id: id,
+      customName: customName,
+      presetID: preset.id,
+      isVisible: isVisible,
+      weight: weight,
+      minimumRotation: minimumRotation,
+      maximumRotation: maximumRotation,
+      usesCustomScaleRange: usesCustomScaleRange,
+      minimumScale: Double(minimumScale),
+      maximumScale: Double(maximumScale),
+      style: style.payload,
+      specificOptions: specificOptions.payload,
+    )
+  }
+}
+
+extension ItemStyle {
+  init(payload: ItemStylePayload) {
+    size = payload.size.coreGraphicsSize
+    color = payload.color.color
+    lineWidth = payload.lineWidth
+    fontSize = payload.fontSize
+  }
+
+  var payload: ItemStylePayload {
+    ItemStylePayload(
+      size: CGSizePayload(size),
+      color: ColorPayload(color),
+      lineWidth: Double(lineWidth),
+      fontSize: Double(fontSize),
+    )
+  }
+}
+
+extension PresetSpecificOptions {
+  init(payload: PresetSpecificOptionsPayload, embeddedAssets: [UUID: EmbeddedImageAsset]) {
+    switch payload {
+    case .none:
+      self = .none
+    case let .roundedRectangle(cornerRadius):
+      self = .roundedRectangle(cornerRadius: CGFloat(cornerRadius))
+    case let .systemSymbol(name):
+      self = .systemSymbol(name: name)
+    case let .text(content):
+      self = .text(content: content)
+    case let .imagePlayground(embeddedAssetIDString, embeddedAssetFileExtension):
+      let embeddedAssetID = embeddedAssetIDString.flatMap(UUID.init(uuidString:))
+      let embeddedAsset = embeddedAssetID.flatMap { embeddedAssets[$0] }
+      self = .imagePlayground(
+        assetID: embeddedAssetID,
+        imageData: embeddedAsset?.data,
+        fileExtension: embeddedAssetFileExtension ?? embeddedAsset?.fileExtension,
+      )
+    }
+  }
+
+  var payload: PresetSpecificOptionsPayload {
+    switch self {
+    case .none:
+      .none
+    case let .roundedRectangle(cornerRadius):
+      .roundedRectangle(cornerRadius: Double(cornerRadius))
+    case let .systemSymbol(name):
+      .systemSymbol(name: name)
+    case let .text(content):
+      .text(content: content)
+    case let .imagePlayground(assetID, _, fileExtension):
+      .imagePlayground(
+        embeddedAssetIDString: assetID?.uuidString,
+        embeddedAssetFileExtension: fileExtension,
+      )
+    }
   }
 }
