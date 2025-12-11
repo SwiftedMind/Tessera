@@ -151,11 +151,11 @@ struct PatternControls: View {
   }
 
   private func scaleRow() -> some View {
-    OptionRow("Scale Range") {
+    OptionRow("Size Variability") {
       RangeSliderView(
         range: $patternDraft.baseScaleRange,
-        bounds: 0.3...1.8,
-        step: 0.05,
+        bounds: 0.3...2.0,
+        step: 0.1,
       )
       .onSliderCommit(applyPatternDraft)
     } trailing: {
@@ -168,7 +168,7 @@ struct PatternControls: View {
   }
 
   private func seedRow() -> some View {
-    OptionRow {
+    OptionRow("Seed") {
       OptionTextField(text: $patternDraft.seedText)
         .onSubmit {
           applyPatternDraft()

@@ -18,6 +18,8 @@ struct ItemCard: View {
   @State private var cornerRadiusDraft: Double
   @State private var symbolNameDraft: String
   @State private var textContentDraft: String
+  @State private var nameDraft: String
+  @State private var isRenaming: Bool
   var onRemove: () -> Void
 
   init(
@@ -49,6 +51,8 @@ struct ItemCard: View {
     _symbolNameDraft = State(initialValue: item.wrappedValue.specificOptions.systemSymbolName ?? item.wrappedValue
       .preset.defaultSymbolName)
     _textContentDraft = State(initialValue: item.wrappedValue.specificOptions.textContent ?? "Text")
+    _nameDraft = State(initialValue: item.wrappedValue.customName ?? "")
+    _isRenaming = State(initialValue: false)
   }
 
   private var isExpanded: Bool {
@@ -114,6 +118,9 @@ struct ItemCard: View {
       fontSizeDraft = item.style.fontSize
       colorDraft = item.style.color
     }
+    .onChange(of: item.customName) {
+      nameDraft = item.customName ?? ""
+    }
     .onChange(of: item.specificOptions) {
       if let radius = item.specificOptions.cornerRadius {
         cornerRadiusDraft = radius
@@ -149,10 +156,11 @@ struct ItemCard: View {
           .rotationEffect(.degrees(isExpanded ? 90 : 0))
           .foregroundStyle(.secondary)
           .animation(.default, value: isExpanded)
-        Text(item.preset.title)
+        Text(item.title)
           .font(.headline)
         Spacer()
 
+        renameButton
         Button(role: .destructive, action: onRemove) {
           Image(systemName: "trash")
         }
@@ -162,6 +170,37 @@ struct ItemCard: View {
       .contentShape(.rect)
     }
     .buttonStyle(.plain)
+  }
+
+  private var renameButton: some View {
+    Button {
+      beginRenaming()
+    } label: {
+      Image(systemName: "pencil")
+        .contentShape(.rect)
+    }
+    .buttonStyle(.plain)
+    .popover(isPresented: $isRenaming) {
+      VStack(alignment: .leading, spacing: .medium) {
+        Text("Rename Item")
+          .font(.headline)
+        OptionTextField(text: $nameDraft, placeholder: item.preset.title)
+          .onSubmit(commitNameChange)
+        HStack {
+          Spacer()
+          Button("Cancel") {
+            isRenaming = false
+          }
+          Button("Save") {
+            commitNameChange()
+          }
+          .buttonStyle(.borderedProminent)
+          .keyboardShortcut(.return)
+        }
+      }
+      .padding(.mediumRelaxed)
+      .frame(width: 260)
+    }
   }
 
   @ViewBuilder private var weightOption: some View {
@@ -281,7 +320,7 @@ struct ItemCard: View {
       OptionRow("Font Size") {
         SystemSlider(
           value: $fontSizeDraft,
-          in: 10...64,
+          in: 10...150,
           step: 1,
         )
         .compactSliderScale(visibility: .hidden)
@@ -344,10 +383,10 @@ struct ItemCard: View {
       }
     }
     if item.usesCustomScaleRange {
-      OptionRow("Scale Range") {
+      OptionRow("Size Variability") {
         RangeSliderView(
           range: $scaleRangeDraft,
-          bounds: 0.3...2,
+          bounds: 0.3...2.0,
           step: 0.05,
         )
       } trailing: {
@@ -380,6 +419,17 @@ struct ItemCard: View {
     }
     widthDraft = measuredSize.width
     heightDraft = measuredSize.height
+  }
+
+  private func beginRenaming() {
+    nameDraft = item.customName ?? ""
+    isRenaming = true
+  }
+
+  private func commitNameChange() {
+    let trimmedName = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+    item.customName = trimmedName.isEmpty ? nil : trimmedName
+    isRenaming = false
   }
 
   private func toggleExpansion() {

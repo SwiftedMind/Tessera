@@ -5,6 +5,7 @@ import Tessera
 
 struct EditableItem: Identifiable, Equatable {
   var id: UUID
+  var customName: String?
   var preset: Preset
   var weight: Double
   var minimumRotation: Double
@@ -17,6 +18,7 @@ struct EditableItem: Identifiable, Equatable {
 
   init(
     id: UUID = UUID(),
+    customName: String? = nil,
     preset: Preset,
     weight: Double = 1,
     minimumRotation: Double = 0,
@@ -28,6 +30,7 @@ struct EditableItem: Identifiable, Equatable {
     specificOptions: PresetSpecificOptions? = nil,
   ) {
     self.id = id
+    self.customName = customName
     self.preset = preset
     self.weight = weight
     self.minimumRotation = minimumRotation
@@ -41,6 +44,14 @@ struct EditableItem: Identifiable, Equatable {
 
   var rotationRange: ClosedRange<Angle> {
     Angle.degrees(minimumRotation)...Angle.degrees(maximumRotation)
+  }
+
+  var title: LocalizedStringKey {
+    let trimmedCustomName = customName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    if trimmedCustomName.isEmpty {
+      return preset.title
+    }
+    return LocalizedStringKey(stringLiteral: trimmedCustomName)
   }
 
   var scaleRange: ClosedRange<Double>? {
