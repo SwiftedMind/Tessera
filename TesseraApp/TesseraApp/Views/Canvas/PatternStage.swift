@@ -9,7 +9,11 @@ struct PatternStage: View {
 
   var body: some View {
     ZStack {
-      if repeatPattern {
+      if tessera.items.isEmpty {
+        emptyState
+          .padding(.horizontal, .large)
+          .transition(.opacity.combined(with: .scale(1.2)))
+      } else if repeatPattern {
         TesseraPattern(tessera, seed: tessera.seed)
           .transition(.opacity)
       } else {
@@ -17,10 +21,27 @@ struct PatternStage: View {
           .padding(.large)
           .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 22))
           .padding(.large)
-          .transition(.opacity.combined(with: .scale(1.05)))
+          .transition(.opacity)
       }
     }
     .animation(.smooth(duration: 0.28), value: repeatPattern)
+    .animation(.smooth(duration: 0.28), value: tessera.items.count)
+  }
+
+  private var emptyState: some View {
+    ContentUnavailableView {
+      Label {
+        Text("Add items to start tiling")
+          .font(.title3.weight(.semibold))
+      } icon: {
+        Image(systemName: "sparkles")
+          .symbolRenderingMode(.hierarchical)
+      }
+    } description: {
+      Text("Add shapes, text, emojis and more to see your pattern come to life.")
+        .multilineTextAlignment(.center)
+    }
+    .frame(maxWidth: 360)
   }
 }
 

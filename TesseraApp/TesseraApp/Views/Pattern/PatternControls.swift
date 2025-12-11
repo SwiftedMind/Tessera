@@ -179,6 +179,7 @@ struct PatternControls: View {
         patternDraft.seedText = editor.tesseraSeed.description
       } label: {
         Label("Shuffle", systemImage: "shuffle")
+          .contentShape(.rect)
       }
       .buttonStyle(.plain)
     }
