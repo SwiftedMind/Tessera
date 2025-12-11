@@ -9,47 +9,49 @@ extension EditableItem.PresetGroup {
       id: "symbols",
       title: "Symbols",
       presets: [
-        .partyPopper,
+        .symbol,
       ],
     )
   }
 }
 
 extension EditableItem.Preset {
-  static var partyPopper: EditableItem.Preset {
-    EditableItem.Preset(
-      id: "partyPopper",
-      title: "Party Popper",
-      iconName: "party.popper.fill",
+  static var symbol: EditableItem.Preset {
+    let defaultSymbolName = "sparkles"
+
+    return EditableItem.Preset(
+      id: "symbol",
+      title: "Symbol",
+      iconName: "sparkles",
       defaultStyle: ItemStyle(
         size: CGSize(width: 40, height: 40),
-        color: .red.opacity(0.5),
+        color: .primary,
         lineWidth: 2,
         fontSize: 34,
       ),
-      defaultSpecificOptions: .systemSymbol(name: "party.popper.fill"),
+      defaultSpecificOptions: .systemSymbol(name: defaultSymbolName),
       capabilities: EditableItem.PresetCapabilities(
         usesStrokeStyle: false,
         usesFillStyle: true,
         supportsLineWidth: false,
-        supportsFontSize: true,
+        supportsFontSize: false,
         supportsCornerRadius: false,
         supportsSymbolSelection: true,
         supportsTextContent: false,
       ),
       availableSymbols: [
+        defaultSymbolName,
         "party.popper.fill",
         "wand.and.stars",
-        "sparkles",
         "sun.max.fill",
         "moon.stars.fill",
         "heart.fill",
         "burst.fill",
       ],
-      defaultSymbolName: "party.popper.fill",
+      defaultSymbolName: defaultSymbolName,
       render: { style, options in
         AnyView(
-          Image(systemName: EditableItemPresetHelpers.symbolName(from: options, defaultSymbolName: "party.popper.fill"))
+          Image(systemName: EditableItemPresetHelpers.symbolName(from: options, defaultSymbolName: defaultSymbolName))
             .resizable()
             .aspectRatio(contentMode: .fit)
             .foregroundStyle(style.color)

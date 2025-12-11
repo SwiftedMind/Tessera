@@ -138,7 +138,7 @@ extension EditableItem {
     [
       EditableItem(preset: .squareOutline),
       EditableItem(preset: .roundedOutline, weight: 0.9),
-      EditableItem(preset: .partyPopper, weight: 1.2, minimumRotation: -40, maximumRotation: 40),
+      EditableItem(preset: .symbol, weight: 1.2, minimumRotation: -40, maximumRotation: 40),
       EditableItem(preset: .minus, weight: 0.8, minimumRotation: -20, maximumRotation: 20),
       EditableItem(preset: .equals, weight: 0.8, minimumRotation: -15, maximumRotation: 15),
       EditableItem(preset: .circleOutline, weight: 0.7),
