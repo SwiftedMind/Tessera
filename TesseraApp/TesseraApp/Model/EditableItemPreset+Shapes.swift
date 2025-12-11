@@ -8,6 +8,7 @@ extension EditableItem.PresetGroup {
     EditableItem.PresetGroup(
       id: "shapes",
       title: "Shapes",
+      iconName: "square.on.circle",
       presets: [
         .squareOutline,
         .roundedOutline,

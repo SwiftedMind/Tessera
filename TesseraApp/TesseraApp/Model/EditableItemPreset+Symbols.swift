@@ -8,6 +8,7 @@ extension EditableItem.PresetGroup {
     EditableItem.PresetGroup(
       id: "symbols",
       title: "Symbols",
+      iconName: "sparkles",
       presets: [
         .symbol,
       ],

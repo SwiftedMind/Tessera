@@ -82,6 +82,7 @@ extension EditableItem {
   struct PresetGroup: Identifiable, Equatable {
     var id: String
     var title: LocalizedStringKey
+    var iconName: String
     var presets: [Preset]
 
     static func == (lhs: PresetGroup, rhs: PresetGroup) -> Bool {
@@ -109,6 +110,18 @@ extension EditableItem.Preset {
   /// - Returns: The matching preset or `nil` when none exists.
   static func preset(withID id: String) -> EditableItem.Preset? {
     allPresets.first(where: { $0.id == id })
+  }
+
+  /// Looks up the preset group that contains this preset.
+  var group: EditableItem.PresetGroup? {
+    Self.allPresetGroups.first(where: { group in
+      group.presets.contains(where: { $0.id == id })
+    })
+  }
+
+  /// Convenience accessor for the group's icon name.
+  var groupIconName: String? {
+    group?.iconName
   }
 }
 

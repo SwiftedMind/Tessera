@@ -156,6 +156,10 @@ struct ItemCard: View {
           .rotationEffect(.degrees(isExpanded ? 90 : 0))
           .foregroundStyle(.secondary)
           .animation(.default, value: isExpanded)
+        if let groupIconName = item.preset.groupIconName {
+          Image(systemName: groupIconName)
+            .foregroundStyle(.secondary)
+        }
         Text(item.title)
           .font(.headline)
         Spacer()

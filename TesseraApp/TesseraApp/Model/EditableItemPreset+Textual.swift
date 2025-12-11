@@ -9,6 +9,7 @@ extension EditableItem.PresetGroup {
     EditableItem.PresetGroup(
       id: "text",
       title: "Text",
+      iconName: "textformat",
       presets: [
         .text,
         .minus,

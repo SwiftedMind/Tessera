@@ -16,12 +16,14 @@ struct ItemList: View {
         Spacer()
         Menu {
           ForEach(EditableItem.Preset.allPresetGroups) { group in
-            Menu(group.title) {
+            Menu {
               ForEach(group.presets) { preset in
                 Button(preset.title) {
                   editor.tesseraItems.append(EditableItem(preset: preset))
                 }
               }
+            } label: {
+              Label(group.title, systemImage: group.iconName)
             }
           }
         } label: {
