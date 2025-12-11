@@ -36,11 +36,15 @@ struct Root: View {
   private var toolbarContent: some ToolbarContent {
     ToolbarItem(placement: .primaryAction) {
       Menu {
-        Button(role: .none) { beginExport(format: .png) } label: {
-          Label("Export PNG", systemImage: "photo")
-        }
-        Button(role: .none) { beginExport(format: .pdf) } label: {
-          Label("Export PDF", systemImage: "doc.richtext")
+        Menu {
+          Button(role: .none) { beginExport(format: .png) } label: {
+            Label("Export as png", systemImage: "photo")
+          }
+          Button(role: .none) { beginExport(format: .pdf) } label: {
+            Label("Export as pdf", systemImage: "doc.richtext")
+          }
+        } label: {
+          Label("Tile", systemImage: "square")
         }
       } label: {
         Label("Export", systemImage: "square.and.arrow.up")
