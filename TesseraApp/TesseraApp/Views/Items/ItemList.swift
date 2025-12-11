@@ -14,22 +14,31 @@ struct ItemList: View {
         Label("Items", systemImage: "square.fill.text.grid.1x2")
           .font(.headline)
         Spacer()
-        Menu {
-          ForEach(EditableItem.Preset.allPresetGroups) { group in
-            Menu {
-              ForEach(group.presets) { preset in
-                Button(preset.title) {
-                  editor.tesseraItems.append(EditableItem(preset: preset))
+        HStack(spacing: .tight) {
+          Menu {
+            ForEach(EditableItem.Preset.allPresetGroups) { group in
+              Menu {
+                ForEach(group.presets) { preset in
+                  Button(preset.title) {
+                    editor.tesseraItems.append(EditableItem(preset: preset))
+                  }
                 }
+              } label: {
+                Label(group.title, systemImage: group.iconName)
               }
-            } label: {
-              Label(group.title, systemImage: group.iconName)
             }
+          } label: {
+            Label("Add Item", systemImage: "plus")
           }
+          .buttonStyle(.bordered)
+        }
+        Button(role: .destructive) {
+          removeAllItems()
         } label: {
-          Label("Add Item", systemImage: "plus")
+          Label("Remove All", systemImage: "trash")
         }
         .buttonStyle(.bordered)
+        .disabled(editor.tesseraItems.isEmpty)
       }
 
       VStack(spacing: .medium) {
@@ -46,6 +55,13 @@ struct ItemList: View {
 
   private func remove(_ item: EditableItem) {
     editor.tesseraItems.removeAll(where: { $0.id == item.id })
+  }
+
+  private func removeAllItems() {
+    guard editor.tesseraItems.isEmpty == false else { return }
+
+    editor.tesseraItems.removeAll()
+    expandedItemID = nil
   }
 }
 

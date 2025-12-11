@@ -44,12 +44,6 @@ struct Root: View {
           }
           .help(template.description)
         }
-        Divider()
-        Button {
-          editor.tesseraItems = []
-        } label: {
-          Label("Clear Items", systemImage: "trash")
-        }
       } label: {
         Label("Templates", systemImage: "square.grid.2x2")
           .labelStyle(.titleAndIcon)
