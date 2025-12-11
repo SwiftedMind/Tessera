@@ -36,21 +36,6 @@ struct Root: View {
   private var toolbarContent: some ToolbarContent {
     ToolbarItem(placement: .primaryAction) {
       Menu {
-        ForEach(EditableItemTemplate.allTemplates) { template in
-          Button {
-            applyTemplate(template)
-          } label: {
-            Label(template.title, systemImage: template.iconName)
-          }
-          .help(template.description)
-        }
-      } label: {
-        Label("Templates", systemImage: "square.grid.2x2")
-          .labelStyle(.titleAndIcon)
-      }
-    }
-    ToolbarItem(placement: .primaryAction) {
-      Menu {
         Button(role: .none) { beginExport(format: .png) } label: {
           Label("Export PNG", systemImage: "photo")
         }
@@ -80,33 +65,6 @@ struct Root: View {
     exportFormat = format
     exportDocument = TesseraExportDocument(tessera: editor.liveTessera, format: format)
     isExportPresented = true
-  }
-
-  private func applyTemplate(_ template: EditableItemTemplate) {
-    editor.tesseraItems = template.items()
-    let configuration = template.configuration
-
-    if let minimumSpacing = configuration.minimumSpacing {
-      editor.minimumSpacing = minimumSpacing
-    }
-
-    if let density = configuration.density {
-      editor.density = density
-    }
-
-    if let baseScaleRange = configuration.baseScaleRange {
-      editor.baseScaleRange = baseScaleRange
-    }
-
-    if let patternOffset = configuration.patternOffset {
-      editor.patternOffset = patternOffset
-    }
-
-    if let seed = configuration.seed {
-      editor.tesseraSeed = seed
-    }
-
-    editor.refreshLiveTessera()
   }
 }
 

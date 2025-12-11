@@ -7,6 +7,7 @@ struct EditableItem: Identifiable, Equatable {
   var id: UUID
   var customName: String?
   var preset: Preset
+  var isVisible: Bool
   var weight: Double
   var minimumRotation: Double
   var maximumRotation: Double
@@ -20,6 +21,7 @@ struct EditableItem: Identifiable, Equatable {
     id: UUID = UUID(),
     customName: String? = nil,
     preset: Preset,
+    isVisible: Bool = true,
     weight: Double = 1,
     minimumRotation: Double = 0,
     maximumRotation: Double = 360,
@@ -32,6 +34,7 @@ struct EditableItem: Identifiable, Equatable {
     self.id = id
     self.customName = customName
     self.preset = preset
+    self.isVisible = isVisible
     self.weight = weight
     self.minimumRotation = minimumRotation
     self.maximumRotation = maximumRotation

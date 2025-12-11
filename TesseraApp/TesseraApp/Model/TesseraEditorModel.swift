@@ -59,6 +59,9 @@ final class TesseraEditorModel {
   private(set) var liveTessera: Tessera
 
   private var updateTask: Task<Void, Never>?
+  private var visibleItems: [EditableItem] {
+    tesseraItems.filter(\.isVisible)
+  }
 
   init(
     tesseraItems: [EditableItem]? = nil,
@@ -79,9 +82,10 @@ final class TesseraEditorModel {
     densityDraft = density
     self.baseScaleRange = baseScaleRange
     self.patternOffset = patternOffset
+    let initialVisibleItems = tesseraItems.filter(\.isVisible)
     liveTessera = Tessera(
       size: tesseraSize,
-      items: tesseraItems.map { $0.makeTesseraItem() },
+      items: initialVisibleItems.map { $0.makeTesseraItem() },
       seed: tesseraSeed,
       minimumSpacing: minimumSpacing,
       density: density,
@@ -115,7 +119,7 @@ final class TesseraEditorModel {
   private func makeTessera() -> Tessera {
     Tessera(
       size: tesseraSize,
-      items: tesseraItems.map { $0.makeTesseraItem() },
+      items: visibleItems.map { $0.makeTesseraItem() },
       seed: tesseraSeed,
       minimumSpacing: minimumSpacing,
       density: density,

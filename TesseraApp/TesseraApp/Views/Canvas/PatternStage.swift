@@ -4,6 +4,8 @@ import SwiftUI
 import Tessera
 
 struct PatternStage: View {
+  @Environment(TesseraEditorModel.self) private var editor
+  
   var tessera: Tessera
   @Binding var repeatPattern: Bool
 
@@ -61,10 +63,51 @@ struct PatternStage: View {
           .symbolRenderingMode(.hierarchical)
       }
     } description: {
-      Text("Add shapes, text, emojis and more to see your pattern come to life.")
+      VStack(spacing: .medium) {
+        Text("Add shapes, text, emojis and more to see your pattern come to life.")
+        Menu {
+          ForEach(EditableItemTemplate.allTemplates) { template in
+            Button {
+              applyTemplate(template)
+            } label: {
+              Label(template.title, systemImage: template.iconName)
+            }
+            .help(template.description)
+          }
+        } label: {
+          Label("Choose Template", systemImage: "square.grid.2x2")
+        }
+      }
         .multilineTextAlignment(.center)
     }
     .frame(maxWidth: 360)
+  }
+  
+  private func applyTemplate(_ template: EditableItemTemplate) {
+    editor.tesseraItems = template.items()
+    let configuration = template.configuration
+
+    if let minimumSpacing = configuration.minimumSpacing {
+      editor.minimumSpacing = minimumSpacing
+    }
+
+    if let density = configuration.density {
+      editor.density = density
+    }
+
+    if let baseScaleRange = configuration.baseScaleRange {
+      editor.baseScaleRange = baseScaleRange
+    }
+
+    if let patternOffset = configuration.patternOffset {
+      editor.patternOffset = patternOffset
+    }
+
+    if let seed = configuration.seed {
+      editor.tesseraSeed = seed
+    }
+
+    editor.refreshLiveTessera()
   }
 }
 

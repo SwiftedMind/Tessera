@@ -46,6 +46,7 @@ extension EditableItemTemplate {
       makeItems: {
         [
           EditableItem(
+            customName: "Lemon Slice",
             preset: .text,
             weight: 1.2,
             minimumRotation: -10,
@@ -62,6 +63,7 @@ extension EditableItemTemplate {
             specificOptions: .text(content: "🍋"),
           ),
           EditableItem(
+            customName: "Strawberry",
             preset: .text,
             weight: 1,
             minimumRotation: -12,
@@ -78,6 +80,7 @@ extension EditableItemTemplate {
             specificOptions: .text(content: "🍓"),
           ),
           EditableItem(
+            customName: "Blueberry",
             preset: .text,
             weight: 0.9,
             minimumRotation: -8,
@@ -94,6 +97,7 @@ extension EditableItemTemplate {
             specificOptions: .text(content: "🫐"),
           ),
           EditableItem(
+            customName: "Leaf",
             preset: .text,
             weight: 0.8,
             minimumRotation: -14,
@@ -110,6 +114,7 @@ extension EditableItemTemplate {
             specificOptions: .text(content: "🌿"),
           ),
           EditableItem(
+            customName: "Sparkle",
             preset: .text,
             weight: 0.6,
             minimumRotation: -6,
@@ -146,6 +151,7 @@ extension EditableItemTemplate {
       makeItems: {
         [
           EditableItem(
+            customName: "Glow Hexagon",
             preset: .hexagonFill,
             weight: 1.1,
             minimumRotation: -10,
@@ -161,6 +167,7 @@ extension EditableItemTemplate {
             ),
           ),
           EditableItem(
+            customName: "Rounded Frame",
             preset: .roundedOutline,
             weight: 0.95,
             minimumRotation: -18,
@@ -177,6 +184,7 @@ extension EditableItemTemplate {
             specificOptions: .roundedRectangle(cornerRadius: 10),
           ),
           EditableItem(
+            customName: "Neon Wave",
             preset: .wavyLine,
             weight: 0.9,
             minimumRotation: -36,
@@ -192,6 +200,7 @@ extension EditableItemTemplate {
             ),
           ),
           EditableItem(
+            customName: "Accent Dot",
             preset: .dotFill,
             weight: 0.7,
             minimumRotation: 0,
@@ -207,6 +216,7 @@ extension EditableItemTemplate {
             ),
           ),
           EditableItem(
+            customName: "Arc Highlight",
             preset: .arcStroke,
             weight: 0.75,
             minimumRotation: -28,
@@ -242,6 +252,7 @@ extension EditableItemTemplate {
       makeItems: {
         [
           EditableItem(
+            customName: "Play Word",
             preset: .text,
             weight: 1.1,
             minimumRotation: -6,
@@ -258,6 +269,7 @@ extension EditableItemTemplate {
             specificOptions: .text(content: "PLAY"),
           ),
           EditableItem(
+            customName: "Move Word",
             preset: .text,
             weight: 1,
             minimumRotation: -8,
@@ -274,6 +286,7 @@ extension EditableItemTemplate {
             specificOptions: .text(content: "MOVE"),
           ),
           EditableItem(
+            customName: "Echo Word",
             preset: .text,
             weight: 0.95,
             minimumRotation: -10,
@@ -290,6 +303,7 @@ extension EditableItemTemplate {
             specificOptions: .text(content: "ECHO"),
           ),
           EditableItem(
+            customName: "Dash Mark",
             preset: .minus,
             weight: 0.7,
             minimumRotation: -6,
@@ -305,6 +319,7 @@ extension EditableItemTemplate {
             ),
           ),
           EditableItem(
+            customName: "Equals Mark",
             preset: .equals,
             weight: 0.65,
             minimumRotation: -6,

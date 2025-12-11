@@ -94,6 +94,7 @@ struct ItemCard: View {
     .animation(.default, value: expandedItemID)
     .animation(.default, value: item.usesCustomScaleRange)
     .geometryGroup()
+    .opacity(item.isVisible ? 1 : 0.5)
     .onChange(of: item.weight) {
       if weightDraft != item.weight {
         weightDraft = item.weight
@@ -162,9 +163,15 @@ struct ItemCard: View {
         }
         Text(item.title)
           .font(.headline)
-        Spacer()
-
         renameButton
+        Spacer()
+        Button {
+          item.isVisible.toggle()
+        } label: {
+          Image(systemName: item.isVisible ? "eye" : "eye.slash")
+            .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
         Button(role: .destructive, action: onRemove) {
           Image(systemName: "trash")
         }
