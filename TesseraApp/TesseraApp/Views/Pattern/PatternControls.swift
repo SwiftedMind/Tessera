@@ -5,8 +5,13 @@ import SwiftUI
 
 struct PatternControls: View {
   @Environment(TesseraEditorModel.self) private var editor
+  @Binding var isCustomizationEnabled: Bool
   @State private var patternDraft = PatternDraft()
   @State private var didLoadDraft = false
+
+  init(isCustomizationEnabled: Binding<Bool> = .constant(true)) {
+    _isCustomizationEnabled = isCustomizationEnabled
+  }
 
   var body: some View {
     @Bindable var editor = editor
@@ -14,10 +19,13 @@ struct PatternControls: View {
     VStack(alignment: .leading, spacing: .large) {
       tileSizeRow()
       spacingRow()
-      offsetRow()
-      densityRow()
-      scaleRow()
-      seedRow()
+      customizationToggleRow()
+      if isCustomizationEnabled {
+        offsetRow()
+        densityRow()
+        scaleRow()
+        seedRow()
+      }
     }
     .onAppear {
       loadDraftIfNeeded(from: editor)
@@ -42,6 +50,16 @@ struct PatternControls: View {
     .onChange(of: editor.patternOffset) {
       patternDraft.offsetX = editor.patternOffset.width
       patternDraft.offsetY = editor.patternOffset.height
+    }
+  }
+
+  private func customizationToggleRow() -> some View {
+    OptionRow("Pattern Customization") {
+      EmptyView()
+    } trailing: {
+      Toggle(isOn: $isCustomizationEnabled) {
+        Text("Enabled")
+      }
     }
   }
 
