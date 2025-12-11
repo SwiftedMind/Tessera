@@ -15,19 +15,24 @@ import UIKit
 /// The document stores only serializable editor state. Rendering state is derived elsewhere.
 nonisolated struct TesseraDocument: FileDocument, Equatable {
   static var readableContentTypes: [UTType] { [.tesseraDocument] }
+  static var writableContentTypes: [UTType] { readableContentTypes }
 
   var payload: TesseraDocumentPayload
+  var embeddedImageAssets: [UUID: EmbeddedImageAsset]
 
   init() {
     payload = .default
+    embeddedImageAssets = [:]
   }
 
-  init(payload: TesseraDocumentPayload) {
+  init(payload: TesseraDocumentPayload, embeddedImageAssets: [UUID: EmbeddedImageAsset] = [:]) {
     self.payload = payload
+    self.embeddedImageAssets = embeddedImageAssets
   }
 
   init(configuration: ReadConfiguration) throws {
     let fileWrapper = configuration.file
+    embeddedImageAssets = [:]
 
     if fileWrapper.isDirectory {
       guard let documentWrapper = fileWrapper.fileWrappers?["Document.json"],
@@ -36,6 +41,10 @@ nonisolated struct TesseraDocument: FileDocument, Equatable {
       }
 
       payload = try JSONDecoder().decode(TesseraDocumentPayload.self, from: documentData)
+
+      if let assetsWrapper = fileWrapper.fileWrappers?["Assets"], assetsWrapper.isDirectory {
+        embeddedImageAssets = Self.loadEmbeddedImageAssets(from: assetsWrapper)
+      }
       return
     }
 
@@ -47,15 +56,50 @@ nonisolated struct TesseraDocument: FileDocument, Equatable {
   }
 
   func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+    try makeFileWrapper()
+  }
+
+  /// Creates a file wrapper for the current payload and embedded assets.
+  ///
+  /// This helper is used both by SwiftUI document saving and by tests.
+  func makeFileWrapper() throws -> FileWrapper {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
     let data = try encoder.encode(payload)
 
     let documentWrapper = FileWrapper(regularFileWithContents: data)
-    let packageWrapper = FileWrapper(directoryWithFileWrappers: [
+    var packageFileWrappers: [String: FileWrapper] = [
       "Document.json": documentWrapper,
-    ])
-    return packageWrapper
+    ]
+
+    if embeddedImageAssets.isEmpty == false {
+      var assetFileWrappers: [String: FileWrapper] = [:]
+      for (assetID, asset) in embeddedImageAssets {
+        let fileName = "\(assetID.uuidString).\(asset.fileExtension)"
+        assetFileWrappers[fileName] = FileWrapper(regularFileWithContents: asset.data)
+      }
+      packageFileWrappers["Assets"] = FileWrapper(directoryWithFileWrappers: assetFileWrappers)
+    }
+
+    return FileWrapper(directoryWithFileWrappers: packageFileWrappers)
+  }
+
+  private static func loadEmbeddedImageAssets(from assetsWrapper: FileWrapper) -> [UUID: EmbeddedImageAsset] {
+    guard let fileWrappers = assetsWrapper.fileWrappers else { return [:] }
+
+    var assets: [UUID: EmbeddedImageAsset] = [:]
+    for (fileName, wrapper) in fileWrappers {
+      guard let data = wrapper.regularFileContents else { continue }
+
+      let components = fileName.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: true)
+      guard let idComponent = components.first else { continue }
+      guard let assetID = UUID(uuidString: String(idComponent)) else { continue }
+
+      let fileExtension = components.count > 1 ? String(components[1]) : "png"
+      assets[assetID] = EmbeddedImageAsset(data: data, fileExtension: fileExtension)
+    }
+
+    return assets
   }
 }
 
@@ -75,7 +119,7 @@ nonisolated struct TesseraDocumentPayload: Codable, Equatable {
 
   static var `default`: TesseraDocumentPayload {
     TesseraDocumentPayload(
-      schemaVersion: 1,
+      schemaVersion: 2,
       settings: .default,
       items: [],
     )
@@ -133,7 +177,11 @@ nonisolated enum PresetSpecificOptionsPayload: Codable, Equatable {
   case roundedRectangle(cornerRadius: Double)
   case systemSymbol(name: String)
   case text(content: String)
-  case imagePlayground(urlString: String?)
+  case imagePlayground(
+    urlString: String?,
+    embeddedAssetIDString: String?,
+    embeddedAssetFileExtension: String?,
+  )
 
   private enum CodingKeys: String, CodingKey {
     case kind
@@ -141,6 +189,8 @@ nonisolated enum PresetSpecificOptionsPayload: Codable, Equatable {
     case name
     case content
     case urlString
+    case embeddedAssetIDString
+    case embeddedAssetFileExtension
   }
 
   private enum Kind: String, Codable {
@@ -169,7 +219,13 @@ nonisolated enum PresetSpecificOptionsPayload: Codable, Equatable {
       self = .text(content: content)
     case .imagePlayground:
       let urlString = try container.decodeIfPresent(String.self, forKey: .urlString)
-      self = .imagePlayground(urlString: urlString)
+      let embeddedAssetIDString = try container.decodeIfPresent(String.self, forKey: .embeddedAssetIDString)
+      let embeddedAssetFileExtension = try container.decodeIfPresent(String.self, forKey: .embeddedAssetFileExtension)
+      self = .imagePlayground(
+        urlString: urlString,
+        embeddedAssetIDString: embeddedAssetIDString,
+        embeddedAssetFileExtension: embeddedAssetFileExtension,
+      )
     }
   }
 
@@ -188,11 +244,21 @@ nonisolated enum PresetSpecificOptionsPayload: Codable, Equatable {
     case let .text(content):
       try container.encode(Kind.text, forKey: .kind)
       try container.encode(content, forKey: .content)
-    case let .imagePlayground(urlString):
+    case let .imagePlayground(urlString, embeddedAssetIDString, embeddedAssetFileExtension):
       try container.encode(Kind.imagePlayground, forKey: .kind)
       try container.encodeIfPresent(urlString, forKey: .urlString)
+      try container.encodeIfPresent(embeddedAssetIDString, forKey: .embeddedAssetIDString)
+      try container.encodeIfPresent(embeddedAssetFileExtension, forKey: .embeddedAssetFileExtension)
     }
   }
+}
+
+// MARK: - Embedded Assets
+
+/// Runtime-only embedded image asset stored in the `.tessera` package.
+nonisolated struct EmbeddedImageAsset: Equatable {
+  var data: Data
+  var fileExtension: String
 }
 
 nonisolated struct CGSizePayload: Codable, Equatable {
@@ -242,5 +308,29 @@ extension ColorPayload {
 
   var color: Color {
     Color(.sRGB, red: red, green: green, blue: blue, opacity: alpha)
+  }
+}
+
+// MARK: - Geometry Conversion
+
+extension CGSizePayload {
+  init(_ size: CGSize) {
+    width = Double(size.width)
+    height = Double(size.height)
+  }
+
+  var coreGraphicsSize: CGSize {
+    CGSize(width: width, height: height)
+  }
+}
+
+extension ClosedRangePayload where Bound == Double {
+  init(_ range: ClosedRange<Double>) {
+    lowerBound = range.lowerBound
+    upperBound = range.upperBound
+  }
+
+  var range: ClosedRange<Double> {
+    lowerBound...upperBound
   }
 }

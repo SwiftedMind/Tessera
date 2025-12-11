@@ -26,7 +26,9 @@ struct ItemCard: View {
   @State private var cornerRadiusDraft: Double
   @State private var symbolNameDraft: String
   @State private var textContentDraft: String
-  @State private var imagePlaygroundURL: URL?
+  @State private var imagePlaygroundAssetID: UUID?
+  @State private var imagePlaygroundImageData: Data?
+  @State private var imagePlaygroundFileExtension: String?
   @State private var nameDraft: String
   @State private var isRenaming: Bool
   @State private var isEmojiPickerPresented: Bool
@@ -64,7 +66,9 @@ struct ItemCard: View {
     _symbolNameDraft = State(initialValue: item.wrappedValue.specificOptions.systemSymbolName ?? item.wrappedValue
       .preset.defaultSymbolName)
     _textContentDraft = State(initialValue: item.wrappedValue.specificOptions.textContent ?? "Text")
-    _imagePlaygroundURL = State(initialValue: item.wrappedValue.specificOptions.imagePlaygroundURL)
+    _imagePlaygroundAssetID = State(initialValue: item.wrappedValue.specificOptions.imagePlaygroundAssetID)
+    _imagePlaygroundImageData = State(initialValue: item.wrappedValue.specificOptions.imagePlaygroundImageData)
+    _imagePlaygroundFileExtension = State(initialValue: item.wrappedValue.specificOptions.imagePlaygroundFileExtension)
     _nameDraft = State(initialValue: item.wrappedValue.customName ?? "")
     _isRenaming = State(initialValue: false)
     _isEmojiPickerPresented = State(initialValue: false)
@@ -161,7 +165,9 @@ struct ItemCard: View {
         }
       }
       if item.preset.capabilities.supportsImagePlayground {
-        imagePlaygroundURL = item.specificOptions.imagePlaygroundURL
+        imagePlaygroundAssetID = item.specificOptions.imagePlaygroundAssetID
+        imagePlaygroundImageData = item.specificOptions.imagePlaygroundImageData
+        imagePlaygroundFileExtension = item.specificOptions.imagePlaygroundFileExtension
       }
       if item.preset.capabilities.supportsTextContent {
         refreshTextSize()
@@ -565,26 +571,34 @@ struct ItemCard: View {
   }
 
   private var playgroundPreviewImage: Image? {
-    guard let url = imagePlaygroundURL else { return nil }
+    guard let data = imagePlaygroundImageData else { return nil }
 
     #if os(macOS)
-    guard let nsImage = NSImage(contentsOf: url) else { return nil }
+    guard let nsImage = NSImage(data: data) else { return nil }
 
     return Image(nsImage: nsImage)
     #else
-    guard let uiImage = UIImage(contentsOfFile: url.path) else { return nil }
+    guard let uiImage = UIImage(data: data) else { return nil }
 
     return Image(uiImage: uiImage)
     #endif
   }
 
-  private func commitImagePlaygroundConceptChange() {
-    item.specificOptions = item.specificOptions.updatingImagePlayground(url: imagePlaygroundURL)
-  }
-
   private func handleImagePlaygroundCompletion(_ url: URL) {
-    imagePlaygroundURL = url
-    item.specificOptions = item.specificOptions.updatingImagePlayground(url: url)
+    guard let data = try? Data(contentsOf: url) else { return }
+
+    let fileExtension = url.pathExtension.isEmpty == false ? url.pathExtension.lowercased() : "png"
+    let assetID = imagePlaygroundAssetID ?? UUID()
+
+    imagePlaygroundAssetID = assetID
+    imagePlaygroundImageData = data
+    imagePlaygroundFileExtension = fileExtension
+
+    item.specificOptions = item.specificOptions.updatingImagePlayground(
+      assetID: assetID,
+      imageData: data,
+      fileExtension: fileExtension,
+    )
   }
 
   private func handleImagePlaygroundCancellation() {

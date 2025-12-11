@@ -28,7 +28,7 @@ extension EditableItem.Preset {
         lineWidth: 1,
         fontSize: 14,
       ),
-      defaultSpecificOptions: .imagePlayground(url: nil),
+      defaultSpecificOptions: .imagePlayground(assetID: nil, imageData: nil, fileExtension: nil),
       capabilities: EditableItem.PresetCapabilities(
         usesStrokeStyle: false,
         usesFillStyle: true,

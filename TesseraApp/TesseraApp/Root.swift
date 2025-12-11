@@ -6,12 +6,18 @@ import UniformTypeIdentifiers
 
 /// Entry point view that hosts the tessera canvas and the editing inspector.
 struct Root: View {
-  @State private var editor = TesseraEditorModel()
+  @Binding var document: TesseraDocument
+  @State private var editor: TesseraEditorModel
   @State private var repeatPattern: Bool = true
   @State private var showInspector: Bool = true
   @State private var exportFormat: ExportFormat = .png
   @State private var isExportPresented: Bool = false
   @State private var exportDocument: TesseraExportDocument = .placeholder
+
+  init(document: Binding<TesseraDocument>) {
+    _document = document
+    _editor = State(initialValue: TesseraEditorModel(document: document))
+  }
 
   var body: some View {
     NavigationStack {
@@ -73,6 +79,6 @@ struct Root: View {
 }
 
 #Preview {
-  Root()
+  Root(document: .constant(TesseraDocument()))
     .frame(width: 1000, height: 640)
 }
