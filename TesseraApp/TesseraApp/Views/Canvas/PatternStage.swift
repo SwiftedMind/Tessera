@@ -5,27 +5,50 @@ import Tessera
 
 struct PatternStage: View {
   var tessera: Tessera
-  var repeatPattern: Bool
+  @Binding var repeatPattern: Bool
 
   var body: some View {
     ZStack {
-      if tessera.items.isEmpty {
-        emptyState
-          .padding(.horizontal, .large)
-          .transition(.opacity.combined(with: .scale(1.2)))
-      } else if repeatPattern {
-        TesseraPattern(tessera, seed: tessera.seed)
-          .transition(.opacity)
-      } else {
-        tessera
-          .padding(.large)
-          .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 22))
-          .padding(.large)
-          .transition(.opacity)
-      }
+      patternContent
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .overlay(alignment: .topLeading) {
+      controlBar
+        .padding(.horizontal, .large)
+        .padding(.top, .medium)
     }
     .animation(.smooth(duration: 0.28), value: repeatPattern)
     .animation(.smooth(duration: 0.28), value: tessera.items.count)
+  }
+
+  @ViewBuilder
+  private var patternContent: some View {
+    if tessera.items.isEmpty {
+      emptyState
+        .padding(.horizontal, .large)
+        .transition(.opacity.combined(with: .scale(1.2)))
+    } else if repeatPattern {
+      TesseraPattern(tessera, seed: tessera.seed)
+        .transition(.opacity)
+    } else {
+      tessera
+        .padding(.large)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 22))
+        .padding(.large)
+        .transition(.opacity)
+    }
+  }
+
+  private var controlBar: some View {
+    HStack(spacing: .medium) {
+      Toggle(isOn: $repeatPattern) {
+        Label("Repeat", systemImage: "square.grid.3x3.fill")
+      }
+      .toggleStyle(.switch)
+    }
+    .padding(.horizontal, .mediumRelaxed)
+    .padding(.vertical, .mediumTight)
+    .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 15))
   }
 
   private var emptyState: some View {
@@ -55,7 +78,7 @@ struct PatternStage: View {
       density: 0.8,
       baseScaleRange: 0.5...1.2,
     ),
-    repeatPattern: true,
+    repeatPattern: .constant(true),
   )
   .frame(width: 360, height: 360)
 }

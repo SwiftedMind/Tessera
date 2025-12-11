@@ -15,7 +15,7 @@ struct Root: View {
 
   var body: some View {
     NavigationStack {
-      PatternStage(tessera: editor.liveTessera, repeatPattern: repeatPattern)
+      PatternStage(tessera: editor.liveTessera, repeatPattern: $repeatPattern)
         .backgroundExtensionEffect()
         .toolbar { exportMenu }
         .inspector(isPresented: $showInspector) {
@@ -35,16 +35,6 @@ struct Root: View {
   @ToolbarContentBuilder
   private var exportMenu: some ToolbarContent {
     ToolbarItem(placement: .primaryAction) {
-      Toggle("Repeat Pattern", isOn: $repeatPattern)
-    }
-    ToolbarItem(placement: .primaryAction) {
-      Button {
-        showInspector.toggle()
-      } label: {
-        Image(systemName: "sidebar.right")
-      }
-    }
-    ToolbarItem(placement: .primaryAction) {
       Menu {
         Button(role: .none) { beginExport(format: .png) } label: {
           Label("Export PNG", systemImage: "photo")
@@ -55,6 +45,13 @@ struct Root: View {
       } label: {
         Label("Export", systemImage: "square.and.arrow.up")
           .labelStyle(.titleAndIcon)
+      }
+    }
+    ToolbarItem(placement: .primaryAction) {
+      Button {
+        showInspector.toggle()
+      } label: {
+        Image(systemName: "sidebar.right")
       }
     }
   }
