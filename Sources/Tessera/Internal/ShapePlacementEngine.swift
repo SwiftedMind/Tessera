@@ -120,7 +120,11 @@ enum ShapePlacementEngine {
   ) -> Angle {
     let lower = range.lowerBound.degrees
     let upper = range.upperBound.degrees
-    return .degrees(Double.random(in: lower..<upper, using: &randomGenerator))
+    guard upper > lower else {
+      return .degrees(lower)
+    }
+
+    return .degrees(Double.random(in: lower...upper, using: &randomGenerator))
   }
 
   private static func isPlacementValid(

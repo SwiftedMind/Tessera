@@ -69,7 +69,7 @@ final class TesseraEditorModel {
     baseScaleRange: ClosedRange<Double> = 0.5...1.2,
     patternOffset: CGSize = .zero,
   ) {
-    let tesseraItems = tesseraItems ?? EditableItem.demoItems
+    let tesseraItems = tesseraItems ?? []
 
     self.tesseraItems = tesseraItems
     self.tesseraSize = tesseraSize

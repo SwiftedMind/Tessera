@@ -299,7 +299,7 @@ extension EditableItem.Preset {
         )
       },
       collisionShape: { style, _ in
-        .rectangle(size: EditableItemPresetHelpers.rectangleCollisionSize(for: style))
+        .circle(radius: EditableItemPresetHelpers.circleRadius(for: style))
       },
       measuredSize: { style, _ in
         style.size
@@ -663,11 +663,11 @@ private struct ChevronShape: Shape {
 private struct ArcShape: Shape {
   func path(in rect: CGRect) -> Path {
     var path = Path()
-    let center = CGPoint(x: rect.midX, y: rect.maxY)
-    let radius = min(rect.width, rect.height)
+    let center = CGPoint(x: rect.midX, y: rect.midY)
+    let radius = min(rect.width, rect.height) / 2
     path.addArc(
       center: center,
-      radius: radius / 2,
+      radius: radius,
       startAngle: .degrees(200),
       endAngle: .degrees(-20),
       clockwise: true,
