@@ -12,8 +12,7 @@ extension EditableItem.PresetGroup {
       iconName: "textformat",
       presets: [
         .text,
-        .minus,
-        .equals,
+        .emoji,
       ],
     )
   }
@@ -60,82 +59,44 @@ extension EditableItem.Preset {
     )
   }
 
-  static var minus: EditableItem.Preset {
+  static var emoji: EditableItem.Preset {
     EditableItem.Preset(
-      id: "minus",
-      title: "Minus",
-      iconName: "minus",
+      id: "emoji",
+      title: "Emoji",
+      iconName: "face.smiling",
       defaultStyle: ItemStyle(
-        size: CGSize(width: 36, height: 4),
-        color: .gray,
-        lineWidth: 1,
-        fontSize: 34,
+        size: CGSize(width: 44, height: 44),
+        color: .primary,
+        lineWidth: 0,
+        fontSize: 42,
       ),
-      defaultSpecificOptions: .none,
+      defaultSpecificOptions: .text(content: "😀"),
       capabilities: EditableItem.PresetCapabilities(
         usesStrokeStyle: false,
-        usesFillStyle: true,
+        usesFillStyle: false,
         supportsLineWidth: false,
         supportsFontSize: true,
         supportsCornerRadius: false,
         supportsSymbolSelection: false,
-        supportsTextContent: false,
+        supportsTextContent: true,
+        supportsColorControl: false,
+        supportsEmojiPicker: true,
       ),
       availableSymbols: [],
       defaultSymbolName: "questionmark",
-      render: { style, _ in
+      render: { style, options in
         AnyView(
-          Text("-")
+          Text(EditableItemPresetHelpers.textContent(from: options))
             .foregroundStyle(style.color)
-            .font(.system(size: style.fontSize, weight: .bold))
+            .font(.system(size: style.fontSize))
             .frame(width: style.size.width, height: style.size.height),
         )
       },
       collisionShape: { style, _ in
         .rectangle(size: style.size)
       },
-      measuredSize: { style, _ in
-        style.size
-      },
-    )
-  }
-
-  static var equals: EditableItem.Preset {
-    EditableItem.Preset(
-      id: "equals",
-      title: "Equals",
-      iconName: "equal",
-      defaultStyle: ItemStyle(
-        size: CGSize(width: 36, height: 12),
-        color: .gray,
-        lineWidth: 1,
-        fontSize: 34,
-      ),
-      defaultSpecificOptions: .none,
-      capabilities: EditableItem.PresetCapabilities(
-        usesStrokeStyle: false,
-        usesFillStyle: true,
-        supportsLineWidth: false,
-        supportsFontSize: true,
-        supportsCornerRadius: false,
-        supportsSymbolSelection: false,
-        supportsTextContent: false,
-      ),
-      availableSymbols: [],
-      defaultSymbolName: "questionmark",
-      render: { style, _ in
-        AnyView(
-          Text("=")
-            .foregroundStyle(style.color)
-            .font(.system(size: style.fontSize, weight: .bold))
-            .frame(width: style.size.width, height: style.size.height),
-        )
-      },
-      collisionShape: { style, _ in
-        .rectangle(size: style.size)
-      },
-      measuredSize: { style, _ in
-        style.size
+      measuredSize: { style, options in
+        EditableItemPresetHelpers.measuredTextSize(for: style, options: options)
       },
     )
   }

@@ -17,7 +17,7 @@ extension EditableItem {
     var render: (ItemStyle, PresetSpecificOptions) -> AnyView
     var collisionShape: (ItemStyle, PresetSpecificOptions) -> CollisionShape
     var measuredSize: (ItemStyle, PresetSpecificOptions) -> CGSize
-    
+
     static func == (lhs: Preset, rhs: Preset) -> Bool {
       lhs.id == rhs.id
     }
@@ -135,5 +135,7 @@ extension EditableItem {
     var supportsCornerRadius: Bool
     var supportsSymbolSelection: Bool
     var supportsTextContent: Bool
+    var supportsColorControl: Bool = true
+    var supportsEmojiPicker: Bool = false
   }
 }

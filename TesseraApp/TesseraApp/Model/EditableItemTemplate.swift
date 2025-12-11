@@ -304,7 +304,7 @@ extension EditableItemTemplate {
           ),
           EditableItem(
             customName: "Dash Mark",
-            preset: .minus,
+            preset: .text,
             weight: 0.7,
             minimumRotation: -6,
             maximumRotation: 6,
@@ -317,10 +317,11 @@ extension EditableItemTemplate {
               lineWidth: 1,
               fontSize: 30,
             ),
+            specificOptions: PresetSpecificOptions.text(content: "-")
           ),
           EditableItem(
             customName: "Equals Mark",
-            preset: .equals,
+            preset: .text,
             weight: 0.65,
             minimumRotation: -6,
             maximumRotation: 6,
@@ -333,6 +334,7 @@ extension EditableItemTemplate {
               lineWidth: 1,
               fontSize: 30,
             ),
+            specificOptions: PresetSpecificOptions.text(content: "=")
           ),
         ]
       },

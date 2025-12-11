@@ -1,6 +1,7 @@
 // By Dennis Müller
 
 import CompactSlider
+import EmojiKit
 import SwiftUI
 
 struct ItemCard: View {
@@ -20,6 +21,9 @@ struct ItemCard: View {
   @State private var textContentDraft: String
   @State private var nameDraft: String
   @State private var isRenaming: Bool
+  @State private var isEmojiPickerPresented: Bool
+  @State private var emojiPickerQuery: String
+  @State private var emojiPickerSelection: Emoji.GridSelection
   var onRemove: () -> Void
 
   init(
@@ -53,6 +57,9 @@ struct ItemCard: View {
     _textContentDraft = State(initialValue: item.wrappedValue.specificOptions.textContent ?? "Text")
     _nameDraft = State(initialValue: item.wrappedValue.customName ?? "")
     _isRenaming = State(initialValue: false)
+    _isEmojiPickerPresented = State(initialValue: false)
+    _emojiPickerQuery = State(initialValue: "")
+    _emojiPickerSelection = State(initialValue: Emoji.GridSelection())
   }
 
   private var isExpanded: Bool {
@@ -65,6 +72,10 @@ struct ItemCard: View {
 
   private var maximumHeight: Double {
     max(8, editor.tesseraSize.height)
+  }
+
+  private var displayedEmoji: String {
+    item.specificOptions.textContent ?? textContentDraft
   }
 
   var body: some View {
@@ -131,6 +142,12 @@ struct ItemCard: View {
       }
       if let textContent = item.specificOptions.textContent {
         textContentDraft = textContent
+        if item.preset.capabilities.supportsEmojiPicker {
+          emojiPickerSelection = Emoji.GridSelection(
+            emoji: Emoji(textContent),
+            category: emojiPickerSelection.category ?? .smileysAndPeople,
+          )
+        }
       }
       if item.preset.capabilities.supportsTextContent {
         refreshTextSize()
@@ -299,12 +316,14 @@ struct ItemCard: View {
   }
 
   @ViewBuilder private var colorOption: some View {
-    OptionRow(item.preset.colorLabel) {
-      ColorPicker("", selection: $colorDraft, supportsOpacity: true)
-        .labelsHidden()
-        .onChange(of: colorDraft) {
-          item.style.color = colorDraft
-        }
+    if item.preset.capabilities.supportsColorControl {
+      OptionRow(item.preset.colorLabel) {
+        ColorPicker("", selection: $colorDraft, supportsOpacity: true)
+          .labelsHidden()
+          .onChange(of: colorDraft) {
+            item.style.color = colorDraft
+          }
+      }
     }
   }
 
@@ -374,6 +393,8 @@ struct ItemCard: View {
           item.specificOptions = item.specificOptions.updatingSymbolName(symbolNameDraft)
         }
       }
+    } else if item.preset.capabilities.supportsEmojiPicker {
+      emojiPickerOption
     } else if item.preset.capabilities.supportsTextContent {
       OptionRow("Text") {
         OptionTextField(text: $textContentDraft)
@@ -381,6 +402,38 @@ struct ItemCard: View {
             item.specificOptions = item.specificOptions.updatingTextContent(textContentDraft)
             refreshTextSize()
           }
+      }
+    }
+  }
+
+  @ViewBuilder private var emojiPickerOption: some View {
+    OptionRow("Emoji") {
+      Button {
+        emojiPickerSelection = Emoji.GridSelection(
+          emoji: Emoji(displayedEmoji),
+          category: .smileysAndPeople,
+        )
+        isEmojiPickerPresented = true
+      } label: {
+        HStack(spacing: .small) {
+          Text(displayedEmoji)
+            .font(.system(size: fontSizeDraft))
+          Image(systemName: "chevron.down")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, .small)
+        .padding(.vertical, .extraSmall)
+      }
+      .buttonStyle(.bordered)
+      .popover(isPresented: $isEmojiPickerPresented) {
+        EmojiPickerPopover(
+          isPresented: $isEmojiPickerPresented,
+          query: $emojiPickerQuery,
+          selection: $emojiPickerSelection,
+          onSelect: applyEmojiSelection,
+        )
+        .frame(width: 400, height: 440)
       }
     }
   }
@@ -432,6 +485,13 @@ struct ItemCard: View {
     heightDraft = measuredSize.height
   }
 
+  private func applyEmojiSelection(_ emoji: Emoji) {
+    textContentDraft = emoji.char
+    item.specificOptions = item.specificOptions.updatingTextContent(emoji.char)
+    refreshTextSize()
+    isEmojiPickerPresented = false
+  }
+
   private func beginRenaming() {
     nameDraft = item.customName ?? ""
     isRenaming = true
@@ -449,6 +509,41 @@ struct ItemCard: View {
     } else {
       expandedItemID = item.id
     }
+  }
+}
+
+private struct EmojiPickerPopover: View {
+  @Binding var isPresented: Bool
+  @Binding var query: String
+  @Binding var selection: Emoji.GridSelection
+  var onSelect: (Emoji) -> Void
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: .medium) {
+      HStack {
+        Text("Choose Emoji")
+          .font(.headline)
+        Spacer()
+        Button("Done") {
+          isPresented = false
+        }
+        .buttonStyle(.borderedProminent)
+      }
+      TextField("Search Emoji", text: $query)
+        .textFieldStyle(.roundedBorder)
+      Divider()
+      EmojiGridScrollView(
+        axis: .vertical,
+        query: query,
+        selection: $selection,
+        action: onSelect,
+        sectionTitle: { $0.view },
+        gridItem: { $0.view },
+      )
+      .emojiGridStyle(.medium)
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    .padding(.mediumRelaxed)
   }
 }
 
