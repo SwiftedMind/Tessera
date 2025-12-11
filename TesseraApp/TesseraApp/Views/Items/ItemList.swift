@@ -15,7 +15,7 @@ struct ItemList: View {
           .font(.headline)
         Spacer()
         Menu {
-          ForEach(EditableItem.Preset.allCases) { preset in
+          ForEach(EditableItem.Preset.allPresets) { preset in
             Button(preset.title) {
               editor.tesseraItems.append(EditableItem(preset: preset))
             }
@@ -45,7 +45,7 @@ struct ItemList: View {
 
 #Preview {
   @Previewable @Environment(TesseraEditorModel.self) var editor
-  
+
   ItemList()
     .environment(editor)
     .padding(.large)
