@@ -272,22 +272,14 @@ extension PresetSpecificOptions {
       self = .systemSymbol(name: name)
     case let .text(content):
       self = .text(content: content)
-    case let .imagePlayground(urlString, embeddedAssetIDString, embeddedAssetFileExtension):
-      if let embeddedAssetIDString,
-         let embeddedAssetID = UUID(uuidString: embeddedAssetIDString) {
-        let embeddedAsset = embeddedAssets[embeddedAssetID]
-        self = .imagePlayground(
-          assetID: embeddedAssetID,
-          imageData: embeddedAsset?.data,
-          fileExtension: embeddedAssetFileExtension ?? embeddedAsset?.fileExtension,
-        )
-        return
-      }
-
-      let url = urlString.flatMap(URL.init(string:))
-      let data = url.flatMap { try? Data(contentsOf: $0) }
-      let fileExtension = url?.pathExtension.isEmpty == false ? url?.pathExtension : nil
-      self = .imagePlayground(assetID: nil, imageData: data, fileExtension: fileExtension)
+    case let .imagePlayground(embeddedAssetIDString, embeddedAssetFileExtension):
+      let embeddedAssetID = embeddedAssetIDString.flatMap(UUID.init(uuidString:))
+      let embeddedAsset = embeddedAssetID.flatMap { embeddedAssets[$0] }
+      self = .imagePlayground(
+        assetID: embeddedAssetID,
+        imageData: embeddedAsset?.data,
+        fileExtension: embeddedAssetFileExtension ?? embeddedAsset?.fileExtension,
+      )
     }
   }
 
@@ -303,7 +295,6 @@ extension PresetSpecificOptions {
       .text(content: content)
     case let .imagePlayground(assetID, _, fileExtension):
       .imagePlayground(
-        urlString: nil,
         embeddedAssetIDString: assetID?.uuidString,
         embeddedAssetFileExtension: fileExtension,
       )

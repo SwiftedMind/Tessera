@@ -119,7 +119,7 @@ nonisolated struct TesseraDocumentPayload: Codable, Equatable {
 
   static var `default`: TesseraDocumentPayload {
     TesseraDocumentPayload(
-      schemaVersion: 2,
+      schemaVersion: 3,
       settings: .default,
       items: [],
     )
@@ -178,7 +178,6 @@ nonisolated enum PresetSpecificOptionsPayload: Codable, Equatable {
   case systemSymbol(name: String)
   case text(content: String)
   case imagePlayground(
-    urlString: String?,
     embeddedAssetIDString: String?,
     embeddedAssetFileExtension: String?,
   )
@@ -188,7 +187,6 @@ nonisolated enum PresetSpecificOptionsPayload: Codable, Equatable {
     case cornerRadius
     case name
     case content
-    case urlString
     case embeddedAssetIDString
     case embeddedAssetFileExtension
   }
@@ -218,11 +216,9 @@ nonisolated enum PresetSpecificOptionsPayload: Codable, Equatable {
       let content = try container.decode(String.self, forKey: .content)
       self = .text(content: content)
     case .imagePlayground:
-      let urlString = try container.decodeIfPresent(String.self, forKey: .urlString)
       let embeddedAssetIDString = try container.decodeIfPresent(String.self, forKey: .embeddedAssetIDString)
       let embeddedAssetFileExtension = try container.decodeIfPresent(String.self, forKey: .embeddedAssetFileExtension)
       self = .imagePlayground(
-        urlString: urlString,
         embeddedAssetIDString: embeddedAssetIDString,
         embeddedAssetFileExtension: embeddedAssetFileExtension,
       )
@@ -244,9 +240,8 @@ nonisolated enum PresetSpecificOptionsPayload: Codable, Equatable {
     case let .text(content):
       try container.encode(Kind.text, forKey: .kind)
       try container.encode(content, forKey: .content)
-    case let .imagePlayground(urlString, embeddedAssetIDString, embeddedAssetFileExtension):
+    case let .imagePlayground(embeddedAssetIDString, embeddedAssetFileExtension):
       try container.encode(Kind.imagePlayground, forKey: .kind)
-      try container.encodeIfPresent(urlString, forKey: .urlString)
       try container.encodeIfPresent(embeddedAssetIDString, forKey: .embeddedAssetIDString)
       try container.encodeIfPresent(embeddedAssetFileExtension, forKey: .embeddedAssetFileExtension)
     }

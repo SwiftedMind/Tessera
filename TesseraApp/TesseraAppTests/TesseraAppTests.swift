@@ -32,7 +32,6 @@ struct TesseraAppTests {
       maximumScale: 1.2,
       style: itemStyle,
       specificOptions: .imagePlayground(
-        urlString: nil,
         embeddedAssetIDString: embeddedAssetIdentifier.uuidString,
         embeddedAssetFileExtension: embeddedAssetFileExtension,
       ),
