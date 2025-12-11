@@ -96,6 +96,7 @@ extension EditableItem {
 extension EditableItem.Preset {
   /// All built-in preset groups available in the editor.
   static let allPresetGroups: [EditableItem.PresetGroup] = [
+    .images,
     .shapes,
     .symbols,
     .textual,
@@ -137,5 +138,6 @@ extension EditableItem {
     var supportsTextContent: Bool
     var supportsColorControl: Bool = true
     var supportsEmojiPicker: Bool = false
+    var supportsImagePlayground: Bool = false
   }
 }

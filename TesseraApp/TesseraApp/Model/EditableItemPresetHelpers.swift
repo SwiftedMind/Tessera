@@ -2,6 +2,11 @@
 
 import CoreText
 import SwiftUI
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 
 enum EditableItemPresetHelpers {
   /// Expands a rectangle's collision shape to account for stroke width.
@@ -76,5 +81,23 @@ enum EditableItemPresetHelpers {
     let padding: CGFloat = 2
 
     return CGSize(width: width + padding, height: height + padding)
+  }
+
+  /// Loads an image from a URL and wraps it in a SwiftUI Image.
+  ///
+  /// - Parameter options: Preset options that may include an image playground URL.
+  /// - Returns: A SwiftUI image when the URL can be loaded, otherwise `nil`.
+  static func playgroundImage(from options: PresetSpecificOptions) -> Image? {
+    guard let url = options.imagePlaygroundURL else { return nil }
+
+    #if os(macOS)
+    guard let nsImage = NSImage(contentsOf: url) else { return nil }
+
+    return Image(nsImage: nsImage)
+    #else
+    guard let uiImage = UIImage(contentsOfFile: url.path) else { return nil }
+
+    return Image(uiImage: uiImage)
+    #endif
   }
 }

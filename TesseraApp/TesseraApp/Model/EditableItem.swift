@@ -87,6 +87,7 @@ enum PresetSpecificOptions: Equatable {
   case roundedRectangle(cornerRadius: CGFloat)
   case systemSymbol(name: String)
   case text(content: String)
+  case imagePlayground(url: URL?)
 
   var cornerRadius: CGFloat? {
     switch self {
@@ -115,10 +116,20 @@ enum PresetSpecificOptions: Equatable {
     }
   }
 
+  var imagePlaygroundURL: URL? {
+    switch self {
+    case let .imagePlayground(url):
+      url
+    default:
+      nil
+    }
+  }
+
   enum Kind {
     case roundedRectangleCornerRadius
     case systemSymbol
     case textContent
+    case imagePlayground
   }
 
   var kind: Kind? {
@@ -131,6 +142,8 @@ enum PresetSpecificOptions: Equatable {
       .systemSymbol
     case .text:
       .textContent
+    case .imagePlayground:
+      .imagePlayground
     }
   }
 
@@ -144,6 +157,10 @@ enum PresetSpecificOptions: Equatable {
 
   func updatingTextContent(_ content: String) -> PresetSpecificOptions {
     .text(content: content)
+  }
+
+  func updatingImagePlayground(url: URL?) -> PresetSpecificOptions {
+    .imagePlayground(url: url)
   }
 }
 

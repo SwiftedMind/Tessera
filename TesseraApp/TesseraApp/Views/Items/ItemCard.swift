@@ -2,10 +2,17 @@
 
 import CompactSlider
 import EmojiKit
+import ImagePlayground
 import SwiftUI
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 
 struct ItemCard: View {
   @Environment(TesseraEditorModel.self) private var editor
+  @Environment(\.supportsImagePlayground) private var supportsImagePlayground
   @Binding var item: EditableItem
   @Binding var expandedItemID: EditableItem.ID?
   @State private var weightDraft: Double
@@ -19,9 +26,11 @@ struct ItemCard: View {
   @State private var cornerRadiusDraft: Double
   @State private var symbolNameDraft: String
   @State private var textContentDraft: String
+  @State private var imagePlaygroundURL: URL?
   @State private var nameDraft: String
   @State private var isRenaming: Bool
   @State private var isEmojiPickerPresented: Bool
+  @State private var isImagePlaygroundPresented: Bool
   @State private var emojiPickerQuery: String
   @State private var emojiPickerSelection: Emoji.GridSelection
   var onRemove: () -> Void
@@ -55,9 +64,11 @@ struct ItemCard: View {
     _symbolNameDraft = State(initialValue: item.wrappedValue.specificOptions.systemSymbolName ?? item.wrappedValue
       .preset.defaultSymbolName)
     _textContentDraft = State(initialValue: item.wrappedValue.specificOptions.textContent ?? "Text")
+    _imagePlaygroundURL = State(initialValue: item.wrappedValue.specificOptions.imagePlaygroundURL)
     _nameDraft = State(initialValue: item.wrappedValue.customName ?? "")
     _isRenaming = State(initialValue: false)
     _isEmojiPickerPresented = State(initialValue: false)
+    _isImagePlaygroundPresented = State(initialValue: false)
     _emojiPickerQuery = State(initialValue: "")
     _emojiPickerSelection = State(initialValue: Emoji.GridSelection())
   }
@@ -148,6 +159,9 @@ struct ItemCard: View {
             category: emojiPickerSelection.category ?? .smileysAndPeople,
           )
         }
+      }
+      if item.preset.capabilities.supportsImagePlayground {
+        imagePlaygroundURL = item.specificOptions.imagePlaygroundURL
       }
       if item.preset.capabilities.supportsTextContent {
         refreshTextSize()
@@ -367,7 +381,9 @@ struct ItemCard: View {
   }
 
   @ViewBuilder private var presetSpecificOption: some View {
-    if item.preset.capabilities.supportsCornerRadius {
+    if item.preset.capabilities.supportsImagePlayground {
+      imagePlaygroundOption
+    } else if item.preset.capabilities.supportsCornerRadius {
       OptionRow("Corner Radius") {
         SystemSlider(
           value: $cornerRadiusDraft,
@@ -438,6 +454,51 @@ struct ItemCard: View {
     }
   }
 
+  @ViewBuilder private var imagePlaygroundOption: some View {
+    OptionRow(
+      "Image Playground",
+      subtitle: supportsImagePlayground ? "Generate a seamless image tile." : "Not available on this device.",
+    ) {
+      VStack(alignment: .leading, spacing: .small) {
+        HStack(spacing: .medium) {
+          if let previewImage = playgroundPreviewImage {
+            previewImage
+              .resizable()
+              .aspectRatio(contentMode: .fill)
+              .frame(width: 80, height: 80)
+              .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+              .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                  .strokeBorder(.white.opacity(0.2))
+              }
+          } else {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+              .fill(.quaternary)
+              .frame(width: 80, height: 80)
+              .overlay {
+                Image(systemName: "photo.on.rectangle")
+                  .foregroundStyle(.secondary)
+              }
+          }
+
+          Spacer()
+
+          Button("Open Playground") {
+            isImagePlaygroundPresented = true
+          }
+          .buttonStyle(.borderedProminent)
+          .disabled(supportsImagePlayground == false)
+        }
+      }
+    }
+    .imagePlaygroundSheet(
+      isPresented: $isImagePlaygroundPresented,
+      sourceImage: nil,
+      onCompletion: handleImagePlaygroundCompletion,
+      onCancellation: handleImagePlaygroundCancellation,
+    )
+  }
+
   @ViewBuilder private var customScaleRangeOption: some View {
     OptionRow("Global Overrides") {
       EmptyView()
@@ -501,6 +562,33 @@ struct ItemCard: View {
     let trimmedName = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
     item.customName = trimmedName.isEmpty ? nil : trimmedName
     isRenaming = false
+  }
+
+  private var playgroundPreviewImage: Image? {
+    guard let url = imagePlaygroundURL else { return nil }
+
+    #if os(macOS)
+    guard let nsImage = NSImage(contentsOf: url) else { return nil }
+
+    return Image(nsImage: nsImage)
+    #else
+    guard let uiImage = UIImage(contentsOfFile: url.path) else { return nil }
+
+    return Image(uiImage: uiImage)
+    #endif
+  }
+
+  private func commitImagePlaygroundConceptChange() {
+    item.specificOptions = item.specificOptions.updatingImagePlayground(url: imagePlaygroundURL)
+  }
+
+  private func handleImagePlaygroundCompletion(_ url: URL) {
+    imagePlaygroundURL = url
+    item.specificOptions = item.specificOptions.updatingImagePlayground(url: url)
+  }
+
+  private func handleImagePlaygroundCancellation() {
+    isImagePlaygroundPresented = false
   }
 
   private func toggleExpansion() {
