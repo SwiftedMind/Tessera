@@ -28,7 +28,7 @@ extension EditableItem.Preset {
         size: CGSize(width: 40, height: 40),
         color: .primary,
         lineWidth: 2,
-        fontSize: 34,
+        fontSize: 40,
       ),
       defaultSpecificOptions: .systemSymbol(name: defaultSymbolName),
       capabilities: EditableItem.PresetCapabilities(
@@ -51,20 +51,34 @@ extension EditableItem.Preset {
       ],
       defaultSymbolName: defaultSymbolName,
       render: { style, options in
-        AnyView(
-          Image(systemName: EditableItemPresetHelpers.symbolName(from: options, defaultSymbolName: defaultSymbolName))
-            .resizable()
-            .aspectRatio(contentMode: .fit)
-            .foregroundStyle(style.color)
-            .font(.system(size: style.fontSize, weight: .regular))
-            .frame(width: style.size.width, height: style.size.height),
+        let symbolName = EditableItemPresetHelpers.symbolName(from: options, defaultSymbolName: defaultSymbolName)
+        return AnyView(
+          Group {
+            if let configuredSymbol = EditableItemPresetHelpers.configuredSystemSymbol(
+              named: symbolName,
+              pointSize: style.fontSize,
+            ) {
+              configuredSymbol.image
+            } else {
+              Image(systemName: symbolName)
+                .font(.system(size: style.fontSize, weight: .regular))
+            }
+          }
+          .foregroundStyle(style.color)
+          .accessibilityLabel(Text(symbolName)),
         )
       },
-      collisionShape: { style, _ in
-        .circle(radius: max(style.size.width, style.size.height) / 2)
+      collisionShape: { style, options in
+        let symbolName = EditableItemPresetHelpers.symbolName(from: options, defaultSymbolName: defaultSymbolName)
+        let symbolSize = EditableItemPresetHelpers.measuredSystemSymbolSize(
+          named: symbolName,
+          pointSize: style.fontSize,
+        )
+        return .rectangle(size: symbolSize)
       },
-      measuredSize: { style, _ in
-        style.size
+      measuredSize: { style, options in
+        let symbolName = EditableItemPresetHelpers.symbolName(from: options, defaultSymbolName: defaultSymbolName)
+        return EditableItemPresetHelpers.measuredSystemSymbolSize(named: symbolName, pointSize: style.fontSize)
       },
     )
   }

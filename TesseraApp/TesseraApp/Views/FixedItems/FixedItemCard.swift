@@ -11,8 +11,6 @@ struct FixedItemCard: View {
   @State private var offsetYDraft: CGFloat
   @State private var rotationDegreesDraft: Double
   @State private var scaleDraft: CGFloat
-  @State private var widthDraft: Double
-  @State private var heightDraft: Double
   @State private var lineWidthDraft: Double
   @State private var fontSizeDraft: Double
   @State private var colorDraft: Color
@@ -35,18 +33,6 @@ struct FixedItemCard: View {
     _rotationDegreesDraft = State(initialValue: fixedItem.wrappedValue.rotationDegrees)
     _scaleDraft = State(initialValue: fixedItem.wrappedValue.scale)
 
-    if fixedItem.wrappedValue.preset.capabilities.supportsTextContent {
-      let measuredSize = fixedItem.wrappedValue.preset.measuredSize(
-        for: fixedItem.wrappedValue.style,
-        options: fixedItem.wrappedValue.specificOptions,
-      )
-      _widthDraft = State(initialValue: measuredSize.width)
-      _heightDraft = State(initialValue: measuredSize.height)
-    } else {
-      _widthDraft = State(initialValue: fixedItem.wrappedValue.style.size.width)
-      _heightDraft = State(initialValue: fixedItem.wrappedValue.style.size.height)
-    }
-
     _lineWidthDraft = State(initialValue: fixedItem.wrappedValue.style.lineWidth)
     _fontSizeDraft = State(initialValue: fixedItem.wrappedValue.style.fontSize)
     _colorDraft = State(initialValue: fixedItem.wrappedValue.style.color)
@@ -66,6 +52,10 @@ struct FixedItemCard: View {
 
   private var maximumHeight: Double {
     max(8, Double(editor.canvasSize.height))
+  }
+
+  private var maximumFontSize: Double {
+    min(maximumWidth, maximumHeight)
   }
 
   private var maximumOffsetX: CGFloat {
@@ -91,19 +81,16 @@ struct FixedItemCard: View {
         placementOption
         offsetOption
         fixedRotationOption
-        if fixedItem.preset.capabilities.supportsFontSize == false {
+        if shouldShowScaleOption {
           fixedScaleOption
         }
-        sizeOption
+        fontSizeOption
         colorOption
         lineWidthOption
-        fontSizeOption
         presetSpecificOption
       }
     }
     .onChange(of: fixedItem.style) {
-      widthDraft = fixedItem.style.size.width
-      heightDraft = fixedItem.style.size.height
       lineWidthDraft = fixedItem.style.lineWidth
       fontSizeDraft = fixedItem.style.fontSize
       colorDraft = fixedItem.style.color
@@ -133,9 +120,7 @@ struct FixedItemCard: View {
       }
     }
     .onChange(of: editor.canvasSize) {
-      widthDraft = min(widthDraft, maximumWidth)
-      heightDraft = min(heightDraft, maximumHeight)
-      applySizeDraft()
+      clampFixedItemSizeToCanvasBounds()
     }
     .onAppear {
       if fixedItem.preset.capabilities.supportsTextContent {
@@ -222,17 +207,9 @@ struct FixedItemCard: View {
     }
   }
 
-  @ViewBuilder private var sizeOption: some View {
-    if fixedItem.preset.capabilities.supportsSizeControl {
-      InspectorSizeOptionRow(
-        supportsTextContent: fixedItem.preset.capabilities.supportsTextContent,
-        widthDraft: $widthDraft,
-        heightDraft: $heightDraft,
-        maximumWidth: maximumWidth,
-        maximumHeight: maximumHeight,
-        onCommit: applySizeDraft,
-      )
-    }
+  private var shouldShowScaleOption: Bool {
+    fixedItem.preset.capabilities.supportsFontSize == false
+      && fixedItem.preset.capabilities.supportsSymbolSelection == false
   }
 
   @ViewBuilder private var colorOption: some View {
@@ -256,13 +233,8 @@ struct FixedItemCard: View {
   }
 
   @ViewBuilder private var fontSizeOption: some View {
-    if fixedItem.preset.capabilities.supportsFontSize {
-      InspectorFontSizeOptionRow(fontSize: $fontSizeDraft) {
-        fixedItem.style.fontSize = fontSizeDraft
-        if fixedItem.preset.capabilities.supportsTextContent {
-          refreshTextSize()
-        }
-      }
+    InspectorFontSizeOptionRow(fontSize: $fontSizeDraft) {
+      applyFontSizeDraft()
     }
   }
 
@@ -274,7 +246,7 @@ struct FixedItemCard: View {
     } else if fixedItem.preset.capabilities.supportsCornerRadius {
       InspectorCornerRadiusOptionRow(
         cornerRadius: $cornerRadiusDraft,
-        maximumCornerRadius: min(widthDraft, heightDraft) / 2,
+        maximumCornerRadius: min(Double(fixedItem.style.size.width), Double(fixedItem.style.size.height)) / 2,
         onCommit: { radius in
           fixedItem.specificOptions = fixedItem.specificOptions.updatingCornerRadius(radius)
         },
@@ -301,12 +273,21 @@ struct FixedItemCard: View {
     }
   }
 
-  private func applySizeDraft() {
-    let clampedWidth = min(widthDraft, maximumWidth)
-    let clampedHeight = min(heightDraft, maximumHeight)
-    widthDraft = clampedWidth
-    heightDraft = clampedHeight
-    fixedItem.style.size = CGSize(width: clampedWidth, height: clampedHeight)
+  private func applyFontSizeDraft() {
+    let clampedFontSize = min(fontSizeDraft, maximumFontSize)
+    fontSizeDraft = clampedFontSize
+    fixedItem.style.fontSize = clampedFontSize
+
+    if fixedItem.preset.capabilities.supportsTextContent {
+      refreshTextSize()
+      return
+    }
+
+    let scaledSize = sizeScaledToMaximumDimension(
+      currentSize: fixedItem.style.size,
+      maximumDimension: CGFloat(clampedFontSize),
+    )
+    fixedItem.style.size = clampedSizeToCanvasBounds(scaledSize)
   }
 
   private func applyOffsetDraft() {
@@ -326,10 +307,33 @@ struct FixedItemCard: View {
 
     let measuredSize = fixedItem.preset.measuredSize(for: fixedItem.style, options: fixedItem.specificOptions)
     if measuredSize != fixedItem.style.size {
-      fixedItem.style.size = measuredSize
+      fixedItem.style.size = clampedSizeToCanvasBounds(measuredSize)
     }
-    widthDraft = measuredSize.width
-    heightDraft = measuredSize.height
+  }
+
+  private func sizeScaledToMaximumDimension(currentSize: CGSize, maximumDimension: CGFloat) -> CGSize {
+    let currentMaximumDimension = max(currentSize.width, currentSize.height)
+    guard currentMaximumDimension > 0, maximumDimension > 0 else {
+      return CGSize(width: maximumDimension, height: maximumDimension)
+    }
+
+    let scaleFactor = maximumDimension / currentMaximumDimension
+    return CGSize(width: currentSize.width * scaleFactor, height: currentSize.height * scaleFactor)
+  }
+
+  private func clampedSizeToCanvasBounds(_ size: CGSize) -> CGSize {
+    let maximumCanvasWidth = CGFloat(maximumWidth)
+    let maximumCanvasHeight = CGFloat(maximumHeight)
+    guard maximumCanvasWidth > 0, maximumCanvasHeight > 0 else { return size }
+
+    let widthScaleFactor = maximumCanvasWidth / max(size.width, 1)
+    let heightScaleFactor = maximumCanvasHeight / max(size.height, 1)
+    let scaleFactor = min(1, widthScaleFactor, heightScaleFactor)
+    return CGSize(width: size.width * scaleFactor, height: size.height * scaleFactor)
+  }
+
+  private func clampFixedItemSizeToCanvasBounds() {
+    fixedItem.style.size = clampedSizeToCanvasBounds(fixedItem.style.size)
   }
 
   private func applyEmojiSelection(_ emojiCharacter: String) {

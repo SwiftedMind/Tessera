@@ -10,8 +10,6 @@ struct ItemCard: View {
   @State private var weightDraft: Double
   @State private var rotationDraft: ClosedRange<Double>
   @State private var scaleRangeDraft: ClosedRange<Double>
-  @State private var widthDraft: Double
-  @State private var heightDraft: Double
   @State private var lineWidthDraft: Double
   @State private var fontSizeDraft: Double
   @State private var colorDraft: Color
@@ -31,17 +29,6 @@ struct ItemCard: View {
     _weightDraft = State(initialValue: item.wrappedValue.weight)
     _rotationDraft = State(initialValue: item.wrappedValue.minimumRotation...item.wrappedValue.maximumRotation)
     _scaleRangeDraft = State(initialValue: item.wrappedValue.minimumScale...item.wrappedValue.maximumScale)
-    if item.wrappedValue.preset.capabilities.supportsTextContent {
-      let measuredSize = item.wrappedValue.preset.measuredSize(
-        for: item.wrappedValue.style,
-        options: item.wrappedValue.specificOptions,
-      )
-      _widthDraft = State(initialValue: measuredSize.width)
-      _heightDraft = State(initialValue: measuredSize.height)
-    } else {
-      _widthDraft = State(initialValue: item.wrappedValue.style.size.width)
-      _heightDraft = State(initialValue: item.wrappedValue.style.size.height)
-    }
     _lineWidthDraft = State(initialValue: item.wrappedValue.style.lineWidth)
     _fontSizeDraft = State(initialValue: item.wrappedValue.style.fontSize)
     _colorDraft = State(initialValue: item.wrappedValue.style.color)
@@ -53,14 +40,6 @@ struct ItemCard: View {
 
   private var isExpanded: Bool {
     expandedItemID == item.id
-  }
-
-  private var maximumWidth: Double {
-    max(8, Double(editor.activePatternSize.width))
-  }
-
-  private var maximumHeight: Double {
-    max(8, Double(editor.activePatternSize.height))
   }
 
   private var displayedEmoji: String {
@@ -77,10 +56,9 @@ struct ItemCard: View {
       VStack(alignment: .leading, spacing: .medium) {
         weightOption
         rotationOption
-        sizeOption
+        fontSizeOption
         colorOption
         lineWidthOption
-        fontSizeOption
         presetSpecificOption
         if item.preset.capabilities.supportsFontSize == false {
           customScaleRangeOption
@@ -106,8 +84,6 @@ struct ItemCard: View {
       scaleRangeDraft = item.minimumScale...item.maximumScale
     }
     .onChange(of: item.style) {
-      widthDraft = item.style.size.width
-      heightDraft = item.style.size.height
       lineWidthDraft = item.style.lineWidth
       fontSizeDraft = item.style.fontSize
       colorDraft = item.style.color
@@ -127,9 +103,7 @@ struct ItemCard: View {
       }
     }
     .onChange(of: editor.activePatternSize) {
-      widthDraft = min(widthDraft, Double(editor.activePatternSize.width))
-      heightDraft = min(heightDraft, Double(editor.activePatternSize.height))
-      applySizeDraft()
+      clampItemSizeToPatternBounds()
     }
     .onAppear {
       if item.preset.capabilities.supportsTextContent {
@@ -196,19 +170,6 @@ struct ItemCard: View {
     }
   }
 
-  @ViewBuilder private var sizeOption: some View {
-    if item.preset.capabilities.supportsSizeControl {
-      InspectorSizeOptionRow(
-        supportsTextContent: item.preset.capabilities.supportsTextContent,
-        widthDraft: $widthDraft,
-        heightDraft: $heightDraft,
-        maximumWidth: maximumWidth,
-        maximumHeight: maximumHeight,
-        onCommit: applySizeDraft,
-      )
-    }
-  }
-
   @ViewBuilder private var colorOption: some View {
     if item.preset.capabilities.supportsColorControl {
       InspectorColorOptionRow(
@@ -230,13 +191,8 @@ struct ItemCard: View {
   }
 
   @ViewBuilder private var fontSizeOption: some View {
-    if item.preset.capabilities.supportsFontSize {
-      InspectorFontSizeOptionRow(fontSize: $fontSizeDraft) {
-        item.style.fontSize = fontSizeDraft
-        if item.preset.capabilities.supportsTextContent {
-          refreshTextSize()
-        }
-      }
+    InspectorFontSizeOptionRow(fontSize: $fontSizeDraft) {
+      applyFontSizeDraft()
     }
   }
 
@@ -248,7 +204,7 @@ struct ItemCard: View {
     } else if item.preset.capabilities.supportsCornerRadius {
       InspectorCornerRadiusOptionRow(
         cornerRadius: $cornerRadiusDraft,
-        maximumCornerRadius: min(widthDraft, heightDraft) / 2,
+        maximumCornerRadius: min(Double(item.style.size.width), Double(item.style.size.height)) / 2,
         onCommit: { radius in
           item.specificOptions = item.specificOptions.updatingCornerRadius(radius)
         },
@@ -303,23 +259,64 @@ struct ItemCard: View {
     }
   }
 
-  private func applySizeDraft() {
-    let clampedWidth = min(widthDraft, maximumWidth)
-    let clampedHeight = min(heightDraft, maximumHeight)
-    widthDraft = clampedWidth
-    heightDraft = clampedHeight
-    item.style.size = CGSize(width: clampedWidth, height: clampedHeight)
-  }
-
   private func refreshTextSize() {
     guard item.preset.capabilities.supportsTextContent else { return }
 
     let measuredSize = item.preset.measuredSize(for: item.style, options: item.specificOptions)
     if measuredSize != item.style.size {
-      item.style.size = measuredSize
+      item.style.size = clampedSizeToPatternBounds(measuredSize)
     }
-    widthDraft = measuredSize.width
-    heightDraft = measuredSize.height
+  }
+
+  private func applyFontSizeDraft() {
+    let maximumFontSize = min(maximumItemWidth, maximumItemHeight)
+    let clampedFontSize = min(fontSizeDraft, maximumFontSize)
+    fontSizeDraft = clampedFontSize
+    item.style.fontSize = clampedFontSize
+
+    if item.preset.capabilities.supportsTextContent {
+      refreshTextSize()
+      return
+    }
+
+    let scaledSize = sizeScaledToMaximumDimension(
+      currentSize: item.style.size,
+      maximumDimension: CGFloat(clampedFontSize),
+    )
+    item.style.size = clampedSizeToPatternBounds(scaledSize)
+  }
+
+  private var maximumItemWidth: Double {
+    max(8, Double(editor.activePatternSize.width))
+  }
+
+  private var maximumItemHeight: Double {
+    max(8, Double(editor.activePatternSize.height))
+  }
+
+  private func sizeScaledToMaximumDimension(currentSize: CGSize, maximumDimension: CGFloat) -> CGSize {
+    let currentMaximumDimension = max(currentSize.width, currentSize.height)
+    guard currentMaximumDimension > 0, maximumDimension > 0 else {
+      return CGSize(width: maximumDimension, height: maximumDimension)
+    }
+
+    let scaleFactor = maximumDimension / currentMaximumDimension
+    return CGSize(width: currentSize.width * scaleFactor, height: currentSize.height * scaleFactor)
+  }
+
+  private func clampedSizeToPatternBounds(_ size: CGSize) -> CGSize {
+    let maximumWidth = CGFloat(maximumItemWidth)
+    let maximumHeight = CGFloat(maximumItemHeight)
+    guard maximumWidth > 0, maximumHeight > 0 else { return size }
+
+    let widthScaleFactor = maximumWidth / max(size.width, 1)
+    let heightScaleFactor = maximumHeight / max(size.height, 1)
+    let scaleFactor = min(1, widthScaleFactor, heightScaleFactor)
+    return CGSize(width: size.width * scaleFactor, height: size.height * scaleFactor)
+  }
+
+  private func clampItemSizeToPatternBounds() {
+    item.style.size = clampedSizeToPatternBounds(item.style.size)
   }
 
   private func applyEmojiSelection(_ emojiCharacter: String) {

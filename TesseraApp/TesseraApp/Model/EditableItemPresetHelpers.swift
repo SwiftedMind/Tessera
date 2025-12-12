@@ -49,6 +49,50 @@ enum EditableItemPresetHelpers {
     options.systemSymbolName ?? defaultSymbolName
   }
 
+  /// Builds a configured system symbol image sized via a point size.
+  ///
+  /// - Parameters:
+  ///   - symbolName: SF Symbol name.
+  ///   - pointSize: Point size used for the symbol configuration.
+  /// - Returns: A configured symbol image and its intrinsic size, or `nil` when the symbol is unavailable.
+  static func configuredSystemSymbol(named symbolName: String, pointSize: CGFloat) -> (image: Image, size: CGSize)? {
+    #if os(macOS)
+    guard let baseImage = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil) else { return nil }
+
+    let configuration = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .regular)
+    guard let configuredImage = baseImage.withSymbolConfiguration(configuration) else { return nil }
+
+    return (Image(nsImage: configuredImage), configuredImage.size)
+    #else
+    let configuration = UIImage.SymbolConfiguration(pointSize: pointSize, weight: .regular)
+    guard let configuredImage = UIImage(systemName: symbolName, withConfiguration: configuration) else { return nil }
+
+    return (Image(uiImage: configuredImage), configuredImage.size)
+    #endif
+  }
+
+  /// Measures the intrinsic size of a configured system symbol at a point size.
+  ///
+  /// - Parameters:
+  ///   - symbolName: SF Symbol name.
+  ///   - pointSize: Point size used for the symbol configuration.
+  /// - Returns: The intrinsic symbol size, falling back to a square of `pointSize` when unavailable.
+  static func measuredSystemSymbolSize(named symbolName: String, pointSize: CGFloat) -> CGSize {
+    let fallbackSize = CGSize(width: pointSize, height: pointSize)
+    guard let measuredSize = configuredSystemSymbol(named: symbolName, pointSize: pointSize)?.size else {
+      return fallbackSize
+    }
+    guard measuredSize.width.isFinite,
+          measuredSize.height.isFinite,
+          measuredSize.width > 0,
+          measuredSize.height > 0
+    else {
+      return fallbackSize
+    }
+
+    return measuredSize
+  }
+
   /// Selects the text content from preset options or a default placeholder.
   ///
   /// - Parameter options: Preset options that may include custom text content.
