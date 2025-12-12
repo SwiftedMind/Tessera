@@ -102,7 +102,7 @@ struct PatternStage: View {
         if editor.stageBackgroundColor != nil {
           ColorPicker(
             "",
-            selection: $editor.stageBackgroundColor.withDefault(.white),
+            selection: $editor.stageBackgroundColor.withDefault(.gray),
             supportsOpacity: true,
           )
           .labelsHidden()

@@ -7,6 +7,9 @@ struct FixedItemCard: View {
   @Environment(TesseraEditorModel.self) private var editor
   @Binding var fixedItem: EditableFixedItem
   @Binding var expandedFixedItemID: EditableFixedItem.ID?
+  @State private var offsetXDraft: CGFloat
+  @State private var offsetYDraft: CGFloat
+  @State private var scaleDraft: CGFloat
   @State private var widthDraft: Double
   @State private var heightDraft: Double
   @State private var lineWidthDraft: Double
@@ -25,6 +28,10 @@ struct FixedItemCard: View {
     _fixedItem = fixedItem
     _expandedFixedItemID = expandedFixedItemID
     self.onRemove = onRemove
+
+    _offsetXDraft = State(initialValue: fixedItem.wrappedValue.placementOffset.width)
+    _offsetYDraft = State(initialValue: fixedItem.wrappedValue.placementOffset.height)
+    _scaleDraft = State(initialValue: fixedItem.wrappedValue.scale)
 
     if fixedItem.wrappedValue.preset.capabilities.supportsTextContent {
       let measuredSize = fixedItem.wrappedValue.preset.measuredSize(
@@ -67,6 +74,10 @@ struct FixedItemCard: View {
     editor.canvasSize.height
   }
 
+  private var displayedEmoji: String {
+    fixedItem.specificOptions.textContent ?? textContentDraft
+  }
+
   var body: some View {
     InspectorExpandableCard(
       isExpanded: isExpanded,
@@ -95,6 +106,13 @@ struct FixedItemCard: View {
       fontSizeDraft = fixedItem.style.fontSize
       colorDraft = fixedItem.style.color
     }
+    .onChange(of: fixedItem.placementOffset) {
+      offsetXDraft = fixedItem.placementOffset.width
+      offsetYDraft = fixedItem.placementOffset.height
+    }
+    .onChange(of: fixedItem.scale) {
+      scaleDraft = fixedItem.scale
+    }
     .onChange(of: fixedItem.specificOptions) {
       if let radius = fixedItem.specificOptions.cornerRadius {
         cornerRadiusDraft = radius
@@ -104,9 +122,9 @@ struct FixedItemCard: View {
       }
       if let textContent = fixedItem.specificOptions.textContent {
         textContentDraft = textContent
-        if fixedItem.preset.capabilities.supportsTextContent {
-          refreshTextSize()
-        }
+      }
+      if fixedItem.preset.capabilities.supportsTextContent {
+        refreshTextSize()
       }
     }
     .onChange(of: editor.canvasSize) {
@@ -152,30 +170,22 @@ struct FixedItemCard: View {
   private var offsetOption: some View {
     OptionRow("Offset") {
       SystemSlider(
-        value: Binding(
-          get: { fixedItem.placementOffset.width },
-          set: { newValue in
-            fixedItem.placementOffset.width = newValue
-          },
-        ),
+        value: $offsetXDraft,
         in: -maximumOffsetX...maximumOffsetX,
         step: 1,
       )
       .compactSliderScale(visibility: .hidden)
+      .onSliderCommit(applyOffsetDraft)
 
       SystemSlider(
-        value: Binding(
-          get: { fixedItem.placementOffset.height },
-          set: { newValue in
-            fixedItem.placementOffset.height = newValue
-          },
-        ),
+        value: $offsetYDraft,
         in: -maximumOffsetY...maximumOffsetY,
         step: 1,
       )
       .compactSliderScale(visibility: .hidden)
+      .onSliderCommit(applyOffsetDraft)
     } trailing: {
-      Text("X: \(fixedItem.placementOffset.width.formatted()), Y: \(fixedItem.placementOffset.height.formatted())")
+      Text("X: \(offsetXDraft.formatted()), Y: \(offsetYDraft.formatted())")
     }
   }
 
@@ -195,13 +205,14 @@ struct FixedItemCard: View {
   private var fixedScaleOption: some View {
     OptionRow("Scale") {
       SystemSlider(
-        value: $fixedItem.scale,
-        in: 0.2...3,
-        step: 0.05,
+        value: $scaleDraft,
+        in: 1...5,
+        step: 0.1,
       )
       .compactSliderScale(visibility: .hidden)
+      .onSliderCommit(applyScaleDraft)
     } trailing: {
-      Text("\(Double(fixedItem.scale).formatted(.number.precision(.fractionLength(2))))×")
+      Text("\(Double(scaleDraft).formatted(.number.precision(.fractionLength(2))))×")
     }
   }
 
@@ -248,39 +259,34 @@ struct FixedItemCard: View {
   }
 
   @ViewBuilder private var presetSpecificOption: some View {
-    if fixedItem.preset.capabilities.supportsCornerRadius {
-      OptionRow("Corner Radius") {
-        SystemSlider(
-          value: $cornerRadiusDraft,
-          in: 0...min(widthDraft, heightDraft) / 2,
-          step: 0.5,
-        )
-        .compactSliderScale(visibility: .hidden)
-        .onSliderCommit {
-          fixedItem.specificOptions = fixedItem.specificOptions.updatingCornerRadius(cornerRadiusDraft)
-        }
-      } trailing: {
-        Text(cornerRadiusDraft.formatted(.number.precision(.fractionLength(1))))
-      }
+    if fixedItem.preset.capabilities.supportsImagePlayground {
+      InspectorImagePlaygroundOptionRow(options: $fixedItem.specificOptions)
+    } else if fixedItem.preset.capabilities.supportsCornerRadius {
+      InspectorCornerRadiusOptionRow(
+        cornerRadius: $cornerRadiusDraft,
+        maximumCornerRadius: min(widthDraft, heightDraft) / 2,
+        onCommit: { radius in
+          fixedItem.specificOptions = fixedItem.specificOptions.updatingCornerRadius(radius)
+        },
+      )
     } else if fixedItem.preset.capabilities.supportsSymbolSelection {
-      OptionRow("Symbol") {
-        Picker("Symbol", selection: $symbolNameDraft) {
-          ForEach(fixedItem.preset.availableSymbols, id: \.self) { name in
-            Label(name, systemImage: name).tag(name)
-          }
-        }
-        .labelsHidden()
-        .onChange(of: symbolNameDraft) {
-          fixedItem.specificOptions = fixedItem.specificOptions.updatingSymbolName(symbolNameDraft)
-        }
-      }
+      InspectorSymbolSelectionOptionRow(
+        availableSymbols: fixedItem.preset.availableSymbols,
+        symbolName: $symbolNameDraft,
+        onChange: { name in
+          fixedItem.specificOptions = fixedItem.specificOptions.updatingSymbolName(name)
+        },
+      )
+    } else if fixedItem.preset.capabilities.supportsEmojiPicker {
+      InspectorEmojiPickerOptionRow(
+        currentEmoji: displayedEmoji,
+        fontSize: fontSizeDraft,
+        onSelectEmojiCharacter: applyEmojiSelection,
+      )
     } else if fixedItem.preset.capabilities.supportsTextContent {
-      OptionRow("Text") {
-        OptionTextField(text: $textContentDraft)
-          .onSubmit {
-            fixedItem.specificOptions = fixedItem.specificOptions.updatingTextContent(textContentDraft)
-            refreshTextSize()
-          }
+      InspectorTextContentOptionRow(textContent: $textContentDraft) { text in
+        fixedItem.specificOptions = fixedItem.specificOptions.updatingTextContent(text)
+        refreshTextSize()
       }
     }
   }
@@ -293,6 +299,14 @@ struct FixedItemCard: View {
     fixedItem.style.size = CGSize(width: clampedWidth, height: clampedHeight)
   }
 
+  private func applyOffsetDraft() {
+    fixedItem.placementOffset = CGSize(width: offsetXDraft, height: offsetYDraft)
+  }
+
+  private func applyScaleDraft() {
+    fixedItem.scale = scaleDraft
+  }
+
   private func refreshTextSize() {
     guard fixedItem.preset.capabilities.supportsTextContent else { return }
 
@@ -302,6 +316,12 @@ struct FixedItemCard: View {
     }
     widthDraft = measuredSize.width
     heightDraft = measuredSize.height
+  }
+
+  private func applyEmojiSelection(_ emojiCharacter: String) {
+    textContentDraft = emojiCharacter
+    fixedItem.specificOptions = fixedItem.specificOptions.updatingTextContent(emojiCharacter)
+    refreshTextSize()
   }
 
   private func toggleExpansion() {
