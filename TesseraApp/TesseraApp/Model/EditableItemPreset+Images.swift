@@ -74,8 +74,8 @@ extension EditableItem.Preset {
           },
         )
       },
-      collisionShape: { style, _ in
-        .rectangle(size: style.size)
+      collisionShape: { style, options in
+        .rectangle(size: EditableItemPresetHelpers.aspectFittedImageCollisionSize(for: style, options: options))
       },
       measuredSize: { style, _ in
         style.size
@@ -138,8 +138,8 @@ extension EditableItem.Preset {
           },
         )
       },
-      collisionShape: { style, _ in
-        .rectangle(size: style.size)
+      collisionShape: { style, options in
+        .rectangle(size: EditableItemPresetHelpers.aspectFittedImageCollisionSize(for: style, options: options))
       },
       measuredSize: { style, _ in
         style.size
