@@ -2,9 +2,6 @@
 <Workspace
    version = "1.0">
    <FileRef
-      location = "group:Examples/README.md">
-   </FileRef>
-   <FileRef
       location = "group:TesseraApp/TesseraApp.xcodeproj">
    </FileRef>
    <FileRef
