@@ -15,8 +15,6 @@ struct FixedItemCard: View {
   @State private var cornerRadiusDraft: Double
   @State private var symbolNameDraft: String
   @State private var textContentDraft: String
-  @State private var nameDraft: String
-  @State private var isRenaming: Bool
   var onRemove: () -> Void
 
   init(
@@ -47,8 +45,6 @@ struct FixedItemCard: View {
     _symbolNameDraft = State(initialValue: fixedItem.wrappedValue.specificOptions.systemSymbolName ?? fixedItem
       .wrappedValue.preset.defaultSymbolName)
     _textContentDraft = State(initialValue: fixedItem.wrappedValue.specificOptions.textContent ?? "Text")
-    _nameDraft = State(initialValue: fixedItem.wrappedValue.customName ?? "")
-    _isRenaming = State(initialValue: false)
   }
 
   private var isExpanded: Bool {
@@ -72,44 +68,32 @@ struct FixedItemCard: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 0) {
+    InspectorExpandableCard(
+      isExpanded: isExpanded,
+      isDimmed: fixedItem.isVisible == false,
+    ) {
       header
-      if isExpanded {
-        VStack(alignment: .leading, spacing: .medium) {
-          placementOption
-          offsetOption
-          fixedRotationOption
-          if fixedItem.preset.capabilities.supportsFontSize == false {
-            fixedScaleOption
-          }
-          sizeOption
-          colorOption
-          lineWidthOption
-          fontSizeOption
-          presetSpecificOption
+    } expandedContent: {
+      VStack(alignment: .leading, spacing: .medium) {
+        placementOption
+        offsetOption
+        fixedRotationOption
+        if fixedItem.preset.capabilities.supportsFontSize == false {
+          fixedScaleOption
         }
-        .padding([.horizontal, .bottom], .mediumRelaxed)
-        .transition(.opacity)
+        sizeOption
+        colorOption
+        lineWidthOption
+        fontSizeOption
+        presetSpecificOption
       }
     }
-    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-    .overlay(
-      RoundedRectangle(cornerRadius: 14)
-        .strokeBorder(.white.opacity(0.2)),
-    )
-    .clipShape(RoundedRectangle(cornerRadius: 14))
-    .animation(.default, value: expandedFixedItemID)
-    .geometryGroup()
-    .opacity(fixedItem.isVisible ? 1 : 0.5)
     .onChange(of: fixedItem.style) {
       widthDraft = fixedItem.style.size.width
       heightDraft = fixedItem.style.size.height
       lineWidthDraft = fixedItem.style.lineWidth
       fontSizeDraft = fixedItem.style.fontSize
       colorDraft = fixedItem.style.color
-    }
-    .onChange(of: fixedItem.customName) {
-      nameDraft = fixedItem.customName ?? ""
     }
     .onChange(of: fixedItem.specificOptions) {
       if let radius = fixedItem.specificOptions.cornerRadius {
@@ -138,69 +122,18 @@ struct FixedItemCard: View {
   }
 
   @ViewBuilder private var header: some View {
-    Button {
-      toggleExpansion()
-    } label: {
-      HStack(alignment: .center, spacing: .medium) {
-        Image(systemName: "chevron.right")
-          .rotationEffect(.degrees(isExpanded ? 90 : 0))
-          .foregroundStyle(.secondary)
-          .animation(.default, value: isExpanded)
-        if let groupIconName = fixedItem.preset.groupIconName {
-          Image(systemName: groupIconName)
-            .foregroundStyle(.secondary)
-        }
-        Text(fixedItem.title)
-          .font(.headline)
-        renameButton
-        Spacer()
-        Button {
-          fixedItem.isVisible.toggle()
-        } label: {
-          Image(systemName: fixedItem.isVisible ? "eye" : "eye.slash")
-            .foregroundStyle(.secondary)
-        }
-        .buttonStyle(.plain)
-        Button(role: .destructive, action: onRemove) {
-          Image(systemName: "trash")
-        }
-        .buttonStyle(.plain)
-      }
-      .padding(.mediumRelaxed)
-      .contentShape(.rect)
-    }
-    .buttonStyle(.plain)
-  }
-
-  private var renameButton: some View {
-    Button {
-      beginRenaming()
-    } label: {
-      Image(systemName: "pencil")
-        .contentShape(.rect)
-    }
-    .buttonStyle(.plain)
-    .popover(isPresented: $isRenaming) {
-      VStack(alignment: .leading, spacing: .medium) {
-        Text("Rename Fixed Item")
-          .font(.headline)
-        OptionTextField(text: $nameDraft, placeholder: fixedItem.preset.title)
-          .onSubmit(commitNameChange)
-        HStack {
-          Spacer()
-          Button("Cancel") {
-            isRenaming = false
-          }
-          Button("Save") {
-            commitNameChange()
-          }
-          .buttonStyle(.borderedProminent)
-          .keyboardShortcut(.return)
-        }
-      }
-      .padding(.mediumRelaxed)
-      .frame(width: 280)
-    }
+    InspectorCardHeader(
+      title: fixedItem.title,
+      groupIconName: fixedItem.preset.groupIconName,
+      isExpanded: isExpanded,
+      onToggleExpansion: toggleExpansion,
+      customName: $fixedItem.customName,
+      renameDialogTitle: "Rename Fixed Item",
+      renamePlaceholder: fixedItem.preset.title,
+      renamePopoverWidth: 280,
+      isVisible: $fixedItem.isVisible,
+      onRemove: onRemove,
+    )
   }
 
   @ViewBuilder private var placementOption: some View {
@@ -273,93 +206,43 @@ struct FixedItemCard: View {
   }
 
   @ViewBuilder private var sizeOption: some View {
-    if fixedItem.preset.capabilities.supportsTextContent {
-      OptionRow("Size") {
-        EmptyView()
-      } trailing: {
-        Text("Auto (\(widthDraft.formatted()) × \(heightDraft.formatted()))")
-      }
-    } else {
-      OptionRow("Size") {
-        HStack(spacing: .medium) {
-          VStack(alignment: .leading, spacing: .extraSmall) {
-            Text("Width")
-              .font(.caption)
-              .foregroundStyle(.secondary)
-            SystemSlider(
-              value: $widthDraft,
-              in: 8...maximumWidth,
-              step: 1,
-            )
-            .compactSliderScale(visibility: .hidden)
-            .onSliderCommit(applySizeDraft)
-          }
-          VStack(alignment: .leading, spacing: .extraSmall) {
-            Text("Height")
-              .font(.caption)
-              .foregroundStyle(.secondary)
-            SystemSlider(
-              value: $heightDraft,
-              in: 8...maximumHeight,
-              step: 1,
-            )
-            .compactSliderScale(visibility: .hidden)
-            .onSliderCommit(applySizeDraft)
-          }
-        }
-      } trailing: {
-        Text("\(widthDraft.formatted()) × \(heightDraft.formatted())")
-      }
-    }
+    InspectorSizeOptionRow(
+      supportsTextContent: fixedItem.preset.capabilities.supportsTextContent,
+      widthDraft: $widthDraft,
+      heightDraft: $heightDraft,
+      maximumWidth: maximumWidth,
+      maximumHeight: maximumHeight,
+      onCommit: applySizeDraft,
+    )
   }
 
   @ViewBuilder private var colorOption: some View {
     if fixedItem.preset.capabilities.supportsColorControl {
-      OptionRow(fixedItem.preset.colorLabel) {
-        ColorPicker("", selection: $colorDraft, supportsOpacity: true)
-          .labelsHidden()
-          .onChange(of: colorDraft) {
-            fixedItem.style.color = colorDraft
-          }
-      }
+      InspectorColorOptionRow(
+        label: fixedItem.preset.colorLabel,
+        color: $colorDraft,
+        onChange: { color in
+          fixedItem.style.color = color
+        },
+      )
     }
   }
 
   @ViewBuilder private var lineWidthOption: some View {
     if fixedItem.preset.capabilities.supportsLineWidth {
-      OptionRow("Stroke Width") {
-        SystemSlider(
-          value: $lineWidthDraft,
-          in: 0.5...16,
-          step: 0.5,
-        )
-        .compactSliderScale(visibility: .hidden)
-        .onSliderCommit {
-          fixedItem.style.lineWidth = lineWidthDraft
-        }
-      } trailing: {
-        Text("\(lineWidthDraft.formatted(.number.precision(.fractionLength(1)))) pt")
+      InspectorStrokeWidthOptionRow(strokeWidth: $lineWidthDraft) {
+        fixedItem.style.lineWidth = lineWidthDraft
       }
     }
   }
 
   @ViewBuilder private var fontSizeOption: some View {
     if fixedItem.preset.capabilities.supportsFontSize {
-      OptionRow("Font Size") {
-        SystemSlider(
-          value: $fontSizeDraft,
-          in: 10...150,
-          step: 1,
-        )
-        .compactSliderScale(visibility: .hidden)
-        .onSliderCommit {
-          fixedItem.style.fontSize = fontSizeDraft
-          if fixedItem.preset.capabilities.supportsTextContent {
-            refreshTextSize()
-          }
+      InspectorFontSizeOptionRow(fontSize: $fontSizeDraft) {
+        fixedItem.style.fontSize = fontSizeDraft
+        if fixedItem.preset.capabilities.supportsTextContent {
+          refreshTextSize()
         }
-      } trailing: {
-        Text(fontSizeDraft.formatted(.number.precision(.fractionLength(0))))
       }
     }
   }
@@ -419,17 +302,6 @@ struct FixedItemCard: View {
     }
     widthDraft = measuredSize.width
     heightDraft = measuredSize.height
-  }
-
-  private func beginRenaming() {
-    nameDraft = fixedItem.customName ?? ""
-    isRenaming = true
-  }
-
-  private func commitNameChange() {
-    let trimmedName = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-    fixedItem.customName = trimmedName.isEmpty ? nil : trimmedName
-    isRenaming = false
   }
 
   private func toggleExpansion() {

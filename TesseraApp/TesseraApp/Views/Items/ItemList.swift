@@ -4,7 +4,7 @@ import SwiftUI
 
 struct ItemList: View {
   @Environment(TesseraEditorModel.self) private var editor
-  @State private var expandedItemID: EditableItem.ID?
+  @Binding var expandedItemID: UUID?
 
   var body: some View {
     @Bindable var editor = editor
@@ -37,6 +37,8 @@ struct ItemList: View {
           removeAllItems()
         } label: {
           Label("Remove All", systemImage: "trash")
+            .labelStyle(.iconOnly)
+            .tint(.red)
         }
         .buttonStyle(.bordered)
         .disabled(editor.tesseraItems.isEmpty)
@@ -67,9 +69,10 @@ struct ItemList: View {
 }
 
 #Preview {
+  @Previewable @State var expandedItemID: EditableItem.ID?
   @Previewable @Environment(TesseraEditorModel.self) var editor
 
-  ItemList()
+  ItemList(expandedItemID: $expandedItemID)
     .environment(editor)
     .padding(.large)
 }

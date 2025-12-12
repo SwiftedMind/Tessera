@@ -4,7 +4,7 @@ import SwiftUI
 
 struct FixedItemList: View {
   @Environment(TesseraEditorModel.self) private var editor
-  @State private var expandedFixedItemID: EditableFixedItem.ID?
+  @Binding var expandedItemID: UUID?
 
   var body: some View {
     @Bindable var editor = editor
@@ -29,7 +29,7 @@ struct FixedItemList: View {
               }
             }
           } label: {
-            Label("Add Fixed Item", systemImage: "plus")
+            Label("Add Item", systemImage: "plus")
           }
           .buttonStyle(.bordered)
         }
@@ -37,6 +37,7 @@ struct FixedItemList: View {
           removeAllFixedItems()
         } label: {
           Label("Remove All", systemImage: "trash")
+            .labelStyle(.iconOnly)
         }
         .buttonStyle(.bordered)
         .disabled(editor.fixedItems.isEmpty)
@@ -46,13 +47,13 @@ struct FixedItemList: View {
         ForEach($editor.fixedItems) { $fixedItem in
           FixedItemCard(
             fixedItem: $fixedItem,
-            expandedFixedItemID: $expandedFixedItemID,
+            expandedFixedItemID: $expandedItemID,
           ) {
             remove(fixedItem)
           }
         }
       }
-      .animation(.default, value: expandedFixedItemID)
+      .animation(.default, value: expandedItemID)
       .animation(.default, value: editor.fixedItems)
     }
   }
@@ -65,14 +66,15 @@ struct FixedItemList: View {
     guard editor.fixedItems.isEmpty == false else { return }
 
     editor.fixedItems.removeAll()
-    expandedFixedItemID = nil
+    expandedItemID = nil
   }
 }
 
 #Preview {
+  @Previewable @State var expandedFixedItemID: EditableFixedItem.ID?
   @Previewable @Environment(TesseraEditorModel.self) var editor
 
-  FixedItemList()
+  FixedItemList(expandedItemID: $expandedFixedItemID)
     .environment(editor)
     .padding(.large)
 }
