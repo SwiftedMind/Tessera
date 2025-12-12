@@ -49,7 +49,7 @@ struct RandomTemplateBuilder {
     palette: ColorPalette,
   ) -> EditableItem {
     let symbolPreset = EditableItem.Preset.symbol
-    let symbolName = randomElement(symbolPreset.availableSymbols, using: &randomGenerator)
+    let symbolName = randomElement(EditableItemPresetHelpers.suggestedSystemSymbolNames, using: &randomGenerator)
 
     let sizeValue = randomCGFloat(in: 32.0...52.0, using: &randomGenerator)
     let weightValue = randomDouble(in: 0.9...1.25, using: &randomGenerator)

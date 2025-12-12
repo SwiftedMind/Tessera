@@ -33,8 +33,10 @@ struct ItemCard: View {
     _fontSizeDraft = State(initialValue: item.wrappedValue.style.fontSize)
     _colorDraft = State(initialValue: item.wrappedValue.style.color)
     _cornerRadiusDraft = State(initialValue: item.wrappedValue.specificOptions.cornerRadius ?? 6)
-    _symbolNameDraft = State(initialValue: item.wrappedValue.specificOptions.systemSymbolName ?? item.wrappedValue
-      .preset.defaultSymbolName)
+    _symbolNameDraft = State(
+      initialValue: item.wrappedValue.specificOptions.systemSymbolName ?? EditableItemPresetHelpers
+        .fallbackSystemSymbolName,
+    )
     _textContentDraft = State(initialValue: item.wrappedValue.specificOptions.textContent ?? "Text")
   }
 
@@ -211,7 +213,6 @@ struct ItemCard: View {
       )
     } else if item.preset.capabilities.supportsSymbolSelection {
       InspectorSymbolSelectionOptionRow(
-        availableSymbols: item.preset.availableSymbols,
         symbolName: $symbolNameDraft,
         onChange: { name in
           item.specificOptions = item.specificOptions.updatingSymbolName(name)

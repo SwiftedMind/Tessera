@@ -52,8 +52,6 @@ extension EditableItem.Preset {
         supportsSymbolSelection: false,
         supportsTextContent: false,
       ),
-      availableSymbols: [],
-      defaultSymbolName: "questionmark",
       render: { style, _ in
         AnyView(
           Rectangle()
@@ -92,8 +90,6 @@ extension EditableItem.Preset {
         supportsSymbolSelection: false,
         supportsTextContent: false,
       ),
-      availableSymbols: [],
-      defaultSymbolName: "questionmark",
       render: { style, options in
         AnyView(
           RoundedRectangle(cornerRadius: EditableItemPresetHelpers.cornerRadius(from: options, fallback: 6))
@@ -132,8 +128,6 @@ extension EditableItem.Preset {
         supportsSymbolSelection: false,
         supportsTextContent: false,
       ),
-      availableSymbols: [],
-      defaultSymbolName: "questionmark",
       render: { style, _ in
         AnyView(
           Circle()
@@ -172,8 +166,6 @@ extension EditableItem.Preset {
         supportsSymbolSelection: false,
         supportsTextContent: false,
       ),
-      availableSymbols: [],
-      defaultSymbolName: "questionmark",
       render: { style, _ in
         AnyView(
           Circle()
@@ -211,8 +203,6 @@ extension EditableItem.Preset {
         supportsSymbolSelection: false,
         supportsTextContent: false,
       ),
-      availableSymbols: [],
-      defaultSymbolName: "questionmark",
       render: { style, _ in
         AnyView(
           RegularPolygonShape(sideCount: 6)
@@ -250,8 +240,6 @@ extension EditableItem.Preset {
         supportsSymbolSelection: false,
         supportsTextContent: false,
       ),
-      availableSymbols: [],
-      defaultSymbolName: "questionmark",
       render: { style, _ in
         AnyView(
           ChevronShape()
@@ -289,8 +277,6 @@ extension EditableItem.Preset {
         supportsSymbolSelection: false,
         supportsTextContent: false,
       ),
-      availableSymbols: [],
-      defaultSymbolName: "questionmark",
       render: { style, _ in
         AnyView(
           ArcShape()
@@ -328,8 +314,6 @@ extension EditableItem.Preset {
         supportsSymbolSelection: false,
         supportsTextContent: false,
       ),
-      availableSymbols: [],
-      defaultSymbolName: "questionmark",
       render: { style, _ in
         AnyView(
           SpiralShape(turns: 2.2, pointCount: 140)
@@ -367,8 +351,6 @@ extension EditableItem.Preset {
         supportsSymbolSelection: false,
         supportsTextContent: false,
       ),
-      availableSymbols: [],
-      defaultSymbolName: "questionmark",
       render: { style, _ in
         AnyView(
           CrossShape()
@@ -406,8 +388,6 @@ extension EditableItem.Preset {
         supportsSymbolSelection: false,
         supportsTextContent: false,
       ),
-      availableSymbols: [],
-      defaultSymbolName: "questionmark",
       render: { style, _ in
         AnyView(
           WavyLineShape(amplitude: style.size.height / 3, waveCount: 3)
@@ -445,8 +425,6 @@ extension EditableItem.Preset {
         supportsSymbolSelection: false,
         supportsTextContent: false,
       ),
-      availableSymbols: [],
-      defaultSymbolName: "questionmark",
       render: { style, _ in
         AnyView(
           ZigZagLineShape(segmentCount: 7)
@@ -484,8 +462,6 @@ extension EditableItem.Preset {
         supportsSymbolSelection: false,
         supportsTextContent: false,
       ),
-      availableSymbols: [],
-      defaultSymbolName: "questionmark",
       render: { style, _ in
         AnyView(
           StarShape(points: 7, innerRadiusRatio: 0.48)
@@ -523,8 +499,6 @@ extension EditableItem.Preset {
         supportsSymbolSelection: false,
         supportsTextContent: false,
       ),
-      availableSymbols: [],
-      defaultSymbolName: "questionmark",
       render: { style, _ in
         AnyView(
           DiamondShape()
@@ -562,8 +536,6 @@ extension EditableItem.Preset {
         supportsSymbolSelection: false,
         supportsTextContent: false,
       ),
-      availableSymbols: [],
-      defaultSymbolName: "questionmark",
       render: { style, _ in
         AnyView(
           TriangleDotsShape()
@@ -601,8 +573,6 @@ extension EditableItem.Preset {
         supportsSymbolSelection: false,
         supportsTextContent: false,
       ),
-      availableSymbols: [],
-      defaultSymbolName: "questionmark",
       render: { style, _ in
         AnyView(
           OrbitDotsShape()

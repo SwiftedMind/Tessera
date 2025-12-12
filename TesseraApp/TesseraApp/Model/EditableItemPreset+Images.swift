@@ -44,8 +44,6 @@ extension EditableItem.Preset {
         supportsImagePlayground: false,
         supportsUploadedImage: true,
       ),
-      availableSymbols: [],
-      defaultSymbolName: "photo.on.rectangle",
       render: { style, options in
         let image = EditableItemPresetHelpers.uploadedImage(from: options)
         return AnyView(
@@ -108,8 +106,6 @@ extension EditableItem.Preset {
         supportsImagePlayground: true,
         supportsUploadedImage: false,
       ),
-      availableSymbols: [],
-      defaultSymbolName: "photo.on.rectangle",
       render: { style, options in
         let image = EditableItemPresetHelpers.playgroundImage(from: options)
         return AnyView(

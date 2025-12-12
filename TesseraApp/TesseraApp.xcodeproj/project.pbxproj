@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		4E31166D2EEAF2BF00055367 /* EmojiKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4E31166C2EEAF2BF00055367 /* EmojiKit */; };
-		4E44AE972EEC8AE0000C02BA /* SFSymbolsPicker in Frameworks */ = {isa = PBXBuildFile; productRef = 4E44AE962EEC8AE0000C02BA /* SFSymbolsPicker */; };
+		4E44AE9A2EEC9244000C02BA /* SymbolPicker in Frameworks */ = {isa = PBXBuildFile; productRef = 4E44AE992EEC9244000C02BA /* SymbolPicker */; };
 		4E4853382EE93BF6003BC882 /* CompactSlider in Frameworks */ = {isa = PBXBuildFile; productRef = 4E4853372EE93BF6003BC882 /* CompactSlider */; };
 		4EBD42D42EE865D50092368C /* Tessera in Frameworks */ = {isa = PBXBuildFile; productRef = 4EBD42D32EE865D50092368C /* Tessera */; };
 /* End PBXBuildFile section */
@@ -64,7 +64,7 @@
 				4E31166D2EEAF2BF00055367 /* EmojiKit in Frameworks */,
 				4EBD42D42EE865D50092368C /* Tessera in Frameworks */,
 				4E4853382EE93BF6003BC882 /* CompactSlider in Frameworks */,
-				4E44AE972EEC8AE0000C02BA /* SFSymbolsPicker in Frameworks */,
+				4E44AE9A2EEC9244000C02BA /* SymbolPicker in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -121,7 +121,7 @@
 				4EBD42D32EE865D50092368C /* Tessera */,
 				4E4853372EE93BF6003BC882 /* CompactSlider */,
 				4E31166C2EEAF2BF00055367 /* EmojiKit */,
-				4E44AE962EEC8AE0000C02BA /* SFSymbolsPicker */,
+				4E44AE992EEC9244000C02BA /* SymbolPicker */,
 			);
 			productName = TesseraApp;
 			productReference = 4E2C93E72EE761A700984B85 /* TesseraApp.app */;
@@ -181,7 +181,7 @@
 			packageReferences = (
 				4E4853362EE93BF6003BC882 /* XCRemoteSwiftPackageReference "CompactSlider" */,
 				4E31166B2EEAF2BF00055367 /* XCRemoteSwiftPackageReference "EmojiKit" */,
-				4E44AE952EEC8AE0000C02BA /* XCRemoteSwiftPackageReference "SFSymbolsPickerForSwiftUI" */,
+				4E44AE982EEC9244000C02BA /* XCRemoteSwiftPackageReference "SymbolPicker" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4E2C93E82EE761A700984B85 /* Products */;
@@ -528,12 +528,12 @@
 				minimumVersion = 2.2.1;
 			};
 		};
-		4E44AE952EEC8AE0000C02BA /* XCRemoteSwiftPackageReference "SFSymbolsPickerForSwiftUI" */ = {
+		4E44AE982EEC9244000C02BA /* XCRemoteSwiftPackageReference "SymbolPicker" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/alessiorubicini/SFSymbolsPickerForSwiftUI";
+			repositoryURL = "https://github.com/xnth97/SymbolPicker";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 1.0.9;
+				minimumVersion = 1.6.2;
 			};
 		};
 		4E4853362EE93BF6003BC882 /* XCRemoteSwiftPackageReference "CompactSlider" */ = {
@@ -552,10 +552,10 @@
 			package = 4E31166B2EEAF2BF00055367 /* XCRemoteSwiftPackageReference "EmojiKit" */;
 			productName = EmojiKit;
 		};
-		4E44AE962EEC8AE0000C02BA /* SFSymbolsPicker */ = {
+		4E44AE992EEC9244000C02BA /* SymbolPicker */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 4E44AE952EEC8AE0000C02BA /* XCRemoteSwiftPackageReference "SFSymbolsPickerForSwiftUI" */;
-			productName = SFSymbolsPicker;
+			package = 4E44AE982EEC9244000C02BA /* XCRemoteSwiftPackageReference "SymbolPicker" */;
+			productName = SymbolPicker;
 		};
 		4E4853372EE93BF6003BC882 /* CompactSlider */ = {
 			isa = XCSwiftPackageProductDependency;

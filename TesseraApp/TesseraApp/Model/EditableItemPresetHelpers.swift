@@ -10,6 +10,36 @@ import UIKit
 #endif
 
 enum EditableItemPresetHelpers {
+  /// Fallback SF Symbol name used when no symbol is configured.
+  static let fallbackSystemSymbolName: String = "questionmark"
+
+  /// Curated SF Symbol names used for suggestions and random templates.
+  static let suggestedSystemSymbolNames: [String] = [
+    "sparkles",
+    "party.popper.fill",
+    "wand.and.stars",
+    "sun.max.fill",
+    "moon.stars.fill",
+    "heart.fill",
+    "star.fill",
+    "bolt.fill",
+    "leaf.fill",
+    "drop.fill",
+    "flame.fill",
+    "cloud.sun.fill",
+    "snowflake",
+    "wind",
+    "wave.3.right",
+    "circle.grid.cross.fill",
+    "circle.hexagongrid.fill",
+    "scribble",
+    "paperplane.fill",
+    "music.note",
+    "camera.fill",
+    "photo.on.rectangle",
+    fallbackSystemSymbolName,
+  ]
+
   /// Expands a rectangle's collision shape to account for stroke width.
   ///
   /// - Parameter style: Style providing the base size and stroke width.
@@ -39,14 +69,12 @@ enum EditableItemPresetHelpers {
     options.cornerRadius ?? fallback
   }
 
-  /// Selects the system symbol name from preset options or a default.
+  /// Selects the system symbol name from preset options or a fallback.
   ///
-  /// - Parameters:
-  ///   - options: Preset options that may include a system symbol name.
-  ///   - defaultSymbolName: Fallback symbol when none is provided.
+  /// - Parameter options: Preset options that may include a system symbol name.
   /// - Returns: The symbol name to render.
-  static func symbolName(from options: PresetSpecificOptions, defaultSymbolName: String) -> String {
-    options.systemSymbolName ?? defaultSymbolName
+  static func systemSymbolName(from options: PresetSpecificOptions) -> String {
+    options.systemSymbolName ?? fallbackSystemSymbolName
   }
 
   /// Builds a configured system symbol image sized via a point size.

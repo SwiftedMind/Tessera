@@ -40,18 +40,8 @@ extension EditableItem.Preset {
         supportsSymbolSelection: true,
         supportsTextContent: false,
       ),
-      availableSymbols: [
-        defaultSymbolName,
-        "party.popper.fill",
-        "wand.and.stars",
-        "sun.max.fill",
-        "moon.stars.fill",
-        "heart.fill",
-        "burst.fill",
-      ],
-      defaultSymbolName: defaultSymbolName,
       render: { style, options in
-        let symbolName = EditableItemPresetHelpers.symbolName(from: options, defaultSymbolName: defaultSymbolName)
+        let symbolName = EditableItemPresetHelpers.systemSymbolName(from: options)
         return AnyView(
           Group {
             if let configuredSymbol = EditableItemPresetHelpers.configuredSystemSymbol(
@@ -69,7 +59,7 @@ extension EditableItem.Preset {
         )
       },
       collisionShape: { style, options in
-        let symbolName = EditableItemPresetHelpers.symbolName(from: options, defaultSymbolName: defaultSymbolName)
+        let symbolName = EditableItemPresetHelpers.systemSymbolName(from: options)
         let symbolSize = EditableItemPresetHelpers.measuredSystemSymbolSize(
           named: symbolName,
           pointSize: style.fontSize,
@@ -77,7 +67,7 @@ extension EditableItem.Preset {
         return .rectangle(size: symbolSize)
       },
       measuredSize: { style, options in
-        let symbolName = EditableItemPresetHelpers.symbolName(from: options, defaultSymbolName: defaultSymbolName)
+        let symbolName = EditableItemPresetHelpers.systemSymbolName(from: options)
         return EditableItemPresetHelpers.measuredSystemSymbolSize(named: symbolName, pointSize: style.fontSize)
       },
     )

@@ -5,6 +5,7 @@ import EmojiKit
 import Foundation
 import ImagePlayground
 import SwiftUI
+import SymbolPicker
 import UniformTypeIdentifiers
 
 struct InspectorSizeOptionRow: View {
@@ -134,21 +135,34 @@ struct InspectorCornerRadiusOptionRow: View {
 }
 
 struct InspectorSymbolSelectionOptionRow: View {
-  var availableSymbols: [String]
   @Binding var symbolName: String
   var onChange: (String) -> Void
+  @State private var isPresented: Bool = false
 
   var body: some View {
     OptionRow("Symbol") {
-      Picker("Symbol", selection: $symbolName) {
-        ForEach(availableSymbols, id: \.self) { name in
-          Label(name, systemImage: name).tag(name)
+      Button {
+        isPresented = true
+      } label: {
+        HStack(spacing: .small) {
+          Image(systemName: symbolName)
+          Text(symbolName)
+            .lineLimit(1)
+          Image(systemName: "chevron.down")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
         }
+        .padding(.horizontal, .small)
+        .padding(.vertical, .extraSmall)
       }
-      .labelsHidden()
-      .onChange(of: symbolName) {
-        onChange(symbolName)
+      .buttonStyle(.bordered)
+      .popover(isPresented: $isPresented) {
+        SymbolPicker(symbol: $symbolName)
       }
+    }
+    .onChange(of: symbolName) {
+      onChange(symbolName)
+      isPresented = false
     }
   }
 }

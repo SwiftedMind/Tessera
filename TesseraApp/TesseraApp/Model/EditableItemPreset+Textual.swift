@@ -40,8 +40,6 @@ extension EditableItem.Preset {
         supportsSymbolSelection: false,
         supportsTextContent: true,
       ),
-      availableSymbols: [],
-      defaultSymbolName: "questionmark",
       render: { style, options in
         AnyView(
           Text(EditableItemPresetHelpers.textContent(from: options))
@@ -82,8 +80,6 @@ extension EditableItem.Preset {
         supportsColorControl: false,
         supportsEmojiPicker: true,
       ),
-      availableSymbols: [],
-      defaultSymbolName: "questionmark",
       render: { style, options in
         AnyView(
           Text(EditableItemPresetHelpers.textContent(from: options))

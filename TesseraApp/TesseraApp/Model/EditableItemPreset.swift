@@ -12,8 +12,6 @@ extension EditableItem {
     var defaultStyle: ItemStyle
     var defaultSpecificOptions: PresetSpecificOptions
     var capabilities: PresetCapabilities
-    var availableSymbols: [String]
-    var defaultSymbolName: String
     var render: (ItemStyle, PresetSpecificOptions) -> AnyView
     var collisionShape: (ItemStyle, PresetSpecificOptions) -> CollisionShape
     var measuredSize: (ItemStyle, PresetSpecificOptions) -> CGSize

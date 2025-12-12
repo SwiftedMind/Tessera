@@ -51,14 +51,16 @@ struct InspectorCardHeader: View {
           Image(systemName: groupIconName)
             .foregroundStyle(.secondary)
         }
-        Text(title)
-          .font(.headline)
-        RenamePopoverButton(
-          customName: customName,
-          dialogTitle: renameDialogTitle,
-          placeholder: renamePlaceholder,
-          popoverWidth: renamePopoverWidth,
-        )
+        HStack(spacing: .extraSmall) {
+          Text(title)
+            .font(.headline)
+          RenamePopoverButton(
+            customName: customName,
+            dialogTitle: renameDialogTitle,
+            placeholder: renamePlaceholder,
+            popoverWidth: renamePopoverWidth,
+          )
+        }
         Spacer()
         Button {
           isVisible.wrappedValue.toggle()
