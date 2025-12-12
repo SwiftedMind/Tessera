@@ -54,7 +54,7 @@ struct PatternControls: View {
   }
 
   private func customizationToggleRow() -> some View {
-    OptionRow("Pattern Customization") {
+    OptionRow("Tile Customization") {
       EmptyView()
     } trailing: {
       Toggle(isOn: $isCustomizationEnabled) {
@@ -261,7 +261,7 @@ private extension PatternControls {
   }
 
   var availableTileSizes: [CGFloat] {
-    [16, 32, 64, 128, 256, 512, 1024]
+    [128, 256, 512, 1024]
   }
 
   enum FormattedText {

@@ -13,15 +13,15 @@ public enum CollisionShape: Sendable, Hashable {
 }
 
 /// A lightweight transform describing where and how a shape is placed.
-public struct CollisionTransform: Sendable {
+struct CollisionTransform: Sendable {
   /// Position in tile space.
-  public var position: CGPoint
+  var position: CGPoint
   /// Rotation in radians.
-  public var rotation: CGFloat
+  var rotation: CGFloat
   /// Uniform scale factor.
-  public var scale: CGFloat
+  var scale: CGFloat
 
-  public init(position: CGPoint, rotation: CGFloat, scale: CGFloat) {
+  init(position: CGPoint, rotation: CGFloat, scale: CGFloat) {
     self.position = position
     self.rotation = rotation
     self.scale = scale

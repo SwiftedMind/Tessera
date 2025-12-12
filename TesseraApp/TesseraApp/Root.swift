@@ -8,7 +8,7 @@ import UniformTypeIdentifiers
 struct Root: View {
   @Binding var document: TesseraDocument
   @State private var editor: TesseraEditorModel
-  @State private var repeatPattern: Bool = true
+  @State private var isTiledCanvasEnabled: Bool = true
   @State private var showInspector: Bool = true
   @State private var exportFormat: ExportFormat = .png
   @State private var isExportPresented: Bool = false
@@ -24,7 +24,7 @@ struct Root: View {
       PatternStage(
         configuration: editor.liveConfiguration,
         tileSize: editor.tesseraSize,
-        repeatPattern: $repeatPattern,
+        isTiledCanvasEnabled: $isTiledCanvasEnabled,
       )
       .backgroundExtensionEffect()
       .toolbar { toolbarContent }

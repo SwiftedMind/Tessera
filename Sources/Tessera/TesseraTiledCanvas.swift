@@ -2,13 +2,13 @@
 
 import SwiftUI
 
-/// A view that repeats a tessera tile to fill the available space.
-public struct TesseraPattern: View {
+/// A view that repeats a tessera tile to fill the available space by tiling a single generated tile.
+public struct TesseraTiledCanvas: View {
   public var configuration: TesseraConfiguration
   public var tileSize: CGSize
   public var seed: UInt64
 
-  /// Creates a tessera pattern view.
+  /// Creates a tiled tessera canvas view.
   /// - Parameters:
   ///   - configuration: The tessera configuration to render.
   ///   - tileSize: Size of the tile that will be repeated.

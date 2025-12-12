@@ -8,7 +8,7 @@ struct PatternStage: View {
 
   var configuration: TesseraConfiguration
   var tileSize: CGSize
-  @Binding var repeatPattern: Bool
+  @Binding var isTiledCanvasEnabled: Bool
 
   var body: some View {
     ZStack {
@@ -24,7 +24,7 @@ struct PatternStage: View {
         .padding(.horizontal, .large)
         .padding(.top, .medium)
     }
-    .animation(.smooth(duration: 0.28), value: repeatPattern)
+    .animation(.smooth(duration: 0.28), value: isTiledCanvasEnabled)
     .animation(.smooth(duration: 0.28), value: configuration.items.count)
   }
 
@@ -42,8 +42,8 @@ struct PatternStage: View {
           .padding(.horizontal, .large)
           .transition(.opacity.combined(with: .scale(1.2)))
       }
-    } else if repeatPattern {
-      TesseraPattern(configuration, tileSize: tileSize)
+    } else if isTiledCanvasEnabled {
+      TesseraTiledCanvas(configuration, tileSize: tileSize)
         .transition(.opacity)
     } else {
       TesseraTile(configuration, tileSize: tileSize)
@@ -58,10 +58,11 @@ struct PatternStage: View {
     @Bindable var editor = editor
 
     HStack(spacing: .extraLarge) {
-      Toggle(isOn: $repeatPattern) {
-        Label("Repeat", systemImage: "square.grid.3x3.fill")
+      Toggle(isOn: $isTiledCanvasEnabled) {
+        Label("Tiled Canvas", systemImage: "square.grid.3x3.fill")
       }
       .toggleStyle(.switch)
+      .help("Fill the stage by tiling the tile.")
 
       HStack(spacing: .medium) {
         Toggle(isOn: stageBackgroundEnabled) {
@@ -96,7 +97,7 @@ struct PatternStage: View {
       }
     } description: {
       VStack(spacing: .medium) {
-        Text("Add shapes, text, emojis and more to see your pattern come to life.")
+        Text("Add shapes, text, emojis and more to see your tiled canvas come to life.")
         Menu {
           ForEach(EditableItemTemplate.allTemplates) { template in
             Button {
@@ -179,7 +180,7 @@ private extension Binding where Value == Color? {
       baseScaleRange: 0.5...1.2,
     ),
     tileSize: CGSize(width: 256, height: 256),
-    repeatPattern: .constant(true),
+    isTiledCanvasEnabled: .constant(true),
   )
   .frame(width: 360, height: 360)
 }

@@ -9,8 +9,8 @@ enum ShapePlacementEngine {
   static func placeItems(
     in size: CGSize,
     configuration: TesseraConfiguration,
-    fixedPlacements: [TesseraFixedPlacement] = [],
-    edgeBehavior: TesseraCanvasEdgeBehavior = .seamlessWrapping,
+    fixedItems: [TesseraFixedItem] = [],
+    edgeBehavior: TesseraEdgeBehavior = .seamlessWrapping,
     randomGenerator: inout some RandomNumberGenerator,
   ) -> [PlacedItem] {
     guard !configuration.items.isEmpty else { return [] }
@@ -27,20 +27,20 @@ enum ShapePlacementEngine {
       )
     }
 
-    let fixedPlacementDescriptors = fixedPlacements.map { placement in
-      FixedPlacementDescriptor(
-        id: placement.id,
-        position: placement.resolvedPosition(in: size),
-        rotationRadians: placement.rotation.radians,
-        scale: placement.scale,
-        collisionShape: placement.collisionShape,
+    let fixedItemDescriptors = fixedItems.map { fixedItem in
+      FixedItemDescriptor(
+        id: fixedItem.id,
+        position: fixedItem.resolvedPosition(in: size),
+        rotationRadians: fixedItem.rotation.radians,
+        scale: fixedItem.scale,
+        collisionShape: fixedItem.collisionShape,
       )
     }
 
     let placedDescriptors = placeItemDescriptors(
       in: size,
       itemDescriptors: itemDescriptors,
-      fixedPlacementDescriptors: fixedPlacementDescriptors,
+      fixedItemDescriptors: fixedItemDescriptors,
       edgeBehavior: edgeBehavior,
       minimumSpacing: configuration.minimumSpacing,
       density: configuration.density,
@@ -70,8 +70,8 @@ enum ShapePlacementEngine {
   static func placeItemDescriptors(
     in size: CGSize,
     itemDescriptors: [PlacementItemDescriptor],
-    fixedPlacementDescriptors: [FixedPlacementDescriptor] = [],
-    edgeBehavior: TesseraCanvasEdgeBehavior = .seamlessWrapping,
+    fixedItemDescriptors: [FixedItemDescriptor] = [],
+    edgeBehavior: TesseraEdgeBehavior = .seamlessWrapping,
     minimumSpacing: Double,
     density: Double,
     maximumItemCount: Int,
@@ -87,7 +87,7 @@ enum ShapePlacementEngine {
     let estimatedCount = Int(tileArea / approximateItemArea * clampedDensity)
     let maximumCount = max(0, maximumItemCount)
     let targetCount = min(max(0, estimatedCount), maximumCount)
-    let remainingTargetCount = min(max(0, targetCount - fixedPlacementDescriptors.count), maximumCount)
+    let remainingTargetCount = min(max(0, targetCount - fixedItemDescriptors.count), maximumCount)
 
     // Wrap offsets cover the 3×3 lattice to maintain seamless wrapping collisions.
     let wrapOffsets: [CGPoint] = switch edgeBehavior {
@@ -107,24 +107,24 @@ enum ShapePlacementEngine {
       ]
     }
 
-    let fixedColliders: [PlacedCollider] = fixedPlacementDescriptors.map { placement in
+    let fixedColliders: [PlacedCollider] = fixedItemDescriptors.map { fixedItem in
       PlacedCollider(
-        collisionShape: placement.collisionShape,
+        collisionShape: fixedItem.collisionShape,
         collisionTransform: CollisionTransform(
-          position: placement.position,
-          rotation: CGFloat(placement.rotationRadians),
-          scale: placement.scale,
+          position: fixedItem.position,
+          rotation: CGFloat(fixedItem.rotationRadians),
+          scale: fixedItem.scale,
         ),
-        polygon: CollisionMath.polygonPoints(for: placement.collisionShape),
+        polygon: CollisionMath.polygonPoints(for: fixedItem.collisionShape),
       )
     }
 
     let maximumGeneratedBoundingRadius = maximumBoundingRadius(
       for: itemDescriptors,
     )
-    let maximumFixedBoundingRadius = fixedPlacementDescriptors
-      .map { placement in
-        placement.collisionShape.boundingRadius(atScale: placement.scale)
+    let maximumFixedBoundingRadius = fixedItemDescriptors
+      .map { fixedItem in
+        fixedItem.collisionShape.boundingRadius(atScale: fixedItem.scale)
       }
       .max() ?? 0
     let maximumBoundingRadius = max(maximumGeneratedBoundingRadius, maximumFixedBoundingRadius)
@@ -254,7 +254,7 @@ enum ShapePlacementEngine {
     var collisionShape: CollisionShape
   }
 
-  struct FixedPlacementDescriptor: Sendable {
+  struct FixedItemDescriptor: Sendable {
     var id: UUID
     var position: CGPoint
     var rotationRadians: Double
@@ -306,7 +306,7 @@ enum ShapePlacementEngine {
     cellSize: CGFloat,
     gridColumnCount: Int,
     gridRowCount: Int,
-    edgeBehavior: TesseraCanvasEdgeBehavior,
+    edgeBehavior: TesseraEdgeBehavior,
   ) -> CellCoordinate {
     let rawColumn = Int(floor(position.x / cellSize))
     let rawRow = Int(floor(position.y / cellSize))
@@ -329,7 +329,7 @@ enum ShapePlacementEngine {
     around coordinate: CellCoordinate,
     gridColumnCount: Int,
     gridRowCount: Int,
-    edgeBehavior: TesseraCanvasEdgeBehavior,
+    edgeBehavior: TesseraEdgeBehavior,
   ) -> [CellCoordinate] {
     var coordinates: [CellCoordinate] = []
     coordinates.reserveCapacity(9)
