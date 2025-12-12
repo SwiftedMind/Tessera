@@ -20,19 +20,11 @@
 			remoteGlobalIDString = 4E2C93E62EE761A700984B85;
 			remoteInfo = TesseraApp;
 		};
-		4E2C93FF2EE761A900984B85 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4E2C93DF2EE761A700984B85 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 4E2C93E62EE761A700984B85;
-			remoteInfo = TesseraApp;
-		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		4E2C93E72EE761A700984B85 /* TesseraApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TesseraApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4E2C93F42EE761A900984B85 /* TesseraAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TesseraAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		4E2C93FE2EE761A900984B85 /* TesseraAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TesseraAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4E4853662EE9E8E4003BC882 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
 		4E48536C2EEA134D003BC882 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -61,11 +53,6 @@
 			path = TesseraAppTests;
 			sourceTree = "<group>";
 		};
-		4E2C94012EE761A900984B85 /* TesseraAppUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = TesseraAppUITests;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -86,13 +73,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		4E2C93FB2EE761A900984B85 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -103,7 +83,6 @@
 				4E4853662EE9E8E4003BC882 /* AGENTS.md */,
 				4E2C93E92EE761A700984B85 /* TesseraApp */,
 				4E2C93F72EE761A900984B85 /* TesseraAppTests */,
-				4E2C94012EE761A900984B85 /* TesseraAppUITests */,
 				4E2C93E82EE761A700984B85 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -113,7 +92,6 @@
 			children = (
 				4E2C93E72EE761A700984B85 /* TesseraApp.app */,
 				4E2C93F42EE761A900984B85 /* TesseraAppTests.xctest */,
-				4E2C93FE2EE761A900984B85 /* TesseraAppUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -169,29 +147,6 @@
 			productReference = 4E2C93F42EE761A900984B85 /* TesseraAppTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		4E2C93FD2EE761A900984B85 /* TesseraAppUITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 4E2C940E2EE761A900984B85 /* Build configuration list for PBXNativeTarget "TesseraAppUITests" */;
-			buildPhases = (
-				4E2C93FA2EE761A900984B85 /* Sources */,
-				4E2C93FB2EE761A900984B85 /* Frameworks */,
-				4E2C93FC2EE761A900984B85 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				4E2C94002EE761A900984B85 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				4E2C94012EE761A900984B85 /* TesseraAppUITests */,
-			);
-			name = TesseraAppUITests;
-			packageProductDependencies = (
-			);
-			productName = TesseraAppUITests;
-			productReference = 4E2C93FE2EE761A900984B85 /* TesseraAppUITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -206,10 +161,6 @@
 						CreatedOnToolsVersion = 26.2;
 					};
 					4E2C93F32EE761A900984B85 = {
-						CreatedOnToolsVersion = 26.2;
-						TestTargetID = 4E2C93E62EE761A700984B85;
-					};
-					4E2C93FD2EE761A900984B85 = {
 						CreatedOnToolsVersion = 26.2;
 						TestTargetID = 4E2C93E62EE761A700984B85;
 					};
@@ -235,7 +186,6 @@
 			targets = (
 				4E2C93E62EE761A700984B85 /* TesseraApp */,
 				4E2C93F32EE761A900984B85 /* TesseraAppTests */,
-				4E2C93FD2EE761A900984B85 /* TesseraAppUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -249,13 +199,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		4E2C93F22EE761A900984B85 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		4E2C93FC2EE761A900984B85 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -279,13 +222,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		4E2C93FA2EE761A900984B85 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -293,11 +229,6 @@
 			isa = PBXTargetDependency;
 			target = 4E2C93E62EE761A700984B85 /* TesseraApp */;
 			targetProxy = 4E2C93F52EE761A900984B85 /* PBXContainerItemProxy */;
-		};
-		4E2C94002EE761A900984B85 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 4E2C93E62EE761A700984B85 /* TesseraApp */;
-			targetProxy = 4E2C93FF2EE761A900984B85 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -552,44 +483,6 @@
 			};
 			name = Release;
 		};
-		4E2C940F2EE761A900984B85 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 7F6BJZY5B3;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.swiftedmind.TesseraAppUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = TesseraApp;
-			};
-			name = Debug;
-		};
-		4E2C94102EE761A900984B85 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 7F6BJZY5B3;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.swiftedmind.TesseraAppUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = TesseraApp;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -616,15 +509,6 @@
 			buildConfigurations = (
 				4E2C940C2EE761A900984B85 /* Debug */,
 				4E2C940D2EE761A900984B85 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		4E2C940E2EE761A900984B85 /* Build configuration list for PBXNativeTarget "TesseraAppUITests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				4E2C940F2EE761A900984B85 /* Debug */,
-				4E2C94102EE761A900984B85 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

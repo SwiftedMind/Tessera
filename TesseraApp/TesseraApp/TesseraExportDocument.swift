@@ -14,6 +14,9 @@ struct TesseraExportDocument: FileDocument {
 
   var configuration: TesseraConfiguration
   var tileSize: CGSize
+  var canvasSize: CGSize
+  var fixedItems: [EditableFixedItem]
+  var patternMode: PatternMode
   var format: ExportFormat
 
   var defaultFileName: String {
@@ -33,13 +36,26 @@ struct TesseraExportDocument: FileDocument {
         baseScaleRange: 0.5...1.2,
       ),
       tileSize: CGSize(width: 256, height: 256),
+      canvasSize: CGSize(width: 1024, height: 1024),
+      fixedItems: [],
+      patternMode: .tile,
       format: .png,
     )
   }
 
-  init(configuration: TesseraConfiguration, tileSize: CGSize, format: ExportFormat) {
+  init(
+    configuration: TesseraConfiguration,
+    tileSize: CGSize,
+    canvasSize: CGSize,
+    fixedItems: [EditableFixedItem],
+    patternMode: PatternMode,
+    format: ExportFormat,
+  ) {
     self.configuration = configuration
     self.tileSize = tileSize
+    self.canvasSize = canvasSize
+    self.fixedItems = fixedItems
+    self.patternMode = patternMode
     self.format = format
   }
 
@@ -52,16 +68,36 @@ struct TesseraExportDocument: FileDocument {
     let name = UUID().uuidString
 
     let exportedURL: URL = try performOnMain {
-      let tile = TesseraTile(self.configuration, tileSize: tileSize)
-      switch format {
-      case .png:
-        return try tile.renderPNG(
-          to: temporaryDirectory,
-          fileName: name,
-          options: TesseraRenderOptions(targetPixelSize: CGSize(width: 2048, height: 2048)),
-        )
-      case .pdf:
-        return try tile.renderPDF(to: temporaryDirectory, fileName: name)
+      switch patternMode {
+      case .tile:
+        let tile = TesseraTile(self.configuration, tileSize: tileSize)
+        switch format {
+        case .png:
+          return try tile.renderPNG(
+            to: temporaryDirectory,
+            fileName: name,
+            options: TesseraRenderOptions(targetPixelSize: CGSize(width: 2048, height: 2048)),
+          )
+        case .pdf:
+          return try tile.renderPDF(to: temporaryDirectory, fileName: name)
+        }
+      case .canvas:
+        let visibleFixedItems = fixedItems.filter(\.isVisible).map { $0.makeTesseraFixedItem() }
+        let canvas = TesseraCanvas(self.configuration, fixedItems: visibleFixedItems)
+        switch format {
+        case .png:
+          return try canvas.renderPNG(
+            to: temporaryDirectory,
+            fileName: name,
+            canvasSize: canvasSize,
+          )
+        case .pdf:
+          return try canvas.renderPDF(
+            to: temporaryDirectory,
+            fileName: name,
+            canvasSize: canvasSize,
+          )
+        }
       }
     }
 

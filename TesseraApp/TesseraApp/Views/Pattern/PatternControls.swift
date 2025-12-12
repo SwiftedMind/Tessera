@@ -17,13 +17,15 @@ struct PatternControls: View {
     @Bindable var editor = editor
 
     VStack(alignment: .leading, spacing: .large) {
-      tileSizeRow()
+      patternModeRow()
+      sizeRow()
       spacingRow()
       customizationToggleRow()
       if isCustomizationEnabled {
         offsetRow()
         densityRow()
         scaleRow()
+        maximumItemCountRow()
         seedRow()
       }
     }
@@ -36,10 +38,25 @@ struct PatternControls: View {
     .onChange(of: editor.tesseraSize) {
       patternDraft.tileWidth = editor.tesseraSize.width
       patternDraft.tileHeight = editor.tesseraSize.height
+      if editor.patternMode == .tile {
+        clampMinimumSpacing(to: maximumSpacing)
+      }
+    }
+    .onChange(of: editor.canvasSize) {
+      patternDraft.canvasWidth = editor.canvasSize.width
+      patternDraft.canvasHeight = editor.canvasSize.height
+      if editor.patternMode == .canvas {
+        clampMinimumSpacing(to: maximumSpacing)
+      }
+    }
+    .onChange(of: editor.patternMode) {
       clampMinimumSpacing(to: maximumSpacing)
     }
     .onChange(of: editor.minimumSpacing) {
       patternDraft.minimumSpacing = editor.minimumSpacing
+    }
+    .onChange(of: editor.maximumItemCount) {
+      patternDraft.maximumItemCount = Double(editor.maximumItemCount)
     }
     .onChange(of: editor.density) {
       patternDraft.density = editor.density
@@ -53,12 +70,38 @@ struct PatternControls: View {
     }
   }
 
+  private func patternModeRow() -> some View {
+    @Bindable var editor = editor
+
+    return OptionRow("Pattern Mode") {
+      Picker("", selection: $editor.patternMode) {
+        Text("Tile")
+          .tag(PatternMode.tile)
+        Text("Canvas")
+          .tag(PatternMode.canvas)
+      }
+      .labelsHidden()
+      .pickerStyle(.segmented)
+    }
+    .help("Tile repeats a seamless tile infinitely. Canvas fills a finite canvas once and supports fixed items.")
+  }
+
+  @ViewBuilder
+  private func sizeRow() -> some View {
+    switch editor.patternMode {
+    case .tile:
+      tileSizeRow()
+    case .canvas:
+      canvasSizeRow()
+    }
+  }
+
   private func customizationToggleRow() -> some View {
-    OptionRow("Tile Customization") {
+    OptionRow("More Customization") {
       EmptyView()
     } trailing: {
       Toggle(isOn: $isCustomizationEnabled) {
-        Text("Enabled")
+        Text("Show")
       }
     }
   }
@@ -80,6 +123,53 @@ struct PatternControls: View {
       }
       .labelsHidden()
       .pickerStyle(.menu)
+    }
+  }
+
+  private func canvasSizeRow() -> some View {
+    OptionRow("Canvas Size") {
+      HStack(spacing: .medium) {
+        canvasSizeField("Width", value: $patternDraft.canvasWidth)
+        canvasSizeField("Height", value: $patternDraft.canvasHeight)
+      }
+    } trailing: {
+      Menu {
+        ForEach(CanvasSizePreset.allCases) { preset in
+          Button(preset.title) {
+            applyCanvasPreset(preset)
+          }
+        }
+      } label: {
+        Label("Preset", systemImage: "rectangle.3.offgrid")
+      }
+    }
+  }
+
+  private func canvasSizeField(
+    _ title: LocalizedStringKey,
+    value: Binding<CGFloat>,
+  ) -> some View {
+    let doubleValue = Binding<Double>(
+      get: { Double(value.wrappedValue) },
+      set: { newValue in
+        value.wrappedValue = max(8, CGFloat(newValue))
+      },
+    )
+
+    return VStack(alignment: .leading, spacing: .extraSmall) {
+      Text(title)
+        .font(.caption)
+        .foregroundStyle(.secondary)
+      TextField("", value: doubleValue, format: .number.precision(.fractionLength(0)))
+        .textFieldStyle(.plain)
+        .padding(.small)
+        .background(.background.secondary, in: .rect(cornerRadius: 10))
+        .font(.title3.monospacedDigit().weight(.medium))
+        .lineLimit(1)
+        .minimumScaleFactor(0.6)
+        .onChange(of: value.wrappedValue) {
+          applyPatternDraft()
+        }
     }
   }
 
@@ -185,6 +275,23 @@ struct PatternControls: View {
     }
   }
 
+  private func maximumItemCountRow() -> some View {
+    OptionRow(
+      "Maximum Item Count",
+      subtitle: "Upper bound on generated items.",
+    ) {
+      SystemSlider(
+        value: $patternDraft.maximumItemCount,
+        in: 0...maximumItemCountUpperBound,
+        step: 1,
+      )
+      .compactSliderScale(visibility: .hidden)
+      .onSliderCommit(applyPatternDraft)
+    } trailing: {
+      Text(Int(patternDraft.maximumItemCount).formatted())
+    }
+  }
+
   private func seedRow() -> some View {
     OptionRow("Seed") {
       OptionTextField(text: $patternDraft.seedText)
@@ -205,8 +312,14 @@ struct PatternControls: View {
 
   private func applyPatternDraft() {
     clampMinimumSpacing(to: maximumSpacingForDraft)
-    editor.tesseraSize = CGSize(width: patternDraft.tileWidth, height: patternDraft.tileHeight)
+    switch editor.patternMode {
+    case .tile:
+      editor.tesseraSize = CGSize(width: patternDraft.tileWidth, height: patternDraft.tileHeight)
+    case .canvas:
+      editor.canvasSize = CGSize(width: patternDraft.canvasWidth, height: patternDraft.canvasHeight)
+    }
     editor.minimumSpacing = patternDraft.minimumSpacing
+    editor.maximumItemCount = max(0, Int(patternDraft.maximumItemCount.rounded()))
     editor.densityDraft = patternDraft.density
     editor.commitDensityDraft()
     editor.baseScaleRange = patternDraft.baseScaleRange
@@ -223,7 +336,10 @@ struct PatternControls: View {
     patternDraft = PatternDraft(
       tileWidth: editor.tesseraSize.width,
       tileHeight: editor.tesseraSize.height,
+      canvasWidth: editor.canvasSize.width,
+      canvasHeight: editor.canvasSize.height,
       minimumSpacing: editor.minimumSpacing,
+      maximumItemCount: Double(editor.maximumItemCount),
       density: editor.density,
       baseScaleRange: editor.baseScaleRange,
       offsetX: editor.patternOffset.width,
@@ -237,19 +353,19 @@ struct PatternControls: View {
 
 private extension PatternControls {
   var maximumSpacing: CGFloat {
-    min(editor.tesseraSize.width, editor.tesseraSize.height) / 2
+    min(editor.activePatternSize.width, editor.activePatternSize.height) / 2
   }
 
   var maximumSpacingForDraft: CGFloat {
-    min(patternDraft.tileWidth, patternDraft.tileHeight) / 2
+    min(activeDraftSize.width, activeDraftSize.height) / 2
   }
 
   var maximumOffsetX: CGFloat {
-    patternDraft.tileWidth
+    activeDraftSize.width
   }
 
   var maximumOffsetY: CGFloat {
-    patternDraft.tileHeight
+    activeDraftSize.height
   }
 
   var maximumSpacingLabel: String {
@@ -260,8 +376,67 @@ private extension PatternControls {
     patternDraft.minimumSpacing = min(max(patternDraft.minimumSpacing, 0), maximum)
   }
 
+  var activeDraftSize: CGSize {
+    switch editor.patternMode {
+    case .tile:
+      CGSize(width: patternDraft.tileWidth, height: patternDraft.tileHeight)
+    case .canvas:
+      CGSize(width: patternDraft.canvasWidth, height: patternDraft.canvasHeight)
+    }
+  }
+
   var availableTileSizes: [CGFloat] {
     [128, 256, 512, 1024]
+  }
+
+  var maximumItemCountUpperBound: Double {
+    5000
+  }
+
+  enum CanvasSizePreset: String, CaseIterable, Identifiable {
+    case square1024
+    case fullHD1080p
+    case ultraHD4K
+    case iPhonePortrait
+    case iPhoneLandscape
+
+    var id: String { rawValue }
+
+    var title: LocalizedStringKey {
+      switch self {
+      case .square1024:
+        "Square (1024 px)"
+      case .fullHD1080p:
+        "1080p (1920 × 1080)"
+      case .ultraHD4K:
+        "4K (3840 × 2160)"
+      case .iPhonePortrait:
+        "iPhone Portrait (1170 × 2532)"
+      case .iPhoneLandscape:
+        "iPhone Landscape (2532 × 1170)"
+      }
+    }
+
+    var size: CGSize {
+      switch self {
+      case .square1024:
+        CGSize(width: 1024, height: 1024)
+      case .fullHD1080p:
+        CGSize(width: 1920, height: 1080)
+      case .ultraHD4K:
+        CGSize(width: 3840, height: 2160)
+      case .iPhonePortrait:
+        CGSize(width: 1170, height: 2532)
+      case .iPhoneLandscape:
+        CGSize(width: 2532, height: 1170)
+      }
+    }
+  }
+
+  func applyCanvasPreset(_ preset: CanvasSizePreset) {
+    patternDraft.canvasWidth = preset.size.width
+    patternDraft.canvasHeight = preset.size.height
+    applyPatternDraft()
   }
 
   enum FormattedText {
@@ -282,7 +457,10 @@ private extension PatternControls {
 private struct PatternDraft {
   var tileWidth: CGFloat = 256
   var tileHeight: CGFloat = 256
+  var canvasWidth: CGFloat = 1024
+  var canvasHeight: CGFloat = 1024
   var minimumSpacing: CGFloat = 10
+  var maximumItemCount: Double = 512
   var density: Double = 0.8
   var baseScaleRange: ClosedRange<Double> = 0.5...1.2
   var offsetX: CGFloat = 0

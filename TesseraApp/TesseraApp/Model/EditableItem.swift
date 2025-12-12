@@ -59,6 +59,7 @@ struct EditableItem: Identifiable, Equatable {
 
   var scaleRange: ClosedRange<Double>? {
     guard usesCustomScaleRange else { return nil }
+    guard preset.capabilities.supportsFontSize == false else { return nil }
 
     return minimumScale...maximumScale
   }

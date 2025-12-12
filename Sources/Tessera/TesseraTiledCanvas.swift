@@ -7,6 +7,7 @@ public struct TesseraTiledCanvas: View {
   public var configuration: TesseraConfiguration
   public var tileSize: CGSize
   public var seed: UInt64
+  public var onComputationStateChange: ((Bool) -> Void)?
 
   /// Creates a tiled tessera canvas view.
   /// - Parameters:
@@ -17,10 +18,12 @@ public struct TesseraTiledCanvas: View {
     _ configuration: TesseraConfiguration,
     tileSize: CGSize,
     seed: UInt64? = nil,
+    onComputationStateChange: ((Bool) -> Void)? = nil,
   ) {
     self.configuration = configuration
     self.tileSize = tileSize
     self.seed = seed ?? configuration.seed
+    self.onComputationStateChange = onComputationStateChange
   }
 
   public var body: some View {
@@ -38,9 +41,14 @@ public struct TesseraTiledCanvas: View {
         }
       }
     } symbols: {
-      TesseraCanvasTile(configuration: configuration, tileSize: tileSize, seed: seed)
-        .frame(width: tileSize.width, height: tileSize.height)
-        .tag(0)
+      TesseraCanvasTile(
+        configuration: configuration,
+        tileSize: tileSize,
+        seed: seed,
+        onComputationStateChange: onComputationStateChange,
+      )
+      .frame(width: tileSize.width, height: tileSize.height)
+      .tag(0)
     }
   }
 }

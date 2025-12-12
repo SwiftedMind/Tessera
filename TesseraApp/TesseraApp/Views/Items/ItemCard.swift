@@ -1,18 +1,10 @@
 // By Dennis Müller
 
 import CompactSlider
-import EmojiKit
-import ImagePlayground
 import SwiftUI
-#if os(macOS)
-import AppKit
-#else
-import UIKit
-#endif
 
 struct ItemCard: View {
   @Environment(TesseraEditorModel.self) private var editor
-  @Environment(\.supportsImagePlayground) private var supportsImagePlayground
   @Binding var item: EditableItem
   @Binding var expandedItemID: EditableItem.ID?
   @State private var weightDraft: Double
@@ -26,15 +18,6 @@ struct ItemCard: View {
   @State private var cornerRadiusDraft: Double
   @State private var symbolNameDraft: String
   @State private var textContentDraft: String
-  @State private var imagePlaygroundAssetID: UUID?
-  @State private var imagePlaygroundImageData: Data?
-  @State private var imagePlaygroundFileExtension: String?
-  @State private var nameDraft: String
-  @State private var isRenaming: Bool
-  @State private var isEmojiPickerPresented: Bool
-  @State private var isImagePlaygroundPresented: Bool
-  @State private var emojiPickerQuery: String
-  @State private var emojiPickerSelection: Emoji.GridSelection
   var onRemove: () -> Void
 
   init(
@@ -66,15 +49,6 @@ struct ItemCard: View {
     _symbolNameDraft = State(initialValue: item.wrappedValue.specificOptions.systemSymbolName ?? item.wrappedValue
       .preset.defaultSymbolName)
     _textContentDraft = State(initialValue: item.wrappedValue.specificOptions.textContent ?? "Text")
-    _imagePlaygroundAssetID = State(initialValue: item.wrappedValue.specificOptions.imagePlaygroundAssetID)
-    _imagePlaygroundImageData = State(initialValue: item.wrappedValue.specificOptions.imagePlaygroundImageData)
-    _imagePlaygroundFileExtension = State(initialValue: item.wrappedValue.specificOptions.imagePlaygroundFileExtension)
-    _nameDraft = State(initialValue: item.wrappedValue.customName ?? "")
-    _isRenaming = State(initialValue: false)
-    _isEmojiPickerPresented = State(initialValue: false)
-    _isImagePlaygroundPresented = State(initialValue: false)
-    _emojiPickerQuery = State(initialValue: "")
-    _emojiPickerSelection = State(initialValue: Emoji.GridSelection())
   }
 
   private var isExpanded: Bool {
@@ -82,11 +56,11 @@ struct ItemCard: View {
   }
 
   private var maximumWidth: Double {
-    max(8, editor.tesseraSize.width)
+    max(8, Double(editor.activePatternSize.width))
   }
 
   private var maximumHeight: Double {
-    max(8, editor.tesseraSize.height)
+    max(8, Double(editor.activePatternSize.height))
   }
 
   private var displayedEmoji: String {
@@ -94,33 +68,26 @@ struct ItemCard: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 0) {
+    InspectorExpandableCard(
+      isExpanded: isExpanded,
+      isDimmed: item.isVisible == false,
+    ) {
       header
-      if isExpanded {
-        VStack(alignment: .leading, spacing: .medium) {
-          weightOption
-          rotationOption
-          sizeOption
-          colorOption
-          lineWidthOption
-          fontSizeOption
-          presetSpecificOption
+    } expandedContent: {
+      VStack(alignment: .leading, spacing: .medium) {
+        weightOption
+        rotationOption
+        sizeOption
+        colorOption
+        lineWidthOption
+        fontSizeOption
+        presetSpecificOption
+        if item.preset.capabilities.supportsFontSize == false {
           customScaleRangeOption
         }
-        .padding([.horizontal, .bottom], .mediumRelaxed)
-        .transition(.opacity)
       }
     }
-    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-    .overlay(
-      RoundedRectangle(cornerRadius: 14)
-        .strokeBorder(.white.opacity(0.2)),
-    )
-    .clipShape(RoundedRectangle(cornerRadius: 14))
-    .animation(.default, value: expandedItemID)
     .animation(.default, value: item.usesCustomScaleRange)
-    .geometryGroup()
-    .opacity(item.isVisible ? 1 : 0.5)
     .onChange(of: item.weight) {
       if weightDraft != item.weight {
         weightDraft = item.weight
@@ -145,9 +112,6 @@ struct ItemCard: View {
       fontSizeDraft = item.style.fontSize
       colorDraft = item.style.color
     }
-    .onChange(of: item.customName) {
-      nameDraft = item.customName ?? ""
-    }
     .onChange(of: item.specificOptions) {
       if let radius = item.specificOptions.cornerRadius {
         cornerRadiusDraft = radius
@@ -157,25 +121,14 @@ struct ItemCard: View {
       }
       if let textContent = item.specificOptions.textContent {
         textContentDraft = textContent
-        if item.preset.capabilities.supportsEmojiPicker {
-          emojiPickerSelection = Emoji.GridSelection(
-            emoji: Emoji(textContent),
-            category: emojiPickerSelection.category ?? .smileysAndPeople,
-          )
-        }
-      }
-      if item.preset.capabilities.supportsImagePlayground {
-        imagePlaygroundAssetID = item.specificOptions.imagePlaygroundAssetID
-        imagePlaygroundImageData = item.specificOptions.imagePlaygroundImageData
-        imagePlaygroundFileExtension = item.specificOptions.imagePlaygroundFileExtension
       }
       if item.preset.capabilities.supportsTextContent {
         refreshTextSize()
       }
     }
-    .onChange(of: editor.tesseraSize) {
-      widthDraft = min(widthDraft, editor.tesseraSize.width)
-      heightDraft = min(heightDraft, editor.tesseraSize.height)
+    .onChange(of: editor.activePatternSize) {
+      widthDraft = min(widthDraft, Double(editor.activePatternSize.width))
+      heightDraft = min(heightDraft, Double(editor.activePatternSize.height))
       applySizeDraft()
     }
     .onAppear {
@@ -186,69 +139,18 @@ struct ItemCard: View {
   }
 
   @ViewBuilder private var header: some View {
-    Button {
-      toggleExpansion()
-    } label: {
-      HStack(alignment: .center, spacing: .medium) {
-        Image(systemName: "chevron.right")
-          .rotationEffect(.degrees(isExpanded ? 90 : 0))
-          .foregroundStyle(.secondary)
-          .animation(.default, value: isExpanded)
-        if let groupIconName = item.preset.groupIconName {
-          Image(systemName: groupIconName)
-            .foregroundStyle(.secondary)
-        }
-        Text(item.title)
-          .font(.headline)
-        renameButton
-        Spacer()
-        Button {
-          item.isVisible.toggle()
-        } label: {
-          Image(systemName: item.isVisible ? "eye" : "eye.slash")
-            .foregroundStyle(.secondary)
-        }
-        .buttonStyle(.plain)
-        Button(role: .destructive, action: onRemove) {
-          Image(systemName: "trash")
-        }
-        .buttonStyle(.plain)
-      }
-      .padding(.mediumRelaxed)
-      .contentShape(.rect)
-    }
-    .buttonStyle(.plain)
-  }
-
-  private var renameButton: some View {
-    Button {
-      beginRenaming()
-    } label: {
-      Image(systemName: "pencil")
-        .contentShape(.rect)
-    }
-    .buttonStyle(.plain)
-    .popover(isPresented: $isRenaming) {
-      VStack(alignment: .leading, spacing: .medium) {
-        Text("Rename Item")
-          .font(.headline)
-        OptionTextField(text: $nameDraft, placeholder: item.preset.title)
-          .onSubmit(commitNameChange)
-        HStack {
-          Spacer()
-          Button("Cancel") {
-            isRenaming = false
-          }
-          Button("Save") {
-            commitNameChange()
-          }
-          .buttonStyle(.borderedProminent)
-          .keyboardShortcut(.return)
-        }
-      }
-      .padding(.mediumRelaxed)
-      .frame(width: 260)
-    }
+    InspectorCardHeader(
+      title: item.title,
+      groupIconName: item.preset.groupIconName,
+      isExpanded: isExpanded,
+      onToggleExpansion: toggleExpansion,
+      customName: $item.customName,
+      renameDialogTitle: "Rename Item",
+      renamePlaceholder: item.preset.title,
+      renamePopoverWidth: 260,
+      isVisible: $item.isVisible,
+      onRemove: onRemove,
+    )
   }
 
   @ViewBuilder private var weightOption: some View {
@@ -295,214 +197,78 @@ struct ItemCard: View {
   }
 
   @ViewBuilder private var sizeOption: some View {
-    if item.preset.capabilities.supportsTextContent {
-      OptionRow("Size") {
-        EmptyView()
-      } trailing: {
-        Text("Auto (\(widthDraft.formatted()) × \(heightDraft.formatted()))")
-      }
-    } else {
-      OptionRow("Size") {
-        HStack(spacing: .medium) {
-          VStack(alignment: .leading, spacing: .extraSmall) {
-            Text("Width")
-              .font(.caption)
-              .foregroundStyle(.secondary)
-            SystemSlider(
-              value: $widthDraft,
-              in: 8...maximumWidth,
-              step: 1,
-            )
-            .compactSliderScale(visibility: .hidden)
-            .onSliderCommit(applySizeDraft)
-          }
-          VStack(alignment: .leading, spacing: .extraSmall) {
-            Text("Height")
-              .font(.caption)
-              .foregroundStyle(.secondary)
-            SystemSlider(
-              value: $heightDraft,
-              in: 8...maximumHeight,
-              step: 1,
-            )
-            .compactSliderScale(visibility: .hidden)
-            .onSliderCommit(applySizeDraft)
-          }
-        }
-      } trailing: {
-        Text("\(widthDraft.formatted()) × \(heightDraft.formatted())")
-      }
-    }
+    InspectorSizeOptionRow(
+      supportsTextContent: item.preset.capabilities.supportsTextContent,
+      widthDraft: $widthDraft,
+      heightDraft: $heightDraft,
+      maximumWidth: maximumWidth,
+      maximumHeight: maximumHeight,
+      onCommit: applySizeDraft,
+    )
   }
 
   @ViewBuilder private var colorOption: some View {
     if item.preset.capabilities.supportsColorControl {
-      OptionRow(item.preset.colorLabel) {
-        ColorPicker("", selection: $colorDraft, supportsOpacity: true)
-          .labelsHidden()
-          .onChange(of: colorDraft) {
-            item.style.color = colorDraft
-          }
-      }
+      InspectorColorOptionRow(
+        label: item.preset.colorLabel,
+        color: $colorDraft,
+        onChange: { color in
+          item.style.color = color
+        },
+      )
     }
   }
 
   @ViewBuilder private var lineWidthOption: some View {
     if item.preset.capabilities.supportsLineWidth {
-      OptionRow("Stroke Width") {
-        SystemSlider(
-          value: $lineWidthDraft,
-          in: 0.5...16,
-          step: 0.5,
-        )
-        .compactSliderScale(visibility: .hidden)
-        .onSliderCommit {
-          item.style.lineWidth = lineWidthDraft
-        }
-      } trailing: {
-        Text("\(lineWidthDraft.formatted(.number.precision(.fractionLength(1)))) pt")
+      InspectorStrokeWidthOptionRow(strokeWidth: $lineWidthDraft) {
+        item.style.lineWidth = lineWidthDraft
       }
     }
   }
 
   @ViewBuilder private var fontSizeOption: some View {
     if item.preset.capabilities.supportsFontSize {
-      OptionRow("Font Size") {
-        SystemSlider(
-          value: $fontSizeDraft,
-          in: 10...150,
-          step: 1,
-        )
-        .compactSliderScale(visibility: .hidden)
-        .onSliderCommit {
-          item.style.fontSize = fontSizeDraft
-          if item.preset.capabilities.supportsTextContent {
-            refreshTextSize()
-          }
+      InspectorFontSizeOptionRow(fontSize: $fontSizeDraft) {
+        item.style.fontSize = fontSizeDraft
+        if item.preset.capabilities.supportsTextContent {
+          refreshTextSize()
         }
-      } trailing: {
-        Text(fontSizeDraft.formatted(.number.precision(.fractionLength(0))))
       }
     }
   }
 
   @ViewBuilder private var presetSpecificOption: some View {
     if item.preset.capabilities.supportsImagePlayground {
-      imagePlaygroundOption
+      InspectorImagePlaygroundOptionRow(options: $item.specificOptions)
     } else if item.preset.capabilities.supportsCornerRadius {
-      OptionRow("Corner Radius") {
-        SystemSlider(
-          value: $cornerRadiusDraft,
-          in: 0...min(widthDraft, heightDraft) / 2,
-          step: 0.5,
-        )
-        .compactSliderScale(visibility: .hidden)
-        .onSliderCommit {
-          item.specificOptions = item.specificOptions.updatingCornerRadius(cornerRadiusDraft)
-        }
-      } trailing: {
-        Text(cornerRadiusDraft.formatted(.number.precision(.fractionLength(1))))
-      }
+      InspectorCornerRadiusOptionRow(
+        cornerRadius: $cornerRadiusDraft,
+        maximumCornerRadius: min(widthDraft, heightDraft) / 2,
+        onCommit: { radius in
+          item.specificOptions = item.specificOptions.updatingCornerRadius(radius)
+        },
+      )
     } else if item.preset.capabilities.supportsSymbolSelection {
-      OptionRow("Symbol") {
-        Picker("Symbol", selection: $symbolNameDraft) {
-          ForEach(item.preset.availableSymbols, id: \.self) { name in
-            Label(name, systemImage: name).tag(name)
-          }
-        }
-        .labelsHidden()
-        .onChange(of: symbolNameDraft) {
-          item.specificOptions = item.specificOptions.updatingSymbolName(symbolNameDraft)
-        }
-      }
+      InspectorSymbolSelectionOptionRow(
+        availableSymbols: item.preset.availableSymbols,
+        symbolName: $symbolNameDraft,
+        onChange: { name in
+          item.specificOptions = item.specificOptions.updatingSymbolName(name)
+        },
+      )
     } else if item.preset.capabilities.supportsEmojiPicker {
-      emojiPickerOption
+      InspectorEmojiPickerOptionRow(
+        currentEmoji: displayedEmoji,
+        fontSize: fontSizeDraft,
+        onSelectEmojiCharacter: applyEmojiSelection,
+      )
     } else if item.preset.capabilities.supportsTextContent {
-      OptionRow("Text") {
-        OptionTextField(text: $textContentDraft)
-          .onSubmit {
-            item.specificOptions = item.specificOptions.updatingTextContent(textContentDraft)
-            refreshTextSize()
-          }
+      InspectorTextContentOptionRow(textContent: $textContentDraft) { text in
+        item.specificOptions = item.specificOptions.updatingTextContent(text)
+        refreshTextSize()
       }
     }
-  }
-
-  @ViewBuilder private var emojiPickerOption: some View {
-    OptionRow("Emoji") {
-      Button {
-        emojiPickerSelection = Emoji.GridSelection(
-          emoji: Emoji(displayedEmoji),
-          category: .smileysAndPeople,
-        )
-        isEmojiPickerPresented = true
-      } label: {
-        HStack(spacing: .small) {
-          Text(displayedEmoji)
-            .font(.system(size: fontSizeDraft))
-          Image(systemName: "chevron.down")
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, .small)
-        .padding(.vertical, .extraSmall)
-      }
-      .buttonStyle(.bordered)
-      .popover(isPresented: $isEmojiPickerPresented) {
-        EmojiPickerPopover(
-          isPresented: $isEmojiPickerPresented,
-          query: $emojiPickerQuery,
-          selection: $emojiPickerSelection,
-          onSelect: applyEmojiSelection,
-        )
-        .frame(width: 400, height: 440)
-      }
-    }
-  }
-
-  @ViewBuilder private var imagePlaygroundOption: some View {
-    OptionRow(
-      "Image Playground",
-      subtitle: supportsImagePlayground ? "Generate a seamless image tile." : "Not available on this device.",
-    ) {
-      VStack(alignment: .leading, spacing: .small) {
-        HStack(spacing: .medium) {
-          if let previewImage = playgroundPreviewImage {
-            previewImage
-              .resizable()
-              .aspectRatio(contentMode: .fill)
-              .frame(width: 80, height: 80)
-              .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-              .overlay {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                  .strokeBorder(.white.opacity(0.2))
-              }
-          } else {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-              .fill(.quaternary)
-              .frame(width: 80, height: 80)
-              .overlay {
-                Image(systemName: "photo.on.rectangle")
-                  .foregroundStyle(.secondary)
-              }
-          }
-
-          Spacer()
-
-          Button("Open Playground") {
-            isImagePlaygroundPresented = true
-          }
-          .buttonStyle(.borderedProminent)
-          .disabled(supportsImagePlayground == false)
-        }
-      }
-    }
-    .imagePlaygroundSheet(
-      isPresented: $isImagePlaygroundPresented,
-      sourceImage: nil,
-      onCompletion: handleImagePlaygroundCompletion,
-      onCancellation: handleImagePlaygroundCancellation,
-    )
   }
 
   @ViewBuilder private var customScaleRangeOption: some View {
@@ -552,57 +318,10 @@ struct ItemCard: View {
     heightDraft = measuredSize.height
   }
 
-  private func applyEmojiSelection(_ emoji: Emoji) {
-    textContentDraft = emoji.char
-    item.specificOptions = item.specificOptions.updatingTextContent(emoji.char)
+  private func applyEmojiSelection(_ emojiCharacter: String) {
+    textContentDraft = emojiCharacter
+    item.specificOptions = item.specificOptions.updatingTextContent(emojiCharacter)
     refreshTextSize()
-    isEmojiPickerPresented = false
-  }
-
-  private func beginRenaming() {
-    nameDraft = item.customName ?? ""
-    isRenaming = true
-  }
-
-  private func commitNameChange() {
-    let trimmedName = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-    item.customName = trimmedName.isEmpty ? nil : trimmedName
-    isRenaming = false
-  }
-
-  private var playgroundPreviewImage: Image? {
-    guard let data = imagePlaygroundImageData else { return nil }
-
-    #if os(macOS)
-    guard let nsImage = NSImage(data: data) else { return nil }
-
-    return Image(nsImage: nsImage)
-    #else
-    guard let uiImage = UIImage(data: data) else { return nil }
-
-    return Image(uiImage: uiImage)
-    #endif
-  }
-
-  private func handleImagePlaygroundCompletion(_ url: URL) {
-    guard let data = try? Data(contentsOf: url) else { return }
-
-    let fileExtension = url.pathExtension.isEmpty == false ? url.pathExtension.lowercased() : "png"
-    let assetID = imagePlaygroundAssetID ?? UUID()
-
-    imagePlaygroundAssetID = assetID
-    imagePlaygroundImageData = data
-    imagePlaygroundFileExtension = fileExtension
-
-    item.specificOptions = item.specificOptions.updatingImagePlayground(
-      assetID: assetID,
-      imageData: data,
-      fileExtension: fileExtension,
-    )
-  }
-
-  private func handleImagePlaygroundCancellation() {
-    isImagePlaygroundPresented = false
   }
 
   private func toggleExpansion() {
@@ -611,41 +330,6 @@ struct ItemCard: View {
     } else {
       expandedItemID = item.id
     }
-  }
-}
-
-private struct EmojiPickerPopover: View {
-  @Binding var isPresented: Bool
-  @Binding var query: String
-  @Binding var selection: Emoji.GridSelection
-  var onSelect: (Emoji) -> Void
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: .medium) {
-      HStack {
-        Text("Choose Emoji")
-          .font(.headline)
-        Spacer()
-        Button("Done") {
-          isPresented = false
-        }
-        .buttonStyle(.borderedProminent)
-      }
-      TextField("Search Emoji", text: $query)
-        .textFieldStyle(.roundedBorder)
-      Divider()
-      EmojiGridScrollView(
-        axis: .vertical,
-        query: query,
-        selection: $selection,
-        action: onSelect,
-        sectionTitle: { $0.view },
-        gridItem: { $0.view },
-      )
-      .emojiGridStyle(.medium)
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-    .padding(.mediumRelaxed)
   }
 }
 

@@ -6,18 +6,25 @@ import SwiftUI
 struct InspectorPanel: View {
   @Environment(TesseraEditorModel.self) private var editor
   @State private var isCustomizationEnabled = false
-
+  @State private var expandedItemID: UUID?
+  
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: .extraLarge) {
         PatternControls(isCustomizationEnabled: $isCustomizationEnabled)
           .clipped()
-        ItemList()
+        if editor.patternMode == .canvas {
+          FixedItemList(expandedItemID: $expandedItemID)
+            .clipped()
+        }
+        ItemList(expandedItemID: $expandedItemID)
           .clipped()
       }
       .padding(.extraLarge)
     }
     .animation(.default, value: isCustomizationEnabled)
+    .animation(.default, value: editor.patternMode)
+    .animation(.default, value: expandedItemID)
     .inspectorColumnWidth(min: 300, ideal: 400, max: 500)
   }
 }

@@ -8,7 +8,12 @@ struct PatternStage: View {
 
   var configuration: TesseraConfiguration
   var tileSize: CGSize
-  @Binding var isTiledCanvasEnabled: Bool
+  var canvasSize: CGSize
+  var fixedItems: [EditableFixedItem]
+  var patternMode: PatternMode
+  @Binding var isRepeatPreviewEnabled: Bool
+  @State private var isRefreshOverlayVisible: Bool = false
+  @State private var refreshDelayTask: Task<Void, Never>?
 
   var body: some View {
     ZStack {
@@ -17,6 +22,10 @@ struct PatternStage: View {
           .ignoresSafeArea()
       }
       patternContent
+      if isRefreshOverlayVisible {
+        refreshingOverlay
+          .transition(.opacity)
+      }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .overlay(alignment: .topLeading) {
@@ -24,8 +33,10 @@ struct PatternStage: View {
         .padding(.horizontal, .large)
         .padding(.top, .medium)
     }
-    .animation(.smooth(duration: 0.28), value: isTiledCanvasEnabled)
+    .animation(.smooth(duration: 0.28), value: isRepeatPreviewEnabled)
+    .animation(.smooth(duration: 0.28), value: patternMode)
     .animation(.smooth(duration: 0.28), value: configuration.items.count)
+    .animation(.smooth(duration: 0.2), value: isRefreshOverlayVisible)
   }
 
   @ViewBuilder
@@ -42,15 +53,31 @@ struct PatternStage: View {
           .padding(.horizontal, .large)
           .transition(.opacity.combined(with: .scale(1.2)))
       }
-    } else if isTiledCanvasEnabled {
-      TesseraTiledCanvas(configuration, tileSize: tileSize)
-        .transition(.opacity)
     } else {
-      TesseraTile(configuration, tileSize: tileSize)
-        .padding(.large)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 22))
-        .padding(.large)
-        .transition(.opacity)
+      switch patternMode {
+      case .tile:
+        if isRepeatPreviewEnabled {
+          TesseraTiledCanvas(
+            configuration,
+            tileSize: tileSize,
+            onComputationStateChange: handleComputationStateChange,
+          )
+          .transition(.opacity)
+        } else {
+          TesseraTile(
+            configuration,
+            tileSize: tileSize,
+            onComputationStateChange: handleComputationStateChange,
+          )
+          .padding(.large)
+          .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 22))
+          .padding(.large)
+          .transition(.opacity)
+        }
+      case .canvas:
+        canvasPreview
+          .transition(.opacity)
+      }
     }
   }
 
@@ -58,11 +85,13 @@ struct PatternStage: View {
     @Bindable var editor = editor
 
     HStack(spacing: .extraLarge) {
-      Toggle(isOn: $isTiledCanvasEnabled) {
-        Label("Tiled Canvas", systemImage: "square.grid.3x3.fill")
+      if patternMode == .tile {
+        Toggle(isOn: $isRepeatPreviewEnabled) {
+          Label("Repeat Preview", systemImage: "square.grid.3x3.fill")
+        }
+        .toggleStyle(.switch)
+        .help("Fill the stage by repeating the tile.")
       }
-      .toggleStyle(.switch)
-      .help("Fill the stage by tiling the tile.")
 
       HStack(spacing: .medium) {
         Toggle(isOn: stageBackgroundEnabled) {
@@ -73,7 +102,7 @@ struct PatternStage: View {
         if editor.stageBackgroundColor != nil {
           ColorPicker(
             "",
-            selection: $editor.stageBackgroundColor.withDefault(.white),
+            selection: $editor.stageBackgroundColor.withDefault(.gray),
             supportsOpacity: true,
           )
           .labelsHidden()
@@ -89,7 +118,7 @@ struct PatternStage: View {
   private var emptyState: some View {
     ContentUnavailableView {
       Label {
-        Text("Add items to start tiling")
+        Text(patternMode == .tile ? "Add items to start tiling" : "Add items to start filling the canvas")
           .font(.title3.weight(.semibold))
       } icon: {
         Image(systemName: "sparkles")
@@ -97,7 +126,11 @@ struct PatternStage: View {
       }
     } description: {
       VStack(spacing: .medium) {
-        Text("Add shapes, text, emojis and more to see your tiled canvas come to life.")
+        Text(
+          patternMode == .tile
+            ? "Add shapes, text, emojis and more to see your tiled canvas come to life."
+            : "Add shapes, text, emojis and more to see your canvas pattern come to life.",
+        )
         Menu {
           ForEach(EditableItemTemplate.allTemplates) { template in
             Button {
@@ -114,6 +147,31 @@ struct PatternStage: View {
       .multilineTextAlignment(.center)
     }
     .frame(maxWidth: 360)
+  }
+
+  private var canvasPreview: some View {
+    let visibleFixedItems = fixedItems.filter(\.isVisible).map { $0.makeTesseraFixedItem() }
+    let borderShape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+
+    return GeometryReader { proxy in
+      let availableSize = proxy.size
+      let horizontalScale = availableSize.width / max(canvasSize.width, 1)
+      let verticalScale = availableSize.height / max(canvasSize.height, 1)
+      let fittedScale = min(min(horizontalScale, verticalScale), 1)
+      let scaledSize = CGSize(width: canvasSize.width * fittedScale, height: canvasSize.height * fittedScale)
+
+      TesseraCanvas(
+        configuration,
+        fixedItems: visibleFixedItems,
+        onComputationStateChange: handleComputationStateChange,
+      )
+      .frame(width: canvasSize.width, height: canvasSize.height)
+      .background(.thinMaterial, in: borderShape)
+      .overlay(borderShape.stroke(.white.opacity(0.25)))
+      .scaleEffect(fittedScale)
+      .frame(width: scaledSize.width, height: scaledSize.height)
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
   }
 
   private func applyTemplate(_ template: EditableItemTemplate) {
@@ -157,6 +215,44 @@ struct PatternStage: View {
       },
     )
   }
+
+  private var refreshingOverlay: some View {
+    HStack(spacing: .medium) {
+      ProgressView()
+        .progressViewStyle(.circular)
+        .controlSize(.small)
+        .frame(width: 20, height: 20)
+      Text("Refreshing...")
+        .font(.headline)
+    }
+    .padding(.mediumRelaxed)
+    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    .overlay(
+      RoundedRectangle(cornerRadius: 14, style: .continuous)
+        .strokeBorder(.white.opacity(0.2)),
+    )
+    .shadow(radius: 12)
+  }
+
+  private func handleComputationStateChange(_ isActive: Bool) {
+    if isActive {
+      refreshDelayTask?.cancel()
+      refreshDelayTask = Task { @MainActor in
+        do {
+          try await Task.sleep(for: .seconds(1))
+        } catch {
+          return
+        }
+        guard Task.isCancelled == false else { return }
+
+        isRefreshOverlayVisible = true
+      }
+    } else {
+      refreshDelayTask?.cancel()
+      refreshDelayTask = nil
+      isRefreshOverlayVisible = false
+    }
+  }
 }
 
 private extension Binding where Value == Color? {
@@ -180,7 +276,10 @@ private extension Binding where Value == Color? {
       baseScaleRange: 0.5...1.2,
     ),
     tileSize: CGSize(width: 256, height: 256),
-    isTiledCanvasEnabled: .constant(true),
+    canvasSize: CGSize(width: 1024, height: 1024),
+    fixedItems: [],
+    patternMode: .tile,
+    isRepeatPreviewEnabled: .constant(true),
   )
   .frame(width: 360, height: 360)
 }
