@@ -99,7 +99,7 @@ struct InspectorFontSizeOptionRow: View {
     OptionRow("Font Size") {
       SystemSlider(
         value: $fontSize,
-        in: 10...150,
+        in: 10...250,
         step: 1,
       )
       .compactSliderScale(visibility: .hidden)
