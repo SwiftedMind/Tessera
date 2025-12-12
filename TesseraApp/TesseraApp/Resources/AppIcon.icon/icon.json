@@ -4,29 +4,9 @@
     {
       "layers" : [
         {
-          "image-name" : "Tessera App Icon 2.png",
-          "name" : "Tessera App Icon 2"
-        },
-        {
-          "fill-specializations" : [
-            {
-              "value" : {
-                "solid" : "extended-gray:1.00000,1.00000"
-              }
-            },
-            {
-              "appearance" : "dark",
-              "value" : "automatic"
-            },
-            {
-              "appearance" : "tinted",
-              "value" : "automatic"
-            }
-          ],
           "glass" : true,
-          "hidden" : true,
-          "image-name" : "Tessera App Icon.png",
-          "name" : "Tessera App Icon"
+          "image-name" : "Tessera App Icon 2.svg",
+          "name" : "Tessera App Icon 2"
         }
       ],
       "shadow" : {
