@@ -24,7 +24,7 @@ struct PatternStage: View {
       patternContent
       if isRefreshOverlayVisible {
         refreshingOverlay
-          .transition(.opacity.combined(with: .scale(0.9)))
+          .transition(.opacity)
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -220,6 +220,8 @@ struct PatternStage: View {
     HStack(spacing: .medium) {
       ProgressView()
         .progressViewStyle(.circular)
+        .controlSize(.small)
+        .frame(width: 20, height: 20)
       Text("Refreshing...")
         .font(.headline)
     }

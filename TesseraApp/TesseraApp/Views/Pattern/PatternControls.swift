@@ -97,11 +97,11 @@ struct PatternControls: View {
   }
 
   private func customizationToggleRow() -> some View {
-    OptionRow("Pattern Customization") {
+    OptionRow("More Customization") {
       EmptyView()
     } trailing: {
       Toggle(isOn: $isCustomizationEnabled) {
-        Text("Enabled")
+        Text("Show")
       }
     }
   }
