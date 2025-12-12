@@ -5,7 +5,7 @@ import CoreGraphics
 /// Describes the configuration used to generate a tessera layout.
 ///
 /// A configuration is size-less. Concrete rendering is performed by providing a tile size
-/// (`TesseraTile` / `TesseraPattern`) or a canvas size (`TesseraCanvas`).
+/// (`TesseraTile` / `TesseraTiledCanvas`) or a canvas size (`TesseraCanvas`).
 public struct TesseraConfiguration {
   public var items: [TesseraItem]
   /// Seed for deterministic randomness. Defaults to a random seed.

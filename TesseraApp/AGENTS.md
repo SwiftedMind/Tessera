@@ -57,7 +57,7 @@ Use these documents proactively whenever you work on the corresponding area; the
 
 - **Entry Surface**: `TesseraApp` launches `Root`, which hosts the canvas, export menu, and inspector toggle within a `NavigationStack`.
 - **Editor Model**: `TesseraEditorModel` is `@Observable @MainActor` and owns tessera configuration (items, size, seed, spacing, density, scale range). It debounces updates and rebuilds `liveTessera` using the Tessera package.
-- **Canvas Rendering**: `PatternStage` switches between the seamless `TesseraPattern` view (repeating tile) and a single-tile preview with material framing, animating transitions.
+- **Canvas Rendering**: `PatternStage` switches between the seamless `TesseraTiledCanvas` view (repeating tile) and a single-tile preview with material framing, animating transitions.
 - **Inspector and Controls**: Inspector panels (see `Views/Inspector`, `Views/Pattern`, `Views/Items`) mutate the shared editor model, which propagates through SwiftUI environment.
 - **Export Pipeline**: `TesseraExportDocument` implements `FileDocument` to export the current tessera as PNG or PDF using `Tessera.renderPNG`/`renderPDF`, seeded from the live configuration for deterministic output.
 - **Editable Items Bridge**: `EditableItem` converts UI-driven properties into `TesseraItem` instances, keeping weighting, rotation, and scaling aligned with the package API.

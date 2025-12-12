@@ -7,7 +7,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// Defines how a tessera canvas treats its edges.
-public enum TesseraCanvasEdgeBehavior: Sendable {
+public enum TesseraEdgeBehavior: Sendable {
   /// No wrapping. Items are clipped at the canvas bounds.
   case finite
   /// Toroidal wrapping like a tile, producing a seamlessly tileable canvas.
@@ -16,8 +16,8 @@ public enum TesseraCanvasEdgeBehavior: Sendable {
 
 /// A fixed view placed once into a finite tessera canvas.
 ///
-/// Fixed placements participate in collision checks so generated items fill around them.
-public struct TesseraFixedPlacement: Identifiable {
+/// Fixed items participate in collision checks so generated items fill around them.
+public struct TesseraFixedItem: Identifiable {
   public var id: UUID
   /// Center position inside the canvas.
   public var position: TesseraPlacementPosition
@@ -29,7 +29,7 @@ public struct TesseraFixedPlacement: Identifiable {
   public var collisionShape: CollisionShape
   private let builder: () -> AnyView
 
-  /// Creates a fixed placement.
+  /// Creates a fixed item.
   /// - Parameters:
   ///   - position: Center position inside the canvas.
   ///   - rotation: Rotation applied to drawing and collisions.
@@ -126,12 +126,12 @@ public struct TesseraFixedPlacement: Identifiable {
   }
 }
 
-/// Fills a finite canvas once using a tessera configuration, respecting fixed placements.
+/// Fills a finite canvas once using a tessera configuration, respecting fixed items.
 public struct TesseraCanvas: View {
   public var configuration: TesseraConfiguration
-  public var fixedPlacements: [TesseraFixedPlacement]
+  public var fixedItems: [TesseraFixedItem]
   public var seed: UInt64
-  public var edgeBehavior: TesseraCanvasEdgeBehavior
+  public var edgeBehavior: TesseraEdgeBehavior
 
   @State private var cachedPlacedItemDescriptors: [ShapePlacementEngine.PlacedItemDescriptor] = []
   @State private var resolvedCanvasSize: CGSize = .zero
@@ -139,7 +139,7 @@ public struct TesseraCanvas: View {
   /// Creates a finite tessera canvas.
   /// - Parameters:
   ///   - configuration: Base configuration (items, spacing, density, seed).
-  ///   - fixedPlacements: Views placed once; treated as obstacles.
+  ///   - fixedItems: Views placed once; treated as obstacles.
   ///   - seed: Optional override for deterministic output.
   ///   - edgeBehavior: Whether to wrap edges toroidally or not.
   ///
@@ -147,19 +147,19 @@ public struct TesseraCanvas: View {
   /// on-screen size.
   public init(
     _ configuration: TesseraConfiguration,
-    fixedPlacements: [TesseraFixedPlacement] = [],
+    fixedItems: [TesseraFixedItem] = [],
     seed: UInt64? = nil,
-    edgeBehavior: TesseraCanvasEdgeBehavior = .finite,
+    edgeBehavior: TesseraEdgeBehavior = .finite,
   ) {
     self.configuration = configuration
-    self.fixedPlacements = fixedPlacements
+    self.fixedItems = fixedItems
     self.seed = seed ?? configuration.seed
     self.edgeBehavior = edgeBehavior
   }
 
   public var body: some View {
     let configuration = configuration
-    let fixedPlacements = fixedPlacements
+    let fixedItems = fixedItems
     let edgeBehavior = edgeBehavior
     let placedItemDescriptors = cachedPlacedItemDescriptors
 
@@ -186,17 +186,17 @@ public struct TesseraCanvas: View {
         ]
       }
 
-      for fixedPlacement in fixedPlacements {
-        guard let symbol = context.resolveSymbol(id: fixedPlacement.id) else { continue }
+      for fixedItem in fixedItems {
+        guard let symbol = context.resolveSymbol(id: fixedItem.id) else { continue }
 
-        let resolvedPosition = fixedPlacement.resolvedPosition(in: size)
+        let resolvedPosition = fixedItem.resolvedPosition(in: size)
 
         for offset in offsets {
           var symbolContext = context
           symbolContext.translateBy(x: offset.width, y: offset.height)
           symbolContext.translateBy(x: resolvedPosition.x, y: resolvedPosition.y)
-          symbolContext.rotate(by: fixedPlacement.rotation)
-          symbolContext.scaleBy(x: fixedPlacement.scale, y: fixedPlacement.scale)
+          symbolContext.rotate(by: fixedItem.rotation)
+          symbolContext.scaleBy(x: fixedItem.scale, y: fixedItem.scale)
           symbolContext.draw(symbol, at: .zero, anchor: .center)
         }
       }
@@ -217,8 +217,8 @@ public struct TesseraCanvas: View {
       ForEach(configuration.items) { item in
         item.makeView().tag(item.id)
       }
-      ForEach(fixedPlacements) { placement in
-        placement.makeView().tag(placement.id)
+      ForEach(fixedItems) { fixedItem in
+        fixedItem.makeView().tag(fixedItem.id)
       }
     }
     .clipped()
@@ -263,7 +263,7 @@ public struct TesseraCanvas: View {
     let renderView = TesseraCanvasStaticRenderView(
       configuration: configuration,
       canvasSize: canvasSize,
-      fixedPlacements: fixedPlacements,
+      fixedItems: fixedItems,
       placedItemDescriptors: placedItemDescriptors,
       edgeBehavior: edgeBehavior,
     )
@@ -325,7 +325,7 @@ public struct TesseraCanvas: View {
     let renderView = TesseraCanvasStaticRenderView(
       configuration: configuration,
       canvasSize: canvasSize,
-      fixedPlacements: fixedPlacements,
+      fixedItems: fixedItems,
       placedItemDescriptors: placedItemDescriptors,
       edgeBehavior: edgeBehavior,
     )
@@ -369,7 +369,7 @@ private extension TesseraCanvas {
   struct ComputationKey: Hashable, Sendable {
     var canvasSize: CGSize
     var seed: UInt64
-    var edgeBehavior: TesseraCanvasEdgeBehavior
+    var edgeBehavior: TesseraEdgeBehavior
     var minimumSpacing: Double
     var density: Double
     var baseScaleRangeLowerBound: Double
@@ -377,7 +377,7 @@ private extension TesseraCanvas {
     var patternOffset: CGSize
     var maximumItemCount: Int
     var itemKeys: [ItemKey]
-    var fixedPlacementKeys: [FixedPlacementKey]
+    var fixedItemKeys: [FixedItemKey]
 
     struct ItemKey: Hashable, Sendable {
       var id: UUID
@@ -387,7 +387,7 @@ private extension TesseraCanvas {
       var collisionShape: CollisionShape
     }
 
-    struct FixedPlacementKey: Hashable, Sendable {
+    struct FixedItemKey: Hashable, Sendable {
       enum PositionKind: Hashable, Sendable {
         case absolute
         case relative
@@ -410,7 +410,7 @@ private extension TesseraCanvas {
   struct ComputationSnapshot: Sendable {
     var key: ComputationKey
     var itemDescriptors: [ShapePlacementEngine.PlacementItemDescriptor]
-    var fixedPlacementDescriptors: [ShapePlacementEngine.FixedPlacementDescriptor]
+    var fixedItemDescriptors: [ShapePlacementEngine.FixedItemDescriptor]
   }
 
   var currentComputationKey: ComputationKey {
@@ -422,7 +422,7 @@ private extension TesseraCanvas {
     return ComputationSnapshot(
       key: key,
       itemDescriptors: makeItemDescriptors(),
-      fixedPlacementDescriptors: makeFixedPlacementDescriptors(for: canvasSize),
+      fixedItemDescriptors: makeFixedItemDescriptors(for: canvasSize),
     )
   }
 
@@ -432,7 +432,7 @@ private extension TesseraCanvas {
       return ShapePlacementEngine.placeItemDescriptors(
         in: snapshot.key.canvasSize,
         itemDescriptors: snapshot.itemDescriptors,
-        fixedPlacementDescriptors: snapshot.fixedPlacementDescriptors,
+        fixedItemDescriptors: snapshot.fixedItemDescriptors,
         edgeBehavior: snapshot.key.edgeBehavior,
         minimumSpacing: snapshot.key.minimumSpacing,
         density: snapshot.key.density,
@@ -456,12 +456,12 @@ private extension TesseraCanvas {
 
   func makeSynchronousPlacedDescriptors(for canvasSize: CGSize) -> [ShapePlacementEngine.PlacedItemDescriptor] {
     let itemDescriptors = makeItemDescriptors()
-    let fixedPlacementDescriptors = makeFixedPlacementDescriptors(for: canvasSize)
+    let fixedItemDescriptors = makeFixedItemDescriptors(for: canvasSize)
     var randomGenerator = SeededGenerator(seed: seed)
     return ShapePlacementEngine.placeItemDescriptors(
       in: canvasSize,
       itemDescriptors: itemDescriptors,
-      fixedPlacementDescriptors: fixedPlacementDescriptors,
+      fixedItemDescriptors: fixedItemDescriptors,
       edgeBehavior: edgeBehavior,
       minimumSpacing: configuration.minimumSpacing,
       density: configuration.density,
@@ -484,14 +484,14 @@ private extension TesseraCanvas {
     }
   }
 
-  func makeFixedPlacementDescriptors(for canvasSize: CGSize) -> [ShapePlacementEngine.FixedPlacementDescriptor] {
-    fixedPlacements.map { placement in
-      ShapePlacementEngine.FixedPlacementDescriptor(
-        id: placement.id,
-        position: placement.resolvedPosition(in: canvasSize),
-        rotationRadians: placement.rotation.radians,
-        scale: placement.scale,
-        collisionShape: placement.collisionShape,
+  func makeFixedItemDescriptors(for canvasSize: CGSize) -> [ShapePlacementEngine.FixedItemDescriptor] {
+    fixedItems.map { fixedItem in
+      ShapePlacementEngine.FixedItemDescriptor(
+        id: fixedItem.id,
+        position: fixedItem.resolvedPosition(in: canvasSize),
+        rotationRadians: fixedItem.rotation.radians,
+        scale: fixedItem.scale,
+        collisionShape: fixedItem.collisionShape,
       )
     }
   }
@@ -509,10 +509,10 @@ private extension TesseraCanvas {
       )
     }
 
-    let fixedPlacementKeys: [ComputationKey.FixedPlacementKey] = fixedPlacements.map { placement in
-      let positionKey = makeFixedPlacementPositionKey(from: placement.position)
-      return ComputationKey.FixedPlacementKey(
-        id: placement.id,
+    let fixedItemKeys: [ComputationKey.FixedItemKey] = fixedItems.map { fixedItem in
+      let positionKey = makeFixedItemPositionKey(from: fixedItem.position)
+      return ComputationKey.FixedItemKey(
+        id: fixedItem.id,
         positionKind: positionKey.positionKind,
         absoluteX: positionKey.absoluteX,
         absoluteY: positionKey.absoluteY,
@@ -520,9 +520,9 @@ private extension TesseraCanvas {
         unitPointY: positionKey.unitPointY,
         offsetWidth: positionKey.offsetWidth,
         offsetHeight: positionKey.offsetHeight,
-        rotationRadians: placement.rotation.radians,
-        scale: placement.scale,
-        collisionShape: placement.collisionShape,
+        rotationRadians: fixedItem.rotation.radians,
+        scale: fixedItem.scale,
+        collisionShape: fixedItem.collisionShape,
       )
     }
 
@@ -537,12 +537,12 @@ private extension TesseraCanvas {
       patternOffset: configuration.patternOffset,
       maximumItemCount: configuration.maximumItemCount,
       itemKeys: itemKeys,
-      fixedPlacementKeys: fixedPlacementKeys,
+      fixedItemKeys: fixedItemKeys,
     )
   }
 
-  private func makeFixedPlacementPositionKey(from position: TesseraPlacementPosition) -> (
-    positionKind: ComputationKey.FixedPlacementKey.PositionKind,
+  private func makeFixedItemPositionKey(from position: TesseraPlacementPosition) -> (
+    positionKind: ComputationKey.FixedItemKey.PositionKind,
     absoluteX: Double,
     absoluteY: Double,
     unitPointX: Double,
@@ -578,9 +578,9 @@ private extension TesseraCanvas {
 private struct TesseraCanvasStaticRenderView: View {
   var configuration: TesseraConfiguration
   var canvasSize: CGSize
-  var fixedPlacements: [TesseraFixedPlacement]
+  var fixedItems: [TesseraFixedItem]
   var placedItemDescriptors: [ShapePlacementEngine.PlacedItemDescriptor]
-  var edgeBehavior: TesseraCanvasEdgeBehavior
+  var edgeBehavior: TesseraEdgeBehavior
 
   var body: some View {
     Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: false) { context, size in
@@ -606,17 +606,17 @@ private struct TesseraCanvasStaticRenderView: View {
         ]
       }
 
-      for fixedPlacement in fixedPlacements {
-        guard let symbol = context.resolveSymbol(id: fixedPlacement.id) else { continue }
+      for fixedItem in fixedItems {
+        guard let symbol = context.resolveSymbol(id: fixedItem.id) else { continue }
 
-        let resolvedPosition = fixedPlacement.resolvedPosition(in: size)
+        let resolvedPosition = fixedItem.resolvedPosition(in: size)
 
         for offset in offsets {
           var symbolContext = context
           symbolContext.translateBy(x: offset.width, y: offset.height)
           symbolContext.translateBy(x: resolvedPosition.x, y: resolvedPosition.y)
-          symbolContext.rotate(by: fixedPlacement.rotation)
-          symbolContext.scaleBy(x: fixedPlacement.scale, y: fixedPlacement.scale)
+          symbolContext.rotate(by: fixedItem.rotation)
+          symbolContext.scaleBy(x: fixedItem.scale, y: fixedItem.scale)
           symbolContext.draw(symbol, at: .zero, anchor: .center)
         }
       }
@@ -637,8 +637,8 @@ private struct TesseraCanvasStaticRenderView: View {
       ForEach(configuration.items) { item in
         item.makeView().tag(item.id)
       }
-      ForEach(fixedPlacements) { placement in
-        placement.makeView().tag(placement.id)
+      ForEach(fixedItems) { fixedItem in
+        fixedItem.makeView().tag(fixedItem.id)
       }
     }
     .frame(width: canvasSize.width, height: canvasSize.height)

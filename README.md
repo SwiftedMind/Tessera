@@ -41,7 +41,7 @@ struct Demo: View {
       density: 0.5
     )
 
-    TesseraPattern(
+    TesseraTiledCanvas(
       configuration,
       tileSize: CGSize(width: 256, height: 256),
       seed: 20
@@ -62,8 +62,8 @@ struct Demo: View {
 - `TesseraItem`  
   A drawable symbol with `weight`, `allowedRotationRange`, optional `scaleRange`, and view builder content. Includes presets like `.squareOutline`, `.partyPopper`, `.equals`, etc.
 
-- `TesseraPattern`  
-  A SwiftUI view that repeats a tile to fill available space. Requires a configuration and an explicit `tileSize`.
+- `TesseraTiledCanvas`  
+  A SwiftUI view that repeats a tile to fill available space by tiling a single generated tile. Requires a configuration and an explicit `tileSize`.
 
 - `TesseraCanvas`  
   A SwiftUI view that fills a finite canvas once, using the space provided by layout. Set a `.frame(...)` to control on-screen size. Canvas exports require an explicit `canvasSize` and can accept fixed placements.

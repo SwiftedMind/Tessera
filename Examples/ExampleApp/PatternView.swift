@@ -23,21 +23,21 @@ struct TesseraDemoView: View {
     )
 
     TabView {
-      TesseraPattern(
+      TesseraTiledCanvas(
         demoConfiguration,
         tileSize: CGSize(width: 256, height: 256),
       )
       .ignoresSafeArea()
       .tabItem {
-        Label("Pattern", systemImage: "square.grid.3x3.fill")
+        Label("Tiled Canvas", systemImage: "square.grid.3x3.fill")
       }
 
       TesseraCanvas(
         demoConfiguration,
-        fixedPlacements: [
-          TesseraFixedPlacement(
+        fixedItems: [
+          TesseraFixedItem(
             position: .centered(),
-            collisionShape: .circle(radius: 60)
+            collisionShape: .circle(radius: 60),
           ) {
             Image(systemName: "swift")
               .resizable()
@@ -45,9 +45,9 @@ struct TesseraDemoView: View {
               .foregroundStyle(.orange)
               .frame(width: 100, height: 100)
           },
-          TesseraFixedPlacement(
+          TesseraFixedItem(
             position: .bottomTrailing(offset: CGSize(width: -120, height: -120)),
-            collisionShape: .circle(radius: 140)
+            collisionShape: .circle(radius: 140),
           ) {
             Text("Tessera")
               .font(.system(size: 48, weight: .bold, design: .rounded))
