@@ -51,3 +51,42 @@ public enum TesseraPlacementPosition: Hashable {
     }
   }
 }
+
+public extension TesseraPlacementPosition {
+  /// A centered relative placement.
+  static func centered(offset: CGSize = .zero) -> TesseraPlacementPosition {
+    .relative(.center, offset: offset)
+  }
+
+  static func topLeading(offset: CGSize = .zero) -> TesseraPlacementPosition {
+    .relative(.topLeading, offset: offset)
+  }
+
+  static func top(offset: CGSize = .zero) -> TesseraPlacementPosition {
+    .relative(.top, offset: offset)
+  }
+
+  static func topTrailing(offset: CGSize = .zero) -> TesseraPlacementPosition {
+    .relative(.topTrailing, offset: offset)
+  }
+
+  static func leading(offset: CGSize = .zero) -> TesseraPlacementPosition {
+    .relative(.leading, offset: offset)
+  }
+
+  static func trailing(offset: CGSize = .zero) -> TesseraPlacementPosition {
+    .relative(.trailing, offset: offset)
+  }
+
+  static func bottomLeading(offset: CGSize = .zero) -> TesseraPlacementPosition {
+    .relative(.bottomLeading, offset: offset)
+  }
+
+  static func bottom(offset: CGSize = .zero) -> TesseraPlacementPosition {
+    .relative(.bottom, offset: offset)
+  }
+
+  static func bottomTrailing(offset: CGSize = .zero) -> TesseraPlacementPosition {
+    .relative(.bottomTrailing, offset: offset)
+  }
+}
