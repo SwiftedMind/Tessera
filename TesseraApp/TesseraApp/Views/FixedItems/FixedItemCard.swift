@@ -9,6 +9,7 @@ struct FixedItemCard: View {
   @Binding var expandedFixedItemID: EditableFixedItem.ID?
   @State private var offsetXDraft: CGFloat
   @State private var offsetYDraft: CGFloat
+  @State private var rotationDegreesDraft: Double
   @State private var scaleDraft: CGFloat
   @State private var widthDraft: Double
   @State private var heightDraft: Double
@@ -31,6 +32,7 @@ struct FixedItemCard: View {
 
     _offsetXDraft = State(initialValue: fixedItem.wrappedValue.placementOffset.width)
     _offsetYDraft = State(initialValue: fixedItem.wrappedValue.placementOffset.height)
+    _rotationDegreesDraft = State(initialValue: fixedItem.wrappedValue.rotationDegrees)
     _scaleDraft = State(initialValue: fixedItem.wrappedValue.scale)
 
     if fixedItem.wrappedValue.preset.capabilities.supportsTextContent {
@@ -109,6 +111,9 @@ struct FixedItemCard: View {
     .onChange(of: fixedItem.placementOffset) {
       offsetXDraft = fixedItem.placementOffset.width
       offsetYDraft = fixedItem.placementOffset.height
+    }
+    .onChange(of: fixedItem.rotationDegrees) {
+      rotationDegreesDraft = fixedItem.rotationDegrees
     }
     .onChange(of: fixedItem.scale) {
       scaleDraft = fixedItem.scale
@@ -192,13 +197,14 @@ struct FixedItemCard: View {
   private var fixedRotationOption: some View {
     OptionRow("Rotation") {
       SystemSlider(
-        value: $fixedItem.rotationDegrees,
+        value: $rotationDegreesDraft,
         in: 0...360,
         step: 1,
       )
       .compactSliderScale(visibility: .hidden)
+      .onSliderCommit(applyRotationDraft)
     } trailing: {
-      Text("\(fixedItem.rotationDegrees.formatted(.number.precision(.fractionLength(0))))°")
+      Text("\(rotationDegreesDraft.formatted(.number.precision(.fractionLength(0))))°")
     }
   }
 
@@ -305,6 +311,10 @@ struct FixedItemCard: View {
 
   private func applyOffsetDraft() {
     fixedItem.placementOffset = CGSize(width: offsetXDraft, height: offsetYDraft)
+  }
+
+  private func applyRotationDraft() {
+    fixedItem.rotationDegrees = rotationDegreesDraft
   }
 
   private func applyScaleDraft() {
