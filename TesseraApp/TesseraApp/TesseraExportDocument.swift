@@ -12,7 +12,8 @@ enum ExportFormat: Hashable {
 struct TesseraExportDocument: FileDocument {
   static var readableContentTypes: [UTType] { [.png, .pdf] }
 
-  var tessera: Tessera
+  var configuration: TesseraConfiguration
+  var tileSize: CGSize
   var format: ExportFormat
 
   var defaultFileName: String {
@@ -24,20 +25,21 @@ struct TesseraExportDocument: FileDocument {
 
   static var placeholder: TesseraExportDocument {
     TesseraExportDocument(
-      tessera: Tessera(
-        size: CGSize(width: 256, height: 256),
+      configuration: TesseraConfiguration(
         items: EditableItem.demoItems.map { $0.makeTesseraItem() },
         seed: 0,
         minimumSpacing: 10,
         density: 0.8,
         baseScaleRange: 0.5...1.2,
       ),
+      tileSize: CGSize(width: 256, height: 256),
       format: .png,
     )
   }
 
-  init(tessera: Tessera, format: ExportFormat) {
-    self.tessera = tessera
+  init(configuration: TesseraConfiguration, tileSize: CGSize, format: ExportFormat) {
+    self.configuration = configuration
+    self.tileSize = tileSize
     self.format = format
   }
 
@@ -50,15 +52,16 @@ struct TesseraExportDocument: FileDocument {
     let name = UUID().uuidString
 
     let exportedURL: URL = try performOnMain {
+      let tile = TesseraTile(self.configuration, tileSize: tileSize)
       switch format {
       case .png:
-        try tessera.renderPNG(
+        return try tile.renderPNG(
           to: temporaryDirectory,
           fileName: name,
           options: TesseraRenderOptions(targetPixelSize: CGSize(width: 2048, height: 2048)),
         )
       case .pdf:
-        try tessera.renderPDF(to: temporaryDirectory, fileName: name)
+        return try tile.renderPDF(to: temporaryDirectory, fileName: name)
       }
     }
 

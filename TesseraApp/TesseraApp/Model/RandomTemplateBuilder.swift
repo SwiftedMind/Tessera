@@ -6,7 +6,7 @@ import Tessera
 struct RandomTemplateBuilder {
   private let seed: UInt64
 
-  init(seed: UInt64 = Tessera.randomSeed()) {
+  init(seed: UInt64 = TesseraConfiguration.randomSeed()) {
     self.seed = seed
   }
 

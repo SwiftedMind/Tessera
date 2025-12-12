@@ -4,20 +4,21 @@ import SwiftUI
 
 /// Renders a single tessera tile into a cached symbol.
 struct TesseraCanvasTile: View {
-  var tessera: Tessera
+  var configuration: TesseraConfiguration
+  var tileSize: CGSize
   var seed: UInt64
 
   var body: some View {
     Canvas { context, size in
       let wrappedOffset = CGSize(
-        width: tessera.patternOffset.width.truncatingRemainder(dividingBy: size.width),
-        height: tessera.patternOffset.height.truncatingRemainder(dividingBy: size.height),
+        width: configuration.patternOffset.width.truncatingRemainder(dividingBy: size.width),
+        height: configuration.patternOffset.height.truncatingRemainder(dividingBy: size.height),
       )
 
       var randomGenerator = SeededGenerator(seed: seed)
       let placedItems = ShapePlacementEngine.placeItems(
         in: size,
-        tessera: tessera,
+        configuration: configuration,
         randomGenerator: &randomGenerator,
       )
 
@@ -46,10 +47,10 @@ struct TesseraCanvasTile: View {
         }
       }
     } symbols: {
-      ForEach(tessera.items) { item in
+      ForEach(configuration.items) { item in
         item.makeView().tag(item.id)
       }
     }
-    .frame(width: tessera.size.width, height: tessera.size.height)
+    .frame(width: tileSize.width, height: tileSize.height)
   }
 }

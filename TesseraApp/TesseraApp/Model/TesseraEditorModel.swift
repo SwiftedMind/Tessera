@@ -109,7 +109,7 @@ final class TesseraEditorModel {
     }
   }
 
-  private(set) var liveTessera: Tessera
+  private(set) var liveConfiguration: TesseraConfiguration
 
   private var updateTask: Task<Void, Never>?
   private var visibleItems: [EditableItem] {
@@ -141,8 +141,7 @@ final class TesseraEditorModel {
     patternOffset = initialPatternOffset
 
     let initialVisibleItems = initialItems.filter(\.isVisible)
-    liveTessera = Tessera(
-      size: initialTesseraSize,
+    liveConfiguration = TesseraConfiguration(
       items: initialVisibleItems.map { $0.makeTesseraItem() },
       seed: initialSeed,
       minimumSpacing: initialMinimumSpacing,
@@ -153,15 +152,15 @@ final class TesseraEditorModel {
   }
 
   func shuffleSeed() {
-    tesseraSeed = Tessera.randomSeed()
+    tesseraSeed = TesseraConfiguration.randomSeed()
   }
 
   func commitDensityDraft() {
     density = densityDraft
   }
 
-  func refreshLiveTessera() {
-    liveTessera = makeTessera()
+  func refreshLiveConfiguration() {
+    liveConfiguration = makeConfiguration()
   }
 
   func reloadFromDocument() {
@@ -180,7 +179,7 @@ final class TesseraEditorModel {
     patternOffset = payload.settings.patternOffset.coreGraphicsSize
 
     isApplyingDocumentUpdate = false
-    refreshLiveTessera()
+    refreshLiveConfiguration()
   }
 
   private func scheduleUpdate(debounce: Duration = .milliseconds(0)) {
@@ -188,7 +187,7 @@ final class TesseraEditorModel {
     updateTask = Task {
       do {
         try await Task.sleep(for: debounce)
-        liveTessera = makeTessera()
+        liveConfiguration = makeConfiguration()
       } catch {}
     }
   }
@@ -231,9 +230,8 @@ final class TesseraEditorModel {
     documentBinding.wrappedValue = document
   }
 
-  private func makeTessera() -> Tessera {
-    Tessera(
-      size: tesseraSize,
+  private func makeConfiguration() -> TesseraConfiguration {
+    TesseraConfiguration(
       items: visibleItems.map { $0.makeTesseraItem() },
       seed: tesseraSeed,
       minimumSpacing: minimumSpacing,
