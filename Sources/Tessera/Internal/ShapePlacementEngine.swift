@@ -15,6 +15,8 @@ enum ShapePlacementEngine {
   ) -> [PlacedItem] {
     guard !configuration.items.isEmpty else { return [] }
 
+    let minimumSpacing = CGFloat(configuration.minimumSpacing)
+
     let tileArea = size.width * size.height
     let approximateItemArea = max(configuration.minimumSpacing * configuration.minimumSpacing, 1)
     let clampedDensity = max(0, min(1, configuration.density))
@@ -56,12 +58,41 @@ enum ShapePlacementEngine {
       )
     }
 
+    let maximumGeneratedBoundingRadius = maximumBoundingRadius(
+      for: configuration.items,
+      baseScaleRange: configuration.baseScaleRange,
+    )
+    let maximumFixedBoundingRadius = fixedPlacements
+      .map { placement in
+        placement.collisionShape.boundingRadius(atScale: placement.scale)
+      }
+      .max() ?? 0
+    let maximumBoundingRadius = max(maximumGeneratedBoundingRadius, maximumFixedBoundingRadius)
+    let maximumInteractionDistance = maximumBoundingRadius * 2 + minimumSpacing
+    let cellSize = max(maximumInteractionDistance, 1)
+    let gridColumnCount = max(1, Int(ceil(size.width / cellSize)))
+    let gridRowCount = max(1, Int(ceil(size.height / cellSize)))
+
     let polygonCache: [UUID: [CGPoint]] = configuration.items.reduce(into: [:]) { cache, item in
       cache[item.id] = CollisionMath.polygonPoints(for: item.collisionShape)
     }
 
     var colliders: [PlacedCollider] = fixedColliders
     colliders.reserveCapacity(fixedColliders.count + remainingTargetCount)
+    var colliderGrid: [CellCoordinate: [Int]] = [:]
+    colliderGrid.reserveCapacity(fixedColliders.count + remainingTargetCount)
+
+    for colliderIndex in colliders.indices {
+      let collider = colliders[colliderIndex]
+      let coordinate = cellCoordinate(
+        for: collider.collisionTransform.position,
+        cellSize: cellSize,
+        gridColumnCount: gridColumnCount,
+        gridRowCount: gridRowCount,
+        edgeBehavior: edgeBehavior,
+      )
+      colliderGrid[coordinate, default: []].append(colliderIndex)
+    }
 
     for _ in 0..<remainingTargetCount {
       guard let selectedItem = pickItem(from: configuration.items, using: &randomGenerator) else { break }
@@ -85,12 +116,35 @@ enum ShapePlacementEngine {
           scale: scale,
         )
 
+        let candidateCoordinate = cellCoordinate(
+          for: position,
+          cellSize: cellSize,
+          gridColumnCount: gridColumnCount,
+          gridRowCount: gridRowCount,
+          edgeBehavior: edgeBehavior,
+        )
+        let neighboringCoordinates = neighboringCellCoordinates(
+          around: candidateCoordinate,
+          gridColumnCount: gridColumnCount,
+          gridRowCount: gridRowCount,
+          edgeBehavior: edgeBehavior,
+        )
+
+        var neighboringColliderIndices: [Int] = []
+        neighboringColliderIndices.reserveCapacity(32)
+        for coordinate in neighboringCoordinates {
+          if let indices = colliderGrid[coordinate] {
+            neighboringColliderIndices.append(contentsOf: indices)
+          }
+        }
+
         guard isPlacementValid(
           candidate: candidate,
           candidatePolygon: selectedPolygon,
-          existingColliders: colliders,
+          existingColliderIndices: neighboringColliderIndices,
+          allColliders: colliders,
           wrapOffsets: wrapOffsets,
-          minimumSpacing: configuration.minimumSpacing,
+          minimumSpacing: minimumSpacing,
         ) else { continue }
 
         placedItems.append(candidate)
@@ -101,6 +155,15 @@ enum ShapePlacementEngine {
             polygon: selectedPolygon,
           ),
         )
+        let newColliderIndex = colliders.count - 1
+        let newColliderCoordinate = cellCoordinate(
+          for: position,
+          cellSize: cellSize,
+          gridColumnCount: gridColumnCount,
+          gridRowCount: gridRowCount,
+          edgeBehavior: edgeBehavior,
+        )
+        colliderGrid[newColliderCoordinate, default: []].append(newColliderIndex)
         didPlaceItem = true
         break
       }
@@ -117,6 +180,91 @@ enum ShapePlacementEngine {
     var collisionShape: CollisionShape
     var collisionTransform: CollisionTransform
     var polygon: [CGPoint]
+  }
+
+  private struct CellCoordinate: Hashable {
+    var column: Int
+    var row: Int
+  }
+
+  private static func maximumBoundingRadius(
+    for items: [TesseraItem],
+    baseScaleRange: ClosedRange<Double>,
+  ) -> CGFloat {
+    var maximumRadius: CGFloat = 0
+    for item in items {
+      let scaleRange = item.scaleRange ?? baseScaleRange
+      let maximumScale = scaleRange.upperBound
+      let radius = item.collisionShape.boundingRadius(atScale: CGFloat(maximumScale))
+      maximumRadius = max(maximumRadius, radius)
+    }
+    return maximumRadius
+  }
+
+  private static func cellCoordinate(
+    for position: CGPoint,
+    cellSize: CGFloat,
+    gridColumnCount: Int,
+    gridRowCount: Int,
+    edgeBehavior: TesseraCanvasEdgeBehavior,
+  ) -> CellCoordinate {
+    let rawColumn = Int(floor(position.x / cellSize))
+    let rawRow = Int(floor(position.y / cellSize))
+
+    let column: Int
+    let row: Int
+    switch edgeBehavior {
+    case .finite:
+      column = max(0, min(gridColumnCount - 1, rawColumn))
+      row = max(0, min(gridRowCount - 1, rawRow))
+    case .seamlessWrapping:
+      column = wrappedIndex(rawColumn, modulus: gridColumnCount)
+      row = wrappedIndex(rawRow, modulus: gridRowCount)
+    }
+
+    return CellCoordinate(column: column, row: row)
+  }
+
+  private static func neighboringCellCoordinates(
+    around coordinate: CellCoordinate,
+    gridColumnCount: Int,
+    gridRowCount: Int,
+    edgeBehavior: TesseraCanvasEdgeBehavior,
+  ) -> [CellCoordinate] {
+    var coordinates: [CellCoordinate] = []
+    coordinates.reserveCapacity(9)
+
+    for rowOffset in -1...1 {
+      for columnOffset in -1...1 {
+        let neighborColumn = coordinate.column + columnOffset
+        let neighborRow = coordinate.row + rowOffset
+
+        switch edgeBehavior {
+        case .finite:
+          guard (0..<gridColumnCount).contains(neighborColumn),
+                (0..<gridRowCount).contains(neighborRow)
+          else { continue }
+
+          coordinates.append(CellCoordinate(column: neighborColumn, row: neighborRow))
+        case .seamlessWrapping:
+          coordinates.append(
+            CellCoordinate(
+              column: wrappedIndex(neighborColumn, modulus: gridColumnCount),
+              row: wrappedIndex(neighborRow, modulus: gridRowCount),
+            ),
+          )
+        }
+      }
+    }
+
+    return coordinates
+  }
+
+  private static func wrappedIndex(_ index: Int, modulus: Int) -> Int {
+    guard modulus > 0 else { return 0 }
+
+    let remainder = index % modulus
+    return remainder >= 0 ? remainder : remainder + modulus
   }
 
   private static func pickItem(
@@ -164,12 +312,14 @@ enum ShapePlacementEngine {
   private static func isPlacementValid(
     candidate: PlacedItem,
     candidatePolygon: [CGPoint],
-    existingColliders: [PlacedCollider],
+    existingColliderIndices: [Int],
+    allColliders: [PlacedCollider],
     wrapOffsets: [CGPoint],
     minimumSpacing: CGFloat,
   ) -> Bool {
     // Check candidate against every already-placed item, accounting for wrap offsets.
-    for collider in existingColliders {
+    for colliderIndex in existingColliderIndices {
+      let collider = allColliders[colliderIndex]
       for offset in wrapOffsets {
         let shiftedTransform = CollisionTransform(
           position: CGPoint(
