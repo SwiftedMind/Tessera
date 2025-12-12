@@ -119,7 +119,7 @@ nonisolated struct TesseraDocumentPayload: Codable, Equatable {
 
   static var `default`: TesseraDocumentPayload {
     TesseraDocumentPayload(
-      schemaVersion: 3,
+      schemaVersion: 4,
       settings: .default,
       items: [],
     )
@@ -128,23 +128,31 @@ nonisolated struct TesseraDocumentPayload: Codable, Equatable {
 
 /// Serializable editor-wide settings.
 nonisolated struct TesseraSettingsPayload: Codable, Equatable {
+  var patternMode: PatternMode
   var tesseraSize: CGSizePayload
+  var canvasSize: CGSizePayload
   var tesseraSeed: UInt64
   var minimumSpacing: Double
   var density: Double
   var baseScaleRange: ClosedRangePayload<Double>
   var patternOffset: CGSizePayload
+  var maximumItemCount: Int
   var stageBackgroundColor: ColorPayload?
+  var fixedItems: [EditableFixedItemPayload]
 
   static var `default`: TesseraSettingsPayload {
     TesseraSettingsPayload(
+      patternMode: .tile,
       tesseraSize: CGSizePayload(width: 256, height: 256),
+      canvasSize: CGSizePayload(width: 1024, height: 1024),
       tesseraSeed: 0,
       minimumSpacing: 10,
       density: 0.8,
       baseScaleRange: ClosedRangePayload(lowerBound: 0.5, upperBound: 1.2),
       patternOffset: .zero,
+      maximumItemCount: 512,
       stageBackgroundColor: nil,
+      fixedItems: [],
     )
   }
 }
@@ -161,6 +169,20 @@ nonisolated struct EditableItemPayload: Codable, Equatable, Identifiable {
   var usesCustomScaleRange: Bool
   var minimumScale: Double
   var maximumScale: Double
+  var style: ItemStylePayload
+  var specificOptions: PresetSpecificOptionsPayload
+}
+
+/// Serializable representation of a fixed item.
+nonisolated struct EditableFixedItemPayload: Codable, Equatable, Identifiable {
+  var id: UUID
+  var customName: String?
+  var presetID: String
+  var isVisible: Bool
+  var placementAnchor: FixedItemPlacementAnchor
+  var placementOffset: CGSizePayload
+  var rotationDegrees: Double
+  var scale: Double
   var style: ItemStylePayload
   var specificOptions: PresetSpecificOptionsPayload
 }

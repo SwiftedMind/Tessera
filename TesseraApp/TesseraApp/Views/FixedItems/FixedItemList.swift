@@ -2,18 +2,18 @@
 
 import SwiftUI
 
-struct ItemList: View {
+struct FixedItemList: View {
   @Environment(TesseraEditorModel.self) private var editor
-  @State private var expandedItemID: EditableItem.ID?
+  @State private var expandedFixedItemID: EditableFixedItem.ID?
 
   var body: some View {
     @Bindable var editor = editor
 
     VStack(alignment: .leading, spacing: .medium) {
       HStack {
-        Label("Items", systemImage: "square.fill.text.grid.1x2")
+        Label("Fixed Items", systemImage: "pin.fill")
           .font(.headline)
-          .help("Generated items that fill the pattern.")
+          .help("Placed once; the pattern fills around them.")
         Spacer()
         HStack(spacing: .tight) {
           Menu {
@@ -21,7 +21,7 @@ struct ItemList: View {
               Menu {
                 ForEach(group.presets) { preset in
                   Button(preset.title) {
-                    editor.tesseraItems.append(EditableItem(preset: preset))
+                    editor.fixedItems.append(EditableFixedItem(preset: preset))
                   }
                 }
               } label: {
@@ -29,47 +29,50 @@ struct ItemList: View {
               }
             }
           } label: {
-            Label("Add Item", systemImage: "plus")
+            Label("Add Fixed Item", systemImage: "plus")
           }
           .buttonStyle(.bordered)
         }
         Button(role: .destructive) {
-          removeAllItems()
+          removeAllFixedItems()
         } label: {
           Label("Remove All", systemImage: "trash")
         }
         .buttonStyle(.bordered)
-        .disabled(editor.tesseraItems.isEmpty)
+        .disabled(editor.fixedItems.isEmpty)
       }
 
       VStack(spacing: .medium) {
-        ForEach($editor.tesseraItems) { $item in
-          ItemCard(item: $item, expandedItemID: $expandedItemID) {
-            remove(item)
+        ForEach($editor.fixedItems) { $fixedItem in
+          FixedItemCard(
+            fixedItem: $fixedItem,
+            expandedFixedItemID: $expandedFixedItemID,
+          ) {
+            remove(fixedItem)
           }
         }
       }
-      .animation(.default, value: expandedItemID)
-      .animation(.default, value: editor.tesseraItems)
+      .animation(.default, value: expandedFixedItemID)
+      .animation(.default, value: editor.fixedItems)
     }
   }
 
-  private func remove(_ item: EditableItem) {
-    editor.tesseraItems.removeAll(where: { $0.id == item.id })
+  private func remove(_ fixedItem: EditableFixedItem) {
+    editor.fixedItems.removeAll(where: { $0.id == fixedItem.id })
   }
 
-  private func removeAllItems() {
-    guard editor.tesseraItems.isEmpty == false else { return }
+  private func removeAllFixedItems() {
+    guard editor.fixedItems.isEmpty == false else { return }
 
-    editor.tesseraItems.removeAll()
-    expandedItemID = nil
+    editor.fixedItems.removeAll()
+    expandedFixedItemID = nil
   }
 }
 
 #Preview {
   @Previewable @Environment(TesseraEditorModel.self) var editor
 
-  ItemList()
+  FixedItemList()
     .environment(editor)
     .padding(.large)
 }

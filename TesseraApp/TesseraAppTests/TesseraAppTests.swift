@@ -38,15 +38,19 @@ struct TesseraAppTests {
     )
 
     let payload = TesseraDocumentPayload(
-      schemaVersion: 2,
+      schemaVersion: 4,
       settings: TesseraSettingsPayload(
+        patternMode: .tile,
         tesseraSize: CGSizePayload(width: 200, height: 150),
+        canvasSize: CGSizePayload(width: 300, height: 200),
         tesseraSeed: 42,
         minimumSpacing: 12,
         density: 0.5,
         baseScaleRange: ClosedRangePayload(lowerBound: 0.7, upperBound: 1.1),
         patternOffset: CGSizePayload(width: 3, height: 4),
+        maximumItemCount: 900,
         stageBackgroundColor: ColorPayload(red: 0.9, green: 0.1, blue: 0.2, alpha: 1),
+        fixedItems: [],
       ),
       items: [itemPayload],
     )

@@ -82,11 +82,11 @@ struct ItemCard: View {
   }
 
   private var maximumWidth: Double {
-    max(8, editor.tesseraSize.width)
+    max(8, Double(editor.activePatternSize.width))
   }
 
   private var maximumHeight: Double {
-    max(8, editor.tesseraSize.height)
+    max(8, Double(editor.activePatternSize.height))
   }
 
   private var displayedEmoji: String {
@@ -105,7 +105,9 @@ struct ItemCard: View {
           lineWidthOption
           fontSizeOption
           presetSpecificOption
-          customScaleRangeOption
+          if item.preset.capabilities.supportsFontSize == false {
+            customScaleRangeOption
+          }
         }
         .padding([.horizontal, .bottom], .mediumRelaxed)
         .transition(.opacity)
@@ -173,9 +175,9 @@ struct ItemCard: View {
         refreshTextSize()
       }
     }
-    .onChange(of: editor.tesseraSize) {
-      widthDraft = min(widthDraft, editor.tesseraSize.width)
-      heightDraft = min(heightDraft, editor.tesseraSize.height)
+    .onChange(of: editor.activePatternSize) {
+      widthDraft = min(widthDraft, Double(editor.activePatternSize.width))
+      heightDraft = min(heightDraft, Double(editor.activePatternSize.height))
       applySizeDraft()
     }
     .onAppear {

@@ -8,7 +8,7 @@ import UniformTypeIdentifiers
 struct Root: View {
   @Binding var document: TesseraDocument
   @State private var editor: TesseraEditorModel
-  @State private var isTiledCanvasEnabled: Bool = true
+  @State private var isRepeatPreviewEnabled: Bool = true
   @State private var showInspector: Bool = true
   @State private var exportFormat: ExportFormat = .png
   @State private var isExportPresented: Bool = false
@@ -24,7 +24,10 @@ struct Root: View {
       PatternStage(
         configuration: editor.liveConfiguration,
         tileSize: editor.tesseraSize,
-        isTiledCanvasEnabled: $isTiledCanvasEnabled,
+        canvasSize: editor.canvasSize,
+        fixedItems: editor.fixedItems,
+        patternMode: editor.patternMode,
+        isRepeatPreviewEnabled: $isRepeatPreviewEnabled,
       )
       .backgroundExtensionEffect()
       .toolbar { toolbarContent }
@@ -54,7 +57,7 @@ struct Root: View {
             Label("Export as pdf", systemImage: "doc.richtext")
           }
         } label: {
-          Label("Tile", systemImage: "square")
+          Label("Pattern", systemImage: "square.on.square")
         }
       } label: {
         Label("Export", systemImage: "square.and.arrow.up")
@@ -75,6 +78,9 @@ struct Root: View {
     exportDocument = TesseraExportDocument(
       configuration: editor.liveConfiguration,
       tileSize: editor.tesseraSize,
+      canvasSize: editor.canvasSize,
+      fixedItems: editor.fixedItems,
+      patternMode: editor.patternMode,
       format: exportFormat,
     )
   }
@@ -84,6 +90,9 @@ struct Root: View {
     exportDocument = TesseraExportDocument(
       configuration: editor.liveConfiguration,
       tileSize: editor.tesseraSize,
+      canvasSize: editor.canvasSize,
+      fixedItems: editor.fixedItems,
+      patternMode: editor.patternMode,
       format: format,
     )
     isExportPresented = true
