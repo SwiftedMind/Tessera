@@ -9,6 +9,8 @@ import Tessera
 final class TesseraEditorModel {
   @ObservationIgnored private var documentBinding: Binding<TesseraDocument>
   @ObservationIgnored private var isApplyingDocumentUpdate: Bool = false
+  @ObservationIgnored private var pendingDocumentWrite: TesseraDocument?
+  @ObservationIgnored private var pendingDocumentWriteTask: Task<Void, Never>?
 
   var tesseraItems: [EditableItem] {
     didSet {
@@ -313,9 +315,24 @@ final class TesseraEditorModel {
   }
 
   private func updateDocument(_ update: (inout TesseraDocument) -> Void) {
-    var document = documentBinding.wrappedValue
+    var document = pendingDocumentWrite ?? documentBinding.wrappedValue
     update(&document)
-    documentBinding.wrappedValue = document
+    pendingDocumentWrite = document
+
+    if pendingDocumentWriteTask == nil {
+      pendingDocumentWriteTask = Task { @MainActor [weak self] in
+        await Task.yield()
+        guard let self else { return }
+
+        let documentToWrite = pendingDocumentWrite
+        pendingDocumentWrite = nil
+        pendingDocumentWriteTask = nil
+
+        if let documentToWrite {
+          documentBinding.wrappedValue = documentToWrite
+        }
+      }
+    }
   }
 
   private func makeConfiguration() -> TesseraConfiguration {
