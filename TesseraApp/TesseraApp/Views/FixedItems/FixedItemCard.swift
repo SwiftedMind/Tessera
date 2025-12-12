@@ -217,14 +217,16 @@ struct FixedItemCard: View {
   }
 
   @ViewBuilder private var sizeOption: some View {
-    InspectorSizeOptionRow(
-      supportsTextContent: fixedItem.preset.capabilities.supportsTextContent,
-      widthDraft: $widthDraft,
-      heightDraft: $heightDraft,
-      maximumWidth: maximumWidth,
-      maximumHeight: maximumHeight,
-      onCommit: applySizeDraft,
-    )
+    if fixedItem.preset.capabilities.supportsSizeControl {
+      InspectorSizeOptionRow(
+        supportsTextContent: fixedItem.preset.capabilities.supportsTextContent,
+        widthDraft: $widthDraft,
+        heightDraft: $heightDraft,
+        maximumWidth: maximumWidth,
+        maximumHeight: maximumHeight,
+        onCommit: applySizeDraft,
+      )
+    }
   }
 
   @ViewBuilder private var colorOption: some View {
@@ -259,7 +261,9 @@ struct FixedItemCard: View {
   }
 
   @ViewBuilder private var presetSpecificOption: some View {
-    if fixedItem.preset.capabilities.supportsImagePlayground {
+    if fixedItem.preset.capabilities.supportsUploadedImage {
+      InspectorUploadedImageOptionRow(options: $fixedItem.specificOptions)
+    } else if fixedItem.preset.capabilities.supportsImagePlayground {
       InspectorImagePlaygroundOptionRow(options: $fixedItem.specificOptions)
     } else if fixedItem.preset.capabilities.supportsCornerRadius {
       InspectorCornerRadiusOptionRow(

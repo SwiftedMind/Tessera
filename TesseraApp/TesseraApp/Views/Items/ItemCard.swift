@@ -197,14 +197,16 @@ struct ItemCard: View {
   }
 
   @ViewBuilder private var sizeOption: some View {
-    InspectorSizeOptionRow(
-      supportsTextContent: item.preset.capabilities.supportsTextContent,
-      widthDraft: $widthDraft,
-      heightDraft: $heightDraft,
-      maximumWidth: maximumWidth,
-      maximumHeight: maximumHeight,
-      onCommit: applySizeDraft,
-    )
+    if item.preset.capabilities.supportsSizeControl {
+      InspectorSizeOptionRow(
+        supportsTextContent: item.preset.capabilities.supportsTextContent,
+        widthDraft: $widthDraft,
+        heightDraft: $heightDraft,
+        maximumWidth: maximumWidth,
+        maximumHeight: maximumHeight,
+        onCommit: applySizeDraft,
+      )
+    }
   }
 
   @ViewBuilder private var colorOption: some View {
@@ -239,7 +241,9 @@ struct ItemCard: View {
   }
 
   @ViewBuilder private var presetSpecificOption: some View {
-    if item.preset.capabilities.supportsImagePlayground {
+    if item.preset.capabilities.supportsUploadedImage {
+      InspectorUploadedImageOptionRow(options: $item.specificOptions)
+    } else if item.preset.capabilities.supportsImagePlayground {
       InspectorImagePlaygroundOptionRow(options: $item.specificOptions)
     } else if item.preset.capabilities.supportsCornerRadius {
       InspectorCornerRadiusOptionRow(

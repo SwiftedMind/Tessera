@@ -278,7 +278,9 @@ final class TesseraEditorModel {
     updateDocument { document in
       var referencedAssetIDs = Set<UUID>()
       referencedAssetIDs.formUnion(tesseraItems.compactMap(\.specificOptions.imagePlaygroundAssetID))
+      referencedAssetIDs.formUnion(tesseraItems.compactMap(\.specificOptions.uploadedImageAssetID))
       referencedAssetIDs.formUnion(fixedItems.compactMap(\.specificOptions.imagePlaygroundAssetID))
+      referencedAssetIDs.formUnion(fixedItems.compactMap(\.specificOptions.uploadedImageAssetID))
 
       var updatedAssets = document.embeddedImageAssets.filter { referencedAssetIDs.contains($0.key) }
 
@@ -296,11 +298,39 @@ final class TesseraEditorModel {
         updatedAssets[assetID] = EmbeddedImageAsset(data: imageData, fileExtension: fileExtension)
       }
 
+      for item in tesseraItems {
+        guard let assetID = item.specificOptions.uploadedImageAssetID else { continue }
+        guard let imageData = item.specificOptions.uploadedImageData else { continue }
+
+        let fileExtension: String = if let itemExtension = item.specificOptions.uploadedImageFileExtension,
+                                       itemExtension.isEmpty == false {
+          itemExtension.lowercased()
+        } else {
+          "png"
+        }
+
+        updatedAssets[assetID] = EmbeddedImageAsset(data: imageData, fileExtension: fileExtension)
+      }
+
       for fixedItem in fixedItems {
         guard let assetID = fixedItem.specificOptions.imagePlaygroundAssetID else { continue }
         guard let imageData = fixedItem.specificOptions.imagePlaygroundImageData else { continue }
 
         let fileExtension: String = if let fixedItemExtension = fixedItem.specificOptions.imagePlaygroundFileExtension,
+                                       fixedItemExtension.isEmpty == false {
+          fixedItemExtension.lowercased()
+        } else {
+          "png"
+        }
+
+        updatedAssets[assetID] = EmbeddedImageAsset(data: imageData, fileExtension: fileExtension)
+      }
+
+      for fixedItem in fixedItems {
+        guard let assetID = fixedItem.specificOptions.uploadedImageAssetID else { continue }
+        guard let imageData = fixedItem.specificOptions.uploadedImageData else { continue }
+
+        let fileExtension: String = if let fixedItemExtension = fixedItem.specificOptions.uploadedImageFileExtension,
                                        fixedItemExtension.isEmpty == false {
           fixedItemExtension.lowercased()
         } else {

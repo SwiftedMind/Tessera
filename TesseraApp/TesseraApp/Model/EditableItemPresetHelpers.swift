@@ -100,4 +100,22 @@ enum EditableItemPresetHelpers {
     return Image(uiImage: uiImage)
     #endif
   }
+
+  /// Loads an embedded uploaded image asset and wraps it in a SwiftUI Image.
+  ///
+  /// - Parameter options: Preset options that may include embedded image data.
+  /// - Returns: A SwiftUI image when embedded data is available, otherwise `nil`.
+  static func uploadedImage(from options: PresetSpecificOptions) -> Image? {
+    guard let data = options.uploadedImageData else { return nil }
+
+    #if os(macOS)
+    guard let nsImage = NSImage(data: data) else { return nil }
+
+    return Image(nsImage: nsImage)
+    #else
+    guard let uiImage = UIImage(data: data) else { return nil }
+
+    return Image(uiImage: uiImage)
+    #endif
+  }
 }

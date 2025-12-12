@@ -89,6 +89,7 @@ enum PresetSpecificOptions: Equatable {
   case systemSymbol(name: String)
   case text(content: String)
   case imagePlayground(assetID: UUID?, imageData: Data?, fileExtension: String?)
+  case uploadedImage(assetID: UUID?, imageData: Data?, fileExtension: String?)
 
   var cornerRadius: CGFloat? {
     switch self {
@@ -144,11 +145,39 @@ enum PresetSpecificOptions: Equatable {
     }
   }
 
+  var uploadedImageAssetID: UUID? {
+    switch self {
+    case let .uploadedImage(assetID, _, _):
+      assetID
+    default:
+      nil
+    }
+  }
+
+  var uploadedImageData: Data? {
+    switch self {
+    case let .uploadedImage(_, imageData, _):
+      imageData
+    default:
+      nil
+    }
+  }
+
+  var uploadedImageFileExtension: String? {
+    switch self {
+    case let .uploadedImage(_, _, fileExtension):
+      fileExtension
+    default:
+      nil
+    }
+  }
+
   enum Kind {
     case roundedRectangleCornerRadius
     case systemSymbol
     case textContent
     case imagePlayground
+    case uploadedImage
   }
 
   var kind: Kind? {
@@ -163,6 +192,8 @@ enum PresetSpecificOptions: Equatable {
       .textContent
     case .imagePlayground:
       .imagePlayground
+    case .uploadedImage:
+      .uploadedImage
     }
   }
 
@@ -184,6 +215,14 @@ enum PresetSpecificOptions: Equatable {
     fileExtension: String?,
   ) -> PresetSpecificOptions {
     .imagePlayground(assetID: assetID, imageData: imageData, fileExtension: fileExtension)
+  }
+
+  func updatingUploadedImage(
+    assetID: UUID?,
+    imageData: Data?,
+    fileExtension: String?,
+  ) -> PresetSpecificOptions {
+    .uploadedImage(assetID: assetID, imageData: imageData, fileExtension: fileExtension)
   }
 }
 
@@ -281,6 +320,14 @@ extension PresetSpecificOptions {
         imageData: embeddedAsset?.data,
         fileExtension: embeddedAssetFileExtension ?? embeddedAsset?.fileExtension,
       )
+    case let .uploadedImage(embeddedAssetIDString, embeddedAssetFileExtension):
+      let embeddedAssetID = embeddedAssetIDString.flatMap(UUID.init(uuidString:))
+      let embeddedAsset = embeddedAssetID.flatMap { embeddedAssets[$0] }
+      self = .uploadedImage(
+        assetID: embeddedAssetID,
+        imageData: embeddedAsset?.data,
+        fileExtension: embeddedAssetFileExtension ?? embeddedAsset?.fileExtension,
+      )
     }
   }
 
@@ -296,6 +343,11 @@ extension PresetSpecificOptions {
       .text(content: content)
     case let .imagePlayground(assetID, _, fileExtension):
       .imagePlayground(
+        embeddedAssetIDString: assetID?.uuidString,
+        embeddedAssetFileExtension: fileExtension,
+      )
+    case let .uploadedImage(assetID, _, fileExtension):
+      .uploadedImage(
         embeddedAssetIDString: assetID?.uuidString,
         embeddedAssetFileExtension: fileExtension,
       )
