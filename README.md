@@ -66,7 +66,7 @@ struct Demo: View {
   A SwiftUI view that repeats a tile to fill available space. Requires a configuration and an explicit `tileSize`.
 
 - `TesseraCanvas`  
-  A SwiftUI view that fills a finite canvas once. Requires a configuration and an explicit `canvasSize`, and can accept fixed placements.
+  A SwiftUI view that fills a finite canvas once, using the space provided by layout. Set a `.frame(...)` to control on-screen size. Canvas exports require an explicit `canvasSize` and can accept fixed placements.
 
 ## Exporting
 

@@ -30,7 +30,7 @@ enum ShapePlacementEngine {
     let fixedPlacementDescriptors = fixedPlacements.map { placement in
       FixedPlacementDescriptor(
         id: placement.id,
-        position: placement.position,
+        position: placement.resolvedPosition(in: size),
         rotationRadians: placement.rotation.radians,
         scale: placement.scale,
         collisionShape: placement.collisionShape,
