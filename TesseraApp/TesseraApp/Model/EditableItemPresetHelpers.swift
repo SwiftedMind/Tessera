@@ -1,6 +1,7 @@
 // By Dennis Müller
 
 import CoreText
+import ImageIO
 import SwiftUI
 #if os(macOS)
 import AppKit
@@ -117,5 +118,77 @@ enum EditableItemPresetHelpers {
 
     return Image(uiImage: uiImage)
     #endif
+  }
+
+  /// Calculates a rectangle collision size that matches the visible bounds of an aspect-fitted image.
+  ///
+  /// The image presets render their image into `style.size` using `aspectRatio(contentMode: .fit)`.
+  /// When the image's aspect ratio does not match the container, SwiftUI letterboxes the image by
+  /// leaving empty space on either the horizontal or vertical axis. Using the full container size
+  /// for collision checks makes the item appear to reserve too much space.
+  ///
+  /// - Parameters:
+  ///   - style: Style containing the image container size.
+  ///   - options: Preset options that may carry embedded image data.
+  /// - Returns: A collision size that follows the rendered image bounds when possible.
+  static func aspectFittedImageCollisionSize(for style: ItemStyle, options: PresetSpecificOptions) -> CGSize {
+    guard style.size.width > 0, style.size.height > 0 else { return style.size }
+
+    let imageData = options.imagePlaygroundImageData ?? options.uploadedImageData
+    guard let imageData, let imageAspectRatio = imageAspectRatio(from: imageData) else {
+      return style.size
+    }
+
+    return aspectFitSize(containerSize: style.size, contentAspectRatio: imageAspectRatio)
+  }
+
+  private static func aspectFitSize(containerSize: CGSize, contentAspectRatio: CGFloat) -> CGSize {
+    guard containerSize.width > 0, containerSize.height > 0 else { return .zero }
+    guard contentAspectRatio.isFinite, contentAspectRatio > 0 else { return containerSize }
+
+    let containerAspectRatio = containerSize.width / containerSize.height
+
+    if contentAspectRatio > containerAspectRatio {
+      let fittedHeight = containerSize.width / contentAspectRatio
+      return CGSize(width: containerSize.width, height: fittedHeight)
+    } else {
+      let fittedWidth = containerSize.height * contentAspectRatio
+      return CGSize(width: fittedWidth, height: containerSize.height)
+    }
+  }
+
+  private static func imageAspectRatio(from imageData: Data) -> CGFloat? {
+    let imageSourceOptions: [CFString: Any] = [
+      kCGImageSourceShouldCache: false,
+      kCGImageSourceShouldCacheImmediately: false,
+    ]
+
+    guard let imageSource = CGImageSourceCreateWithData(imageData as CFData, imageSourceOptions as CFDictionary) else {
+      return nil
+    }
+    guard let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, imageSourceOptions as CFDictionary) as?
+      [CFString: Any]
+    else {
+      return nil
+    }
+    guard let pixelWidthNumber = properties[kCGImagePropertyPixelWidth] as? NSNumber,
+          let pixelHeightNumber = properties[kCGImagePropertyPixelHeight] as? NSNumber
+    else {
+      return nil
+    }
+
+    let pixelWidth = pixelWidthNumber.doubleValue
+    let pixelHeight = pixelHeightNumber.doubleValue
+
+    guard pixelWidth > 0, pixelHeight > 0 else { return nil }
+
+    let orientation = (properties[kCGImagePropertyOrientation] as? NSNumber)?.intValue ?? 1
+    let isRotatedByNinetyDegrees = [5, 6, 7, 8].contains(orientation)
+
+    if isRotatedByNinetyDegrees {
+      return CGFloat(pixelHeight / pixelWidth)
+    }
+
+    return CGFloat(pixelWidth / pixelHeight)
   }
 }

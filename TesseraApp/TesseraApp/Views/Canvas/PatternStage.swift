@@ -87,7 +87,7 @@ struct PatternStage: View {
     HStack(spacing: .extraLarge) {
       if patternMode == .tile {
         Toggle(isOn: $isRepeatPreviewEnabled) {
-          Label("Repeat Preview", systemImage: "square.grid.3x3.fill")
+          Label("Fill Space", systemImage: "square.grid.3x3.fill")
         }
         .toggleStyle(.switch)
         .help("Fill the stage by repeating the tile.")
