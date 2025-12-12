@@ -7,52 +7,29 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// Describes a single tessellated pattern configuration.
-public struct Tessera: View {
-  public var size: CGSize
-  public var items: [TesseraItem]
+public struct TesseraTile: View {
+  public var configuration: TesseraConfiguration
+  public var tileSize: CGSize
   public var seed: UInt64
-  public var minimumSpacing: Double
-  /// Desired fill density between 0 and 1; scales how many items are attempted.
-  public var density: Double
-  public var baseScaleRange: ClosedRange<Double>
-  /// Offsets applied to the tile content before wrapping.
-  public var patternOffset: CGSize
 
-  /// Creates a tessera definition.
+  /// Creates a tessera tile view.
   /// - Parameters:
-  ///   - size: Size of the square tile that will be repeated.
-  ///   - items: Items that can be placed inside each tile.
-  ///   - seed: Seed for deterministic randomness. Defaults to a random seed.
-  ///   - minimumSpacing: Minimum distance between item centers.
-  ///   - density: Desired fill density between 0 and 1.
-  ///   - baseScaleRange: Default scale range applied when an item does not provide its own scale range.
-  ///   - patternOffset: Positional offset applied to all items before wrapping; values wrap within the tile size.
+  ///   - configuration: The tessera configuration to render.
+  ///   - tileSize: Size of the tile.
+  ///   - seed: Optional seed overriding the configuration's seed for this view instance.
   public init(
-    size: CGSize,
-    items: [TesseraItem],
-    seed: UInt64 = Tessera.randomSeed(),
-    minimumSpacing: Double,
-    density: Double = 0.5,
-    baseScaleRange: ClosedRange<Double> = 0.9...1.1,
-    patternOffset: CGSize = .zero,
+    _ configuration: TesseraConfiguration,
+    tileSize: CGSize,
+    seed: UInt64? = nil,
   ) {
-    self.size = size
-    self.items = items
-    self.seed = seed
-    self.minimumSpacing = minimumSpacing
-    self.density = density
-    self.baseScaleRange = baseScaleRange
-    self.patternOffset = patternOffset
+    self.configuration = configuration
+    self.tileSize = tileSize
+    self.seed = seed ?? configuration.seed
   }
 
-  /// Renders the tessera as a single tile view.
+  /// Renders the configuration as a single tile view.
   public var body: some View {
-    TesseraCanvasTile(tessera: self, seed: seed)
-  }
-
-  /// Generates a new random seed.
-  public static func randomSeed() -> UInt64 {
-    UInt64.random(in: 1...UInt64.max)
+    TesseraCanvasTile(configuration: configuration, tileSize: tileSize, seed: seed)
   }
 
   /// Renders the tessera tile to a PNG file.
@@ -63,7 +40,7 @@ public struct Tessera: View {
   /// - Returns: The resolved file URL that was written.
   @discardableResult public func renderPNG(
     to directory: URL,
-    fileName: String = "tessera",
+    fileName: String = "tessera-tile",
     options: TesseraRenderOptions = TesseraRenderOptions(),
   ) throws -> URL {
     let destinationURL = resolvedOutputURL(directory: directory, fileName: fileName, fileExtension: "png")
@@ -94,18 +71,18 @@ public struct Tessera: View {
   /// - Parameters:
   ///   - directory: Target directory where the file will be created.
   ///   - fileName: Base file name without extension; `.pdf` is appended automatically.
-  ///   - pageSize: Optional PDF page size in points; defaults to the tessera tile size.
+  ///   - pageSize: Optional PDF page size in points; defaults to the tile size.
   ///   - options: Rendering configuration such as output pixel size and scale, applied while drawing into the PDF
   /// context.
   /// - Returns: The resolved file URL that was written.
   @discardableResult public func renderPDF(
     to directory: URL,
-    fileName: String = "tessera",
+    fileName: String = "tessera-tile",
     pageSize: CGSize? = nil,
     options: TesseraRenderOptions = TesseraRenderOptions(scale: 1),
   ) throws -> URL {
     let destinationURL = resolvedOutputURL(directory: directory, fileName: fileName, fileExtension: "pdf")
-    let renderSize = pageSize ?? size
+    let renderSize = pageSize ?? tileSize
     var mediaBox = CGRect(origin: .zero, size: renderSize)
 
     guard
@@ -117,7 +94,7 @@ public struct Tessera: View {
 
     let renderer = makeRenderer(options: options)
 
-    let rasterizationScale = options.resolvedScale(tileSize: size)
+    let rasterizationScale = options.resolvedScale(contentSize: tileSize)
 
     renderer.render(rasterizationScale: rasterizationScale) { size, render in
       context.beginPDFPage(nil)
@@ -133,9 +110,11 @@ public struct Tessera: View {
   }
 
   private func makeRenderer(options: TesseraRenderOptions) -> ImageRenderer<TesseraCanvasTile> {
-    let renderer = ImageRenderer(content: TesseraCanvasTile(tessera: self, seed: seed))
-    renderer.proposedSize = ProposedViewSize(size)
-    renderer.scale = options.resolvedScale(tileSize: size)
+    let renderer = ImageRenderer(
+      content: TesseraCanvasTile(configuration: configuration, tileSize: tileSize, seed: seed),
+    )
+    renderer.proposedSize = ProposedViewSize(tileSize)
+    renderer.scale = options.resolvedScale(contentSize: tileSize)
     renderer.isOpaque = options.isOpaque
     renderer.colorMode = options.colorMode
     return renderer
@@ -179,10 +158,10 @@ public struct TesseraRenderOptions {
     self.colorMode = colorMode
   }
 
-  func resolvedScale(tileSize: CGSize) -> CGFloat {
+  func resolvedScale(contentSize: CGSize) -> CGFloat {
     if let targetPixelSize {
-      let widthScale = targetPixelSize.width / tileSize.width
-      let heightScale = targetPixelSize.height / tileSize.height
+      let widthScale = targetPixelSize.width / contentSize.width
+      let heightScale = targetPixelSize.height / contentSize.height
       return max(widthScale, heightScale)
     }
     return scale ?? 2

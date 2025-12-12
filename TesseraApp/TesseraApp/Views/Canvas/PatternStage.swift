@@ -6,7 +6,8 @@ import Tessera
 struct PatternStage: View {
   @Environment(TesseraEditorModel.self) private var editor
 
-  var tessera: Tessera
+  var configuration: TesseraConfiguration
+  var tileSize: CGSize
   @Binding var repeatPattern: Bool
 
   var body: some View {
@@ -24,12 +25,12 @@ struct PatternStage: View {
         .padding(.top, .medium)
     }
     .animation(.smooth(duration: 0.28), value: repeatPattern)
-    .animation(.smooth(duration: 0.28), value: tessera.items.count)
+    .animation(.smooth(duration: 0.28), value: configuration.items.count)
   }
 
   @ViewBuilder
   private var patternContent: some View {
-    if tessera.items.isEmpty {
+    if configuration.items.isEmpty {
       if editor.stageBackgroundColor != nil {
         emptyState
           .padding(.large)
@@ -42,10 +43,10 @@ struct PatternStage: View {
           .transition(.opacity.combined(with: .scale(1.2)))
       }
     } else if repeatPattern {
-      TesseraPattern(tessera, seed: tessera.seed)
+      TesseraPattern(configuration, tileSize: tileSize)
         .transition(.opacity)
     } else {
-      tessera
+      TesseraTile(configuration, tileSize: tileSize)
         .padding(.large)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 22))
         .padding(.large)
@@ -61,13 +62,13 @@ struct PatternStage: View {
         Label("Repeat", systemImage: "square.grid.3x3.fill")
       }
       .toggleStyle(.switch)
-      
+
       HStack(spacing: .medium) {
         Toggle(isOn: stageBackgroundEnabled) {
           Label("Background", systemImage: "paintpalette.fill")
         }
         .toggleStyle(.switch)
-        
+
         if editor.stageBackgroundColor != nil {
           ColorPicker(
             "",
@@ -138,7 +139,7 @@ struct PatternStage: View {
       editor.tesseraSeed = seed
     }
 
-    editor.refreshLiveTessera()
+    editor.refreshLiveConfiguration()
   }
 
   private var stageBackgroundEnabled: Binding<Bool> {
@@ -170,14 +171,14 @@ private extension Binding where Value == Color? {
 
 #Preview {
   PatternStage(
-    tessera: Tessera(
-      size: CGSize(width: 256, height: 256),
+    configuration: TesseraConfiguration(
       items: EditableItem.demoItems.map { $0.makeTesseraItem() },
       seed: 0,
       minimumSpacing: 10,
       density: 0.8,
       baseScaleRange: 0.5...1.2,
     ),
+    tileSize: CGSize(width: 256, height: 256),
     repeatPattern: .constant(true),
   )
   .frame(width: 360, height: 360)

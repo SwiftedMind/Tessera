@@ -3,7 +3,7 @@
 import CoreGraphics
 
 /// A coarse description of a drawable item's geometry used for collision checks.
-public enum CollisionShape: Sendable {
+public enum CollisionShape: Sendable, Hashable {
   /// A circle centered on the origin.
   case circle(radius: CGFloat)
   /// An axis-aligned rectangle centered on the origin.

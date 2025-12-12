@@ -5,7 +5,7 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 ## Features
 
 - Easy to use: Create arbitrary repeatable patterns by composing simple SwiftUI views.
-- Declarative API: describe a `Tessera` (tile size, items, density, spacing, seed) and drop it into `TesseraPattern`.
+- Declarative API: describe a `TesseraConfiguration` (items, density, spacing, seed) and provide a tile size or canvas size at render time.
 - Even spacing: Shape-aware placement with wrap‑around edges avoids clustering and seams.
 - Deterministic: Provide a seed for reproducible artwork; omit to randomize.
 
@@ -35,14 +35,17 @@ struct Demo: View {
       .circleOutline
     ]
 
-    let tessera = Tessera(
-      size: CGSize(width: 256, height: 256),
+    let configuration = TesseraConfiguration(
       items: items,
       minimumSpacing: 50,
       density: 0.5
     )
 
-    TesseraPattern(tessera, seed: 20)
+    TesseraPattern(
+      configuration,
+      tileSize: CGSize(width: 256, height: 256),
+      seed: 20
+    )
       .ignoresSafeArea()
   }
 }
@@ -50,14 +53,20 @@ struct Demo: View {
 
 ## API Overview
 
-- `Tessera`  
-  Describes one tile: `size`, `items`, `seed`, `minimumSpacing`, `density`, `baseScaleRange`.
+- `TesseraConfiguration`  
+  Describes how items are generated: `items`, `seed`, `minimumSpacing`, `density`, `baseScaleRange`, `patternOffset`, `maximumItemCount`.
+
+- `TesseraTile`  
+  A SwiftUI view that renders a single tile from a configuration and an explicit `tileSize`.
 
 - `TesseraItem`  
   A drawable symbol with `weight`, `allowedRotationRange`, optional `scaleRange`, and view builder content. Includes presets like `.squareOutline`, `.partyPopper`, `.equals`, etc.
 
 - `TesseraPattern`  
-  A SwiftUI view that repeats a tessera to fill available space. Accepts an optional `seed` override for the view instance.
+  A SwiftUI view that repeats a tile to fill available space. Requires a configuration and an explicit `tileSize`.
+
+- `TesseraCanvas`  
+  A SwiftUI view that fills a finite canvas once, using the space provided by layout. Set a `.frame(...)` to control on-screen size. Canvas exports require an explicit `canvasSize` and can accept fixed placements.
 
 ## Exporting
 
@@ -68,8 +77,7 @@ let demoItems: [TesseraItem] = [
   .squareOutline, .roundedOutline, .partyPopper, .minus, .equals, .circleOutline
 ]
 
-let demoTessera = Tessera(
-  size: CGSize(width: 256, height: 256),
+let demoConfiguration = TesseraConfiguration(
   items: demoItems,
   seed: 0,
   minimumSpacing: 10,
@@ -77,24 +85,29 @@ let demoTessera = Tessera(
   baseScaleRange: 0.5...1.2
 )
 
+let demoTile = TesseraTile(
+  demoConfiguration,
+  tileSize: CGSize(width: 256, height: 256)
+)
+
 let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
 
 // Ask for an exact pixel size; scale is derived automatically. Extension is added for you.
-let pngURL = try demoTessera.renderPNG(
+let pngURL = try demoTile.renderPNG(
   to: downloads,
   fileName: "tessera",
   options: .init(targetPixelSize: CGSize(width: 2000, height: 2000))
 )
 
 // PDF keeps vector content; pageSize is in points. Extension is added automatically.
-let pdfURL = try demoTessera.renderPDF(
+let pdfURL = try demoTile.renderPDF(
   to: downloads,
   fileName: "tessera",
   pageSize: CGSize(width: 256, height: 256)
 )
 
 // Prefer a fixed scale instead of pixel size:
-_ = try demoTessera.renderPNG(
+_ = try demoTile.renderPNG(
   to: downloads,
   fileName: "tessera@3x",
   options: .init(scale: 3)
@@ -102,7 +115,7 @@ _ = try demoTessera.renderPNG(
 ```
 
 Rendering options:
-- `targetPixelSize`: desired output in pixels (derives scale from the tessera’s `size`).
+- `targetPixelSize`: desired output in pixels (derives scale from the content size).
 - `scale`: explicit rasterization scale when `targetPixelSize` is nil (defaults to 2).
 - `isOpaque`, `colorMode`: forwarded to `ImageRenderer`.
 

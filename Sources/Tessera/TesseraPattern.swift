@@ -4,35 +4,42 @@ import SwiftUI
 
 /// A view that repeats a tessera tile to fill the available space.
 public struct TesseraPattern: View {
-  public var tessera: Tessera
+  public var configuration: TesseraConfiguration
+  public var tileSize: CGSize
   public var seed: UInt64
 
   /// Creates a tessera pattern view.
   /// - Parameters:
-  ///   - tessera: The tessera configuration to render.
-  ///   - seed: Optional seed overriding the tessera's seed for this view instance.
-  public init(_ tessera: Tessera, seed: UInt64? = nil) {
-    self.tessera = tessera
-    self.seed = seed ?? tessera.seed
+  ///   - configuration: The tessera configuration to render.
+  ///   - tileSize: Size of the tile that will be repeated.
+  ///   - seed: Optional seed overriding the configuration's seed for this view instance.
+  public init(
+    _ configuration: TesseraConfiguration,
+    tileSize: CGSize,
+    seed: UInt64? = nil,
+  ) {
+    self.configuration = configuration
+    self.tileSize = tileSize
+    self.seed = seed ?? configuration.seed
   }
 
   public var body: some View {
     Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: true) { context, size in
       guard let tile = context.resolveSymbol(id: 0) else { return }
 
-      let columns = Int(ceil(size.width / tessera.size.width))
-      let rows = Int(ceil(size.height / tessera.size.height))
+      let columns = Int(ceil(size.width / tileSize.width))
+      let rows = Int(ceil(size.height / tileSize.height))
 
       for row in 0..<rows {
         for column in 0..<columns {
-          let x = CGFloat(column) * tessera.size.width + tessera.size.width / 2
-          let y = CGFloat(row) * tessera.size.height + tessera.size.height / 2
+          let x = CGFloat(column) * tileSize.width + tileSize.width / 2
+          let y = CGFloat(row) * tileSize.height + tileSize.height / 2
           context.draw(tile, at: CGPoint(x: x, y: y), anchor: .center)
         }
       }
     } symbols: {
-      TesseraCanvasTile(tessera: tessera, seed: seed)
-        .frame(width: tessera.size.width, height: tessera.size.height)
+      TesseraCanvasTile(configuration: configuration, tileSize: tileSize, seed: seed)
+        .frame(width: tileSize.width, height: tileSize.height)
         .tag(0)
     }
   }

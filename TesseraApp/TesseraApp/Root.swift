@@ -21,18 +21,22 @@ struct Root: View {
 
   var body: some View {
     NavigationStack {
-      PatternStage(tessera: editor.liveTessera, repeatPattern: $repeatPattern)
-        .backgroundExtensionEffect()
-        .toolbar { toolbarContent }
-        .inspector(isPresented: $showInspector) {
-          InspectorPanel()
-        }
-        .fileExporter(
-          isPresented: $isExportPresented,
-          document: exportDocument,
-          contentType: exportFormat == .png ? .png : .pdf,
-          defaultFilename: exportDocument.defaultFileName,
-        ) { _ in }
+      PatternStage(
+        configuration: editor.liveConfiguration,
+        tileSize: editor.tesseraSize,
+        repeatPattern: $repeatPattern,
+      )
+      .backgroundExtensionEffect()
+      .toolbar { toolbarContent }
+      .inspector(isPresented: $showInspector) {
+        InspectorPanel()
+      }
+      .fileExporter(
+        isPresented: $isExportPresented,
+        document: exportDocument,
+        contentType: exportFormat == .png ? .png : .pdf,
+        defaultFilename: exportDocument.defaultFileName,
+      ) { _ in }
     }
     .onAppear(perform: seedInitialExportDocument)
     .environment(editor)
@@ -67,13 +71,21 @@ struct Root: View {
   }
 
   private func seedInitialExportDocument() {
-    editor.refreshLiveTessera()
-    exportDocument = TesseraExportDocument(tessera: editor.liveTessera, format: exportFormat)
+    editor.refreshLiveConfiguration()
+    exportDocument = TesseraExportDocument(
+      configuration: editor.liveConfiguration,
+      tileSize: editor.tesseraSize,
+      format: exportFormat,
+    )
   }
 
   private func beginExport(format: ExportFormat) {
     exportFormat = format
-    exportDocument = TesseraExportDocument(tessera: editor.liveTessera, format: format)
+    exportDocument = TesseraExportDocument(
+      configuration: editor.liveConfiguration,
+      tileSize: editor.tesseraSize,
+      format: format,
+    )
     isExportPresented = true
   }
 }
