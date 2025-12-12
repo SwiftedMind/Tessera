@@ -132,6 +132,7 @@ public struct TesseraCanvas: View {
   public var fixedItems: [TesseraFixedItem]
   public var seed: UInt64
   public var edgeBehavior: TesseraEdgeBehavior
+  public var onComputationStateChange: ((Bool) -> Void)?
 
   @State private var cachedPlacedItemDescriptors: [ShapePlacementEngine.PlacedItemDescriptor] = []
   @State private var resolvedCanvasSize: CGSize = .zero
@@ -150,11 +151,13 @@ public struct TesseraCanvas: View {
     fixedItems: [TesseraFixedItem] = [],
     seed: UInt64? = nil,
     edgeBehavior: TesseraEdgeBehavior = .finite,
+    onComputationStateChange: ((Bool) -> Void)? = nil,
   ) {
     self.configuration = configuration
     self.fixedItems = fixedItems
     self.seed = seed ?? configuration.seed
     self.edgeBehavior = edgeBehavior
+    self.onComputationStateChange = onComputationStateChange
   }
 
   public var body: some View {
@@ -162,6 +165,7 @@ public struct TesseraCanvas: View {
     let fixedItems = fixedItems
     let edgeBehavior = edgeBehavior
     let placedItemDescriptors = cachedPlacedItemDescriptors
+    let onComputationStateChange = onComputationStateChange
 
     Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: true) { context, size in
       let wrappedOffset = CGSize(
@@ -234,6 +238,17 @@ public struct TesseraCanvas: View {
       }
     }
     .task(id: currentComputationKey) {
+      await MainActor.run {
+        onComputationStateChange?(true)
+      }
+      defer {
+        if Task.isCancelled == false {
+          Task { @MainActor in
+            onComputationStateChange?(false)
+          }
+        }
+      }
+
       let canvasSize = resolvedCanvasSize
       guard canvasSize.width > 0, canvasSize.height > 0 else {
         cachedPlacedItemDescriptors = []

@@ -11,6 +11,7 @@ public struct TesseraTile: View {
   public var configuration: TesseraConfiguration
   public var tileSize: CGSize
   public var seed: UInt64
+  public var onComputationStateChange: ((Bool) -> Void)?
 
   /// Creates a tessera tile view.
   /// - Parameters:
@@ -21,15 +22,22 @@ public struct TesseraTile: View {
     _ configuration: TesseraConfiguration,
     tileSize: CGSize,
     seed: UInt64? = nil,
+    onComputationStateChange: ((Bool) -> Void)? = nil,
   ) {
     self.configuration = configuration
     self.tileSize = tileSize
     self.seed = seed ?? configuration.seed
+    self.onComputationStateChange = onComputationStateChange
   }
 
   /// Renders the configuration as a single tile view.
   public var body: some View {
-    TesseraCanvasTile(configuration: configuration, tileSize: tileSize, seed: seed)
+    TesseraCanvasTile(
+      configuration: configuration,
+      tileSize: tileSize,
+      seed: seed,
+      onComputationStateChange: onComputationStateChange,
+    )
   }
 
   /// Renders the tessera tile to a PNG file.

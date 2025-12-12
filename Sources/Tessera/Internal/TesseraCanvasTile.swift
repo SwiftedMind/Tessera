@@ -7,13 +7,27 @@ struct TesseraCanvasTile: View {
   var configuration: TesseraConfiguration
   var tileSize: CGSize
   var seed: UInt64
+  var onComputationStateChange: ((Bool) -> Void)?
 
   @State private var cachedPlacedItemDescriptors: [ShapePlacementEngine.PlacedItemDescriptor] = []
+
+  init(
+    configuration: TesseraConfiguration,
+    tileSize: CGSize,
+    seed: UInt64,
+    onComputationStateChange: ((Bool) -> Void)? = nil,
+  ) {
+    self.configuration = configuration
+    self.tileSize = tileSize
+    self.seed = seed
+    self.onComputationStateChange = onComputationStateChange
+  }
 
   var body: some View {
     let configuration = configuration
     let tileSize = tileSize
     let placedItemDescriptors = cachedPlacedItemDescriptors
+    let onComputationStateChange = onComputationStateChange
 
     Canvas(rendersAsynchronously: true) { context, size in
       let wrappedOffset = CGSize(
@@ -52,6 +66,17 @@ struct TesseraCanvasTile: View {
     }
     .frame(width: tileSize.width, height: tileSize.height)
     .task(id: currentComputationKey) {
+      await MainActor.run {
+        onComputationStateChange?(true)
+      }
+      defer {
+        if Task.isCancelled == false {
+          Task { @MainActor in
+            onComputationStateChange?(false)
+          }
+        }
+      }
+
       let snapshot = makeComputationSnapshot()
       await computePlacements(using: snapshot)
     }

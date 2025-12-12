@@ -12,6 +12,8 @@ struct PatternStage: View {
   var fixedItems: [EditableFixedItem]
   var patternMode: PatternMode
   @Binding var isRepeatPreviewEnabled: Bool
+  @State private var isRefreshOverlayVisible: Bool = false
+  @State private var refreshDelayTask: Task<Void, Never>?
 
   var body: some View {
     ZStack {
@@ -20,6 +22,10 @@ struct PatternStage: View {
           .ignoresSafeArea()
       }
       patternContent
+      if isRefreshOverlayVisible {
+        refreshingOverlay
+          .transition(.opacity.combined(with: .scale(0.9)))
+      }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .overlay(alignment: .topLeading) {
@@ -30,6 +36,7 @@ struct PatternStage: View {
     .animation(.smooth(duration: 0.28), value: isRepeatPreviewEnabled)
     .animation(.smooth(duration: 0.28), value: patternMode)
     .animation(.smooth(duration: 0.28), value: configuration.items.count)
+    .animation(.smooth(duration: 0.2), value: isRefreshOverlayVisible)
   }
 
   @ViewBuilder
@@ -50,14 +57,22 @@ struct PatternStage: View {
       switch patternMode {
       case .tile:
         if isRepeatPreviewEnabled {
-          TesseraTiledCanvas(configuration, tileSize: tileSize)
-            .transition(.opacity)
+          TesseraTiledCanvas(
+            configuration,
+            tileSize: tileSize,
+            onComputationStateChange: handleComputationStateChange,
+          )
+          .transition(.opacity)
         } else {
-          TesseraTile(configuration, tileSize: tileSize)
-            .padding(.large)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 22))
-            .padding(.large)
-            .transition(.opacity)
+          TesseraTile(
+            configuration,
+            tileSize: tileSize,
+            onComputationStateChange: handleComputationStateChange,
+          )
+          .padding(.large)
+          .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 22))
+          .padding(.large)
+          .transition(.opacity)
         }
       case .canvas:
         canvasPreview
@@ -145,13 +160,17 @@ struct PatternStage: View {
       let fittedScale = min(min(horizontalScale, verticalScale), 1)
       let scaledSize = CGSize(width: canvasSize.width * fittedScale, height: canvasSize.height * fittedScale)
 
-      TesseraCanvas(configuration, fixedItems: visibleFixedItems)
-        .frame(width: canvasSize.width, height: canvasSize.height)
-        .background(.thinMaterial, in: borderShape)
-        .overlay(borderShape.stroke(.white.opacity(0.25)))
-        .scaleEffect(fittedScale)
-        .frame(width: scaledSize.width, height: scaledSize.height)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+      TesseraCanvas(
+        configuration,
+        fixedItems: visibleFixedItems,
+        onComputationStateChange: handleComputationStateChange,
+      )
+      .frame(width: canvasSize.width, height: canvasSize.height)
+      .background(.thinMaterial, in: borderShape)
+      .overlay(borderShape.stroke(.white.opacity(0.25)))
+      .scaleEffect(fittedScale)
+      .frame(width: scaledSize.width, height: scaledSize.height)
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
   }
 
@@ -195,6 +214,42 @@ struct PatternStage: View {
         }
       },
     )
+  }
+
+  private var refreshingOverlay: some View {
+    HStack(spacing: .medium) {
+      ProgressView()
+        .progressViewStyle(.circular)
+      Text("Refreshing...")
+        .font(.headline)
+    }
+    .padding(.mediumRelaxed)
+    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    .overlay(
+      RoundedRectangle(cornerRadius: 14, style: .continuous)
+        .strokeBorder(.white.opacity(0.2)),
+    )
+    .shadow(radius: 12)
+  }
+
+  private func handleComputationStateChange(_ isActive: Bool) {
+    if isActive {
+      refreshDelayTask?.cancel()
+      refreshDelayTask = Task { @MainActor in
+        do {
+          try await Task.sleep(for: .seconds(1))
+        } catch {
+          return
+        }
+        guard Task.isCancelled == false else { return }
+
+        isRefreshOverlayVisible = true
+      }
+    } else {
+      refreshDelayTask?.cancel()
+      refreshDelayTask = nil
+      isRefreshOverlayVisible = false
+    }
   }
 }
 
