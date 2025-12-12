@@ -203,6 +203,10 @@ nonisolated enum PresetSpecificOptionsPayload: Codable, Equatable {
     embeddedAssetIDString: String?,
     embeddedAssetFileExtension: String?,
   )
+  case uploadedImage(
+    embeddedAssetIDString: String?,
+    embeddedAssetFileExtension: String?,
+  )
 
   private enum CodingKeys: String, CodingKey {
     case kind
@@ -219,6 +223,7 @@ nonisolated enum PresetSpecificOptionsPayload: Codable, Equatable {
     case systemSymbol
     case text
     case imagePlayground
+    case uploadedImage
   }
 
   init(from decoder: Decoder) throws {
@@ -244,6 +249,13 @@ nonisolated enum PresetSpecificOptionsPayload: Codable, Equatable {
         embeddedAssetIDString: embeddedAssetIDString,
         embeddedAssetFileExtension: embeddedAssetFileExtension,
       )
+    case .uploadedImage:
+      let embeddedAssetIDString = try container.decodeIfPresent(String.self, forKey: .embeddedAssetIDString)
+      let embeddedAssetFileExtension = try container.decodeIfPresent(String.self, forKey: .embeddedAssetFileExtension)
+      self = .uploadedImage(
+        embeddedAssetIDString: embeddedAssetIDString,
+        embeddedAssetFileExtension: embeddedAssetFileExtension,
+      )
     }
   }
 
@@ -264,6 +276,10 @@ nonisolated enum PresetSpecificOptionsPayload: Codable, Equatable {
       try container.encode(content, forKey: .content)
     case let .imagePlayground(embeddedAssetIDString, embeddedAssetFileExtension):
       try container.encode(Kind.imagePlayground, forKey: .kind)
+      try container.encodeIfPresent(embeddedAssetIDString, forKey: .embeddedAssetIDString)
+      try container.encodeIfPresent(embeddedAssetFileExtension, forKey: .embeddedAssetFileExtension)
+    case let .uploadedImage(embeddedAssetIDString, embeddedAssetFileExtension):
+      try container.encode(Kind.uploadedImage, forKey: .kind)
       try container.encodeIfPresent(embeddedAssetIDString, forKey: .embeddedAssetIDString)
       try container.encodeIfPresent(embeddedAssetFileExtension, forKey: .embeddedAssetFileExtension)
     }

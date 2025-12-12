@@ -131,6 +131,7 @@ extension EditableItem {
   struct PresetCapabilities: Equatable {
     var usesStrokeStyle: Bool
     var usesFillStyle: Bool
+    var supportsSizeControl: Bool = true
     var supportsLineWidth: Bool
     var supportsFontSize: Bool
     var supportsCornerRadius: Bool
@@ -139,5 +140,6 @@ extension EditableItem {
     var supportsColorControl: Bool = true
     var supportsEmojiPicker: Bool = false
     var supportsImagePlayground: Bool = false
+    var supportsUploadedImage: Bool = false
   }
 }

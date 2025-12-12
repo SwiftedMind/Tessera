@@ -5,6 +5,7 @@ import EmojiKit
 import Foundation
 import ImagePlayground
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct InspectorSizeOptionRow: View {
   var supportsTextContent: Bool
@@ -279,6 +280,105 @@ struct InspectorImagePlaygroundOptionRow: View {
 
   private func handleCancellation() {
     isPresented = false
+  }
+}
+
+struct InspectorUploadedImageOptionRow: View {
+  @Binding var options: PresetSpecificOptions
+  @State private var isShowingFileImporter: Bool = false
+
+  var body: some View {
+    OptionRow(
+      "Image File",
+      subtitle: "Choose an image file to embed it in this project.",
+    ) {
+      VStack(alignment: .leading, spacing: .small) {
+        HStack(spacing: .medium) {
+          if let previewImage {
+            previewImage
+              .resizable()
+              .aspectRatio(contentMode: .fill)
+              .frame(width: 80, height: 80)
+              .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+              .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                  .strokeBorder(.white.opacity(0.2))
+              }
+          } else {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+              .fill(.quaternary)
+              .frame(width: 80, height: 80)
+              .overlay {
+                Image(systemName: "photo.badge.plus")
+                  .foregroundStyle(.secondary)
+              }
+          }
+
+          Spacer()
+
+          HStack(spacing: .tight) {
+            Button(previewImage == nil ? "Choose Image File" : "Replace Image File") {
+              isShowingFileImporter = true
+            }
+            .buttonStyle(.borderedProminent)
+
+            Button(role: .destructive) {
+              removeUploadedImage()
+            } label: {
+              Label("Remove", systemImage: "trash")
+                .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.bordered)
+            .disabled(previewImage == nil)
+          }
+        }
+      }
+    }
+    .fileImporter(
+      isPresented: $isShowingFileImporter,
+      allowedContentTypes: [.image],
+      allowsMultipleSelection: false,
+      onCompletion: handleFileImportResult,
+    )
+  }
+
+  private var previewImage: Image? {
+    EditableItemPresetHelpers.uploadedImage(from: options)
+  }
+
+  private func handleFileImportResult(_ result: Result<[URL], any Error>) {
+    switch result {
+    case let .success(urls):
+      guard let url = urls.first else { return }
+
+      importUploadedImage(from: url)
+    case .failure:
+      return
+    }
+  }
+
+  private func importUploadedImage(from url: URL) {
+    let didStartAccessingSecurityScopedResource = url.startAccessingSecurityScopedResource()
+    defer {
+      if didStartAccessingSecurityScopedResource {
+        url.stopAccessingSecurityScopedResource()
+      }
+    }
+
+    guard let data = try? Data(contentsOf: url) else { return }
+
+    let fileExtension = url.pathExtension.isEmpty == false ? url.pathExtension.lowercased() : "png"
+    let assetID = options.uploadedImageAssetID ?? UUID()
+
+    options = options.updatingUploadedImage(
+      assetID: assetID,
+      imageData: data,
+      fileExtension: fileExtension,
+    )
+  }
+
+  private func removeUploadedImage() {
+    options = options.updatingUploadedImage(assetID: nil, imageData: nil, fileExtension: nil)
   }
 }
 

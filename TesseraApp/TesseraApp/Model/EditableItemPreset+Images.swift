@@ -10,6 +10,7 @@ extension EditableItem.PresetGroup {
       title: "Images",
       iconName: "photo.on.rectangle",
       presets: [
+        .uploadedImage,
         .playground,
       ],
     )
@@ -17,6 +18,71 @@ extension EditableItem.PresetGroup {
 }
 
 extension EditableItem.Preset {
+  static var uploadedImage: EditableItem.Preset {
+    EditableItem.Preset(
+      id: "uploadedImage",
+      title: "Image File",
+      iconName: "photo.badge.plus",
+      defaultStyle: ItemStyle(
+        size: CGSize(width: 96, height: 96),
+        color: .primary,
+        lineWidth: 1,
+        fontSize: 14,
+      ),
+      defaultSpecificOptions: .uploadedImage(assetID: nil, imageData: nil, fileExtension: nil),
+      capabilities: EditableItem.PresetCapabilities(
+        usesStrokeStyle: false,
+        usesFillStyle: true,
+        supportsSizeControl: false,
+        supportsLineWidth: false,
+        supportsFontSize: false,
+        supportsCornerRadius: false,
+        supportsSymbolSelection: false,
+        supportsTextContent: false,
+        supportsColorControl: false,
+        supportsEmojiPicker: false,
+        supportsImagePlayground: false,
+        supportsUploadedImage: true,
+      ),
+      availableSymbols: [],
+      defaultSymbolName: "photo.on.rectangle",
+      render: { style, options in
+        let image = EditableItemPresetHelpers.uploadedImage(from: options)
+        return AnyView(
+          ZStack {
+            if let image {
+              image
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: style.size.width, height: style.size.height)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            } else {
+              RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(.quaternary)
+                .overlay {
+                  VStack(spacing: 6) {
+                    Image(systemName: "photo.badge.plus")
+                      .font(.title2)
+                      .foregroundStyle(.secondary)
+                    Text("Choose Image File")
+                      .font(.footnote)
+                      .foregroundStyle(.secondary)
+                  }
+                }
+                .frame(width: style.size.width, height: style.size.height)
+            }
+          },
+        )
+      },
+      collisionShape: { style, options in
+        .rectangle(size: EditableItemPresetHelpers.aspectFittedImageCollisionSize(for: style, options: options))
+      },
+      measuredSize: { style, _ in
+        style.size
+      },
+    )
+  }
+
   static var playground: EditableItem.Preset {
     EditableItem.Preset(
       id: "imagePlayground",
@@ -40,6 +106,7 @@ extension EditableItem.Preset {
         supportsColorControl: false,
         supportsEmojiPicker: false,
         supportsImagePlayground: true,
+        supportsUploadedImage: false,
       ),
       availableSymbols: [],
       defaultSymbolName: "photo.on.rectangle",
@@ -71,8 +138,8 @@ extension EditableItem.Preset {
           },
         )
       },
-      collisionShape: { style, _ in
-        .rectangle(size: style.size)
+      collisionShape: { style, options in
+        .rectangle(size: EditableItemPresetHelpers.aspectFittedImageCollisionSize(for: style, options: options))
       },
       measuredSize: { style, _ in
         style.size
