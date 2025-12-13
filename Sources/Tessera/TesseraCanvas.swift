@@ -265,12 +265,15 @@ public struct TesseraCanvas: View {
   ///   - directory: Target directory where the file will be created.
   ///   - fileName: Base file name without extension; `.png` is appended automatically.
   ///   - canvasSize: The size of the canvas to export.
+  ///   - backgroundColor: Optional background fill rendered behind the canvas. Defaults to no background
+  /// (transparent).
   ///   - options: Rendering configuration such as output pixel size and scale.
   /// - Returns: The resolved file URL that was written.
   @discardableResult public func renderPNG(
     to directory: URL,
     fileName: String = "tessera-canvas",
     canvasSize: CGSize,
+    backgroundColor: Color? = nil,
     options: TesseraRenderOptions = TesseraRenderOptions(),
   ) throws -> URL {
     let destinationURL = resolvedOutputURL(directory: directory, fileName: fileName, fileExtension: "png")
@@ -282,7 +285,12 @@ public struct TesseraCanvas: View {
       placedItemDescriptors: placedItemDescriptors,
       edgeBehavior: edgeBehavior,
     )
-    let renderer = ImageRenderer(content: renderView)
+    let exportView = TesseraCanvasExportRenderView(
+      pageSize: canvasSize,
+      backgroundColor: backgroundColor,
+      content: renderView,
+    )
+    let renderer = ImageRenderer(content: exportView)
     renderer.proposedSize = ProposedViewSize(canvasSize)
     renderer.scale = options.resolvedScale(contentSize: canvasSize)
     renderer.isOpaque = options.isOpaque
@@ -314,6 +322,8 @@ public struct TesseraCanvas: View {
   ///   - directory: Target directory where the file will be created.
   ///   - fileName: Base file name without extension; `.pdf` is appended automatically.
   ///   - canvasSize: The size of the canvas to export.
+  ///   - backgroundColor: Optional background fill rendered behind the canvas. Defaults to no background
+  /// (transparent).
   ///   - pageSize: Optional PDF page size in points; defaults to the canvas size.
   ///   - options: Rendering configuration such as output pixel size and scale, applied while drawing into the PDF
   /// context.
@@ -322,6 +332,7 @@ public struct TesseraCanvas: View {
     to directory: URL,
     fileName: String = "tessera-canvas",
     canvasSize: CGSize,
+    backgroundColor: Color? = nil,
     pageSize: CGSize? = nil,
     options: TesseraRenderOptions = TesseraRenderOptions(scale: 1),
   ) throws -> URL {
@@ -344,18 +355,20 @@ public struct TesseraCanvas: View {
       placedItemDescriptors: placedItemDescriptors,
       edgeBehavior: edgeBehavior,
     )
-    let renderer = ImageRenderer(content: renderView)
-    renderer.proposedSize = ProposedViewSize(canvasSize)
+    let exportView = TesseraCanvasExportRenderView(
+      pageSize: renderSize,
+      backgroundColor: backgroundColor,
+      content: renderView,
+    )
+    let renderer = ImageRenderer(content: exportView)
+    renderer.proposedSize = ProposedViewSize(renderSize)
     renderer.scale = options.resolvedScale(contentSize: canvasSize)
     renderer.isOpaque = options.isOpaque
     renderer.colorMode = options.colorMode
     let rasterizationScale = options.resolvedScale(contentSize: canvasSize)
 
-    renderer.render(rasterizationScale: rasterizationScale) { size, render in
+    renderer.render(rasterizationScale: rasterizationScale) { _, render in
       context.beginPDFPage(nil)
-      let offsetX = (renderSize.width - size.width) / 2
-      let offsetY = (renderSize.height - size.height) / 2
-      context.translateBy(x: offsetX, y: offsetY)
       render(context)
       context.endPDFPage()
       context.closePDF()
@@ -369,6 +382,23 @@ public struct TesseraCanvas: View {
     return directory
       .appending(path: baseName)
       .appendingPathExtension(fileExtension)
+  }
+}
+
+private struct TesseraCanvasExportRenderView<Content: View>: View {
+  var pageSize: CGSize
+  var backgroundColor: Color?
+  var content: Content
+
+  var body: some View {
+    ZStack {
+      if let backgroundColor {
+        backgroundColor
+      }
+      content
+    }
+    .frame(width: pageSize.width, height: pageSize.height)
+    .clipped()
   }
 }
 

@@ -101,6 +101,14 @@ let pngURL = try demoTile.renderPNG(
   options: .init(targetPixelSize: CGSize(width: 2000, height: 2000))
 )
 
+// Exports default to a transparent background; set a background color when needed.
+let whiteBackgroundPNGURL = try demoTile.renderPNG(
+  to: downloads,
+  fileName: "tessera-white-background",
+  backgroundColor: .white,
+  options: .init(targetPixelSize: CGSize(width: 2000, height: 2000))
+)
+
 // PDF keeps vector content; pageSize is in points. Extension is added automatically.
 let pdfURL = try demoTile.renderPDF(
   to: downloads,
@@ -120,6 +128,7 @@ Rendering options:
 - `targetPixelSize`: desired output in pixels (derives scale from the content size).
 - `scale`: explicit rasterization scale when `targetPixelSize` is nil (defaults to 2).
 - `isOpaque`, `colorMode`: forwarded to `ImageRenderer`.
+- `backgroundColor` (export function parameter): optional background fill rendered behind the export (defaults to none).
 
 ## Custom Items
 
