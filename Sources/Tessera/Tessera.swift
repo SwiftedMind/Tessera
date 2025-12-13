@@ -2,9 +2,7 @@
 
 import CoreGraphics
 import Foundation
-import ImageIO
 import SwiftUI
-import UniformTypeIdentifiers
 
 /// Describes a single tessellated pattern configuration.
 public struct TesseraTile: View {
@@ -51,28 +49,19 @@ public struct TesseraTile: View {
     fileName: String = "tessera-tile",
     options: TesseraRenderOptions = TesseraRenderOptions(),
   ) throws -> URL {
-    let destinationURL = resolvedOutputURL(directory: directory, fileName: fileName, fileExtension: "png")
-    let renderer = makeRenderer(options: options)
+    let exportCanvas = TesseraCanvas(
+      configuration,
+      fixedItems: [],
+      seed: seed,
+      edgeBehavior: .seamlessWrapping,
+    )
 
-    guard let cgImage = renderer.cgImage else {
-      throw TesseraRenderError.failedToCreateImage
-    }
-    guard let destination = CGImageDestinationCreateWithURL(
-      destinationURL as CFURL,
-      UTType.png.identifier as CFString,
-      1,
-      nil,
-    ) else {
-      throw TesseraRenderError.failedToCreateDestination
-    }
-
-    CGImageDestinationAddImage(destination, cgImage, nil)
-
-    guard CGImageDestinationFinalize(destination) else {
-      throw TesseraRenderError.failedToFinalizeDestination
-    }
-
-    return destinationURL
+    return try exportCanvas.renderPNG(
+      to: directory,
+      fileName: fileName,
+      canvasSize: tileSize,
+      options: options,
+    )
   }
 
   /// Renders the tessera tile to a PDF file, preserving vector content when possible.
@@ -89,50 +78,20 @@ public struct TesseraTile: View {
     pageSize: CGSize? = nil,
     options: TesseraRenderOptions = TesseraRenderOptions(scale: 1),
   ) throws -> URL {
-    let destinationURL = resolvedOutputURL(directory: directory, fileName: fileName, fileExtension: "pdf")
-    let renderSize = pageSize ?? tileSize
-    var mediaBox = CGRect(origin: .zero, size: renderSize)
-
-    guard
-      let consumer = CGDataConsumer(url: destinationURL as CFURL),
-      let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil)
-    else {
-      throw TesseraRenderError.failedToCreateDestination
-    }
-
-    let renderer = makeRenderer(options: options)
-
-    let rasterizationScale = options.resolvedScale(contentSize: tileSize)
-
-    renderer.render(rasterizationScale: rasterizationScale) { size, render in
-      context.beginPDFPage(nil)
-      let offsetX = (renderSize.width - size.width) / 2
-      let offsetY = (renderSize.height - size.height) / 2
-      context.translateBy(x: offsetX, y: offsetY)
-      render(context)
-      context.endPDFPage()
-      context.closePDF()
-    }
-
-    return destinationURL
-  }
-
-  private func makeRenderer(options: TesseraRenderOptions) -> ImageRenderer<TesseraCanvasTile> {
-    let renderer = ImageRenderer(
-      content: TesseraCanvasTile(configuration: configuration, tileSize: tileSize, seed: seed),
+    let exportCanvas = TesseraCanvas(
+      configuration,
+      fixedItems: [],
+      seed: seed,
+      edgeBehavior: .seamlessWrapping,
     )
-    renderer.proposedSize = ProposedViewSize(tileSize)
-    renderer.scale = options.resolvedScale(contentSize: tileSize)
-    renderer.isOpaque = options.isOpaque
-    renderer.colorMode = options.colorMode
-    return renderer
-  }
 
-  private func resolvedOutputURL(directory: URL, fileName: String, fileExtension: String) -> URL {
-    let baseName = (fileName as NSString).deletingPathExtension
-    return directory
-      .appending(path: baseName)
-      .appendingPathExtension(fileExtension)
+    return try exportCanvas.renderPDF(
+      to: directory,
+      fileName: fileName,
+      canvasSize: tileSize,
+      pageSize: pageSize ?? tileSize,
+      options: options,
+    )
   }
 }
 
