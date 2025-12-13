@@ -1,9 +1,0 @@
-scheme=TesseraApp Debug
-
-# platform can be device, sim or mac
-platform=mac
-
-# device name (not required if platform = mac)
-#device=iPhone 17 Pro
-
-oslogenabled=true
