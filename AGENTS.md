@@ -30,6 +30,7 @@ Pay attention to these general instructions and closely follow them!
 
 - Treat the `monocle` cli as your **default tool** for Swift symbol info. 
   Whenever you need the definition file, signature, parameters, or doc comment for any Swift symbol (type, class, struct, enum, method, property, etc.), call `monocle` rather than guessing or doing project-wide searches.
+- List checked-out SwiftPM dependencies (so you can open and read external packages): `monocle packages --json`
 - Resolve the symbol at a specific location: `monocle inspect --file <path> --line <line> --column <column> --json`
 - Line and column values are **1-based**, not 0-based; the column must point inside the identifier
 - Search workspace symbols by name when you only know the identifier: `monocle symbol --query "TypeOrMember" --limit 5 --enrich --json`.
