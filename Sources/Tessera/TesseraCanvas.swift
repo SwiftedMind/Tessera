@@ -267,6 +267,8 @@ public struct TesseraCanvas: View {
   ///   - canvasSize: The size of the canvas to export.
   ///   - backgroundColor: Optional background fill rendered behind the canvas. Defaults to no background
   /// (transparent).
+  ///   - colorScheme: Optional SwiftUI color scheme override applied while rendering. Useful when items use semantic
+  /// colors such as `Color.primary`.
   ///   - options: Rendering configuration such as output pixel size and scale.
   /// - Returns: The resolved file URL that was written.
   @discardableResult public func renderPNG(
@@ -274,6 +276,7 @@ public struct TesseraCanvas: View {
     fileName: String = "tessera-canvas",
     canvasSize: CGSize,
     backgroundColor: Color? = nil,
+    colorScheme: ColorScheme? = nil,
     options: TesseraRenderOptions = TesseraRenderOptions(),
   ) throws -> URL {
     let destinationURL = resolvedOutputURL(directory: directory, fileName: fileName, fileExtension: "png")
@@ -290,7 +293,12 @@ public struct TesseraCanvas: View {
       backgroundColor: backgroundColor,
       content: renderView,
     )
-    let renderer = ImageRenderer(content: exportView)
+    let rendererContent = if let colorScheme {
+      AnyView(exportView.environment(\.colorScheme, colorScheme))
+    } else {
+      AnyView(exportView)
+    }
+    let renderer = ImageRenderer(content: rendererContent)
     renderer.proposedSize = ProposedViewSize(canvasSize)
     renderer.scale = options.resolvedScale(contentSize: canvasSize)
     renderer.isOpaque = options.isOpaque
@@ -324,6 +332,8 @@ public struct TesseraCanvas: View {
   ///   - canvasSize: The size of the canvas to export.
   ///   - backgroundColor: Optional background fill rendered behind the canvas. Defaults to no background
   /// (transparent).
+  ///   - colorScheme: Optional SwiftUI color scheme override applied while rendering. Useful when items use semantic
+  /// colors such as `Color.primary`.
   ///   - pageSize: Optional PDF page size in points; defaults to the canvas size.
   ///   - options: Rendering configuration such as output pixel size and scale, applied while drawing into the PDF
   /// context.
@@ -333,6 +343,7 @@ public struct TesseraCanvas: View {
     fileName: String = "tessera-canvas",
     canvasSize: CGSize,
     backgroundColor: Color? = nil,
+    colorScheme: ColorScheme? = nil,
     pageSize: CGSize? = nil,
     options: TesseraRenderOptions = TesseraRenderOptions(scale: 1),
   ) throws -> URL {
@@ -360,7 +371,12 @@ public struct TesseraCanvas: View {
       backgroundColor: backgroundColor,
       content: renderView,
     )
-    let renderer = ImageRenderer(content: exportView)
+    let rendererContent = if let colorScheme {
+      AnyView(exportView.environment(\.colorScheme, colorScheme))
+    } else {
+      AnyView(exportView)
+    }
+    let renderer = ImageRenderer(content: rendererContent)
     renderer.proposedSize = ProposedViewSize(renderSize)
     renderer.scale = options.resolvedScale(contentSize: canvasSize)
     renderer.isOpaque = options.isOpaque

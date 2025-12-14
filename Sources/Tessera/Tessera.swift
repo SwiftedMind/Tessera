@@ -43,12 +43,15 @@ public struct TesseraTile: View {
   ///   - directory: Target directory where the file will be created.
   ///   - fileName: Base file name without extension; `.png` is appended automatically.
   ///   - backgroundColor: Optional background fill rendered behind the tile. Defaults to no background (transparent).
+  ///   - colorScheme: Optional SwiftUI color scheme override applied while rendering. Useful when items use semantic
+  /// colors such as `Color.primary`.
   ///   - options: Rendering configuration such as output pixel size and scale.
   /// - Returns: The resolved file URL that was written.
   @discardableResult public func renderPNG(
     to directory: URL,
     fileName: String = "tessera-tile",
     backgroundColor: Color? = nil,
+    colorScheme: ColorScheme? = nil,
     options: TesseraRenderOptions = TesseraRenderOptions(),
   ) throws -> URL {
     let exportCanvas = TesseraCanvas(
@@ -63,6 +66,7 @@ public struct TesseraTile: View {
       fileName: fileName,
       canvasSize: tileSize,
       backgroundColor: backgroundColor,
+      colorScheme: colorScheme,
       options: options,
     )
   }
@@ -72,6 +76,8 @@ public struct TesseraTile: View {
   ///   - directory: Target directory where the file will be created.
   ///   - fileName: Base file name without extension; `.pdf` is appended automatically.
   ///   - backgroundColor: Optional background fill rendered behind the tile. Defaults to no background (transparent).
+  ///   - colorScheme: Optional SwiftUI color scheme override applied while rendering. Useful when items use semantic
+  /// colors such as `Color.primary`.
   ///   - pageSize: Optional PDF page size in points; defaults to the tile size.
   ///   - options: Rendering configuration such as output pixel size and scale, applied while drawing into the PDF
   /// context.
@@ -80,6 +86,7 @@ public struct TesseraTile: View {
     to directory: URL,
     fileName: String = "tessera-tile",
     backgroundColor: Color? = nil,
+    colorScheme: ColorScheme? = nil,
     pageSize: CGSize? = nil,
     options: TesseraRenderOptions = TesseraRenderOptions(scale: 1),
   ) throws -> URL {
@@ -95,6 +102,7 @@ public struct TesseraTile: View {
       fileName: fileName,
       canvasSize: tileSize,
       backgroundColor: backgroundColor,
+      colorScheme: colorScheme,
       pageSize: pageSize ?? tileSize,
       options: options,
     )
