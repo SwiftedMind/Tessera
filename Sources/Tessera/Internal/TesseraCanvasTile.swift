@@ -65,6 +65,7 @@ struct TesseraCanvasTile: View {
       }
     }
     .frame(width: tileSize.width, height: tileSize.height)
+    .clipped()
     .task(id: currentComputationKey) {
       await MainActor.run {
         onComputationStateChange?(true)
