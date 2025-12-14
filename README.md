@@ -1,3 +1,5 @@
+<img width="800" height="429" alt="Frame 1" src="https://github.com/user-attachments/assets/7a323b3b-1734-4fd0-897b-2d3caadb8000" />
+<br /><br />
 <img width="100" height="100" alt="Tessera Logo" src="https://github.com/user-attachments/assets/78c89bdb-6dfe-4f2a-b628-082cfc8d3328" />
 
 # Tessera
