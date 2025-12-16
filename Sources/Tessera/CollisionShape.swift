@@ -4,11 +4,19 @@ import CoreGraphics
 
 /// A coarse description of a drawable item's geometry used for collision checks.
 public enum CollisionShape: Sendable, Hashable {
-  /// A circle centered on the origin.
-  case circle(radius: CGFloat)
-  /// An axis-aligned rectangle centered on the origin.
-  case rectangle(size: CGSize)
-  /// An arbitrary polygon defined in local space and centered on the origin.
+  /// A circle centered at `center` in local space.
+  ///
+  /// - Parameters:
+  ///   - center: The circle's center in local space.
+  ///   - radius: The circle's radius in local space.
+  case circle(center: CGPoint, radius: CGFloat)
+  /// An axis-aligned rectangle centered at `center` in local space.
+  ///
+  /// - Parameters:
+  ///   - center: The rectangle's center in local space.
+  ///   - size: The rectangle's size in local space.
+  case rectangle(center: CGPoint, size: CGSize)
+  /// An arbitrary polygon defined in local space.
   case polygon(points: [CGPoint])
 }
 
@@ -32,12 +40,14 @@ public extension CollisionShape {
   /// Conservative radius around the shape, used for a quick broad-phase overlap check.
   func boundingRadius(atScale scale: CGFloat = 1) -> CGFloat {
     switch self {
-    case let .circle(radius):
-      return radius * scale
-    case let .rectangle(size):
-      let halfWidth = size.width * scale / 2
-      let halfHeight = size.height * scale / 2
-      return hypot(halfWidth, halfHeight)
+    case let .circle(center, radius):
+      return (hypot(center.x, center.y) + radius) * scale
+    case let .rectangle(center, size):
+      let halfWidth = size.width / 2
+      let halfHeight = size.height / 2
+      let maximumXDistance = abs(center.x) + halfWidth
+      let maximumYDistance = abs(center.y) + halfHeight
+      return hypot(maximumXDistance, maximumYDistance) * scale
     case let .polygon(points):
       guard !points.isEmpty else { return 0 }
 

@@ -57,7 +57,7 @@ public struct TesseraItem: Identifiable {
       weight: weight,
       allowedRotationRange: allowedRotationRange,
       scaleRange: scaleRange,
-      collisionShape: .circle(radius: radius),
+      collisionShape: .circle(center: .zero, radius: radius),
       content: content,
     )
   }

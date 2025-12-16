@@ -145,7 +145,7 @@ private func makeTestTile() -> TesseraTile {
     weight: 1,
     allowedRotationRange: .degrees(0)...(.degrees(0)),
     scaleRange: 1...1,
-    collisionShape: .circle(radius: 10),
+    collisionShape: .circle(center: .zero, radius: 10),
   ) {
     Circle()
       .fill(Color.red)
@@ -181,7 +181,7 @@ private func makeTestCanvasWithCenteredFixedCircle(canvasSize: CGSize) -> Tesser
     position: CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2),
     rotation: .degrees(0),
     scale: 1,
-    collisionShape: .circle(radius: 10),
+    collisionShape: .circle(center: .zero, radius: 10),
   ) {
     Circle()
       .fill(Color.red)

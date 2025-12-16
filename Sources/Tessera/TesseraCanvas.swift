@@ -34,7 +34,7 @@ public struct TesseraFixedItem: Identifiable {
   ///   - position: Center position inside the canvas.
   ///   - rotation: Rotation applied to drawing and collisions.
   ///   - scale: Uniform scale applied to drawing and collisions.
-  ///   - collisionShape: Obstacle shape in local space, centered on origin.
+  ///   - collisionShape: Obstacle shape in local space.
   ///   - content: View builder for the fixed symbol.
   public init(
     id: UUID = UUID(),
@@ -92,7 +92,7 @@ public struct TesseraFixedItem: Identifiable {
       position: position,
       rotation: rotation,
       scale: scale,
-      collisionShape: .circle(radius: radius),
+      collisionShape: .circle(center: .zero, radius: radius),
       content: content,
     )
   }

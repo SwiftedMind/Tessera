@@ -151,6 +151,9 @@ struct Poster: View {
   - an explicit `collisionShape`, or
   - an `approximateSize` (Tessera derives a conservative circle collider).
 
+- `CollisionShape`
+  Approximate local-space geometry used for collision checks, such as `.circle(center:radius:)` and `.rectangle(center:size:)`.
+
 - `TesseraTile`
   Renders a single tile (size specified via `tileSize`). Also provides `renderPNG(...)` and `renderPDF(...)`.
 

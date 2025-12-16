@@ -37,7 +37,7 @@ struct TesseraDemoView: View {
         fixedItems: [
           TesseraFixedItem(
             position: .centered(),
-            collisionShape: .circle(radius: 60),
+            collisionShape: .circle(center: .zero, radius: 60),
           ) {
             Image(systemName: "swift")
               .resizable()
@@ -47,7 +47,7 @@ struct TesseraDemoView: View {
           },
           TesseraFixedItem(
             position: .bottomTrailing(offset: CGSize(width: -120, height: -120)),
-            collisionShape: .circle(radius: 140),
+            collisionShape: .circle(center: .zero, radius: 140),
           ) {
             Text("Tessera")
               .font(.system(size: 48, weight: .bold, design: .rounded))
@@ -74,7 +74,7 @@ extension TesseraItem {
   /// A lightly stroked square outline.
   static var squareOutline: TesseraItem {
     TesseraItem(
-      collisionShape: .rectangle(size: CGSize(width: 34, height: 34)),
+      collisionShape: .rectangle(center: .zero, size: CGSize(width: 34, height: 34)),
     ) {
       Rectangle()
         .stroke(lineWidth: 4)
@@ -86,7 +86,7 @@ extension TesseraItem {
   /// A softly rounded rectangle outline.
   static var roundedOutline: TesseraItem {
     TesseraItem(
-      collisionShape: .rectangle(size: CGSize(width: 34, height: 34)),
+      collisionShape: .rectangle(center: .zero, size: CGSize(width: 34, height: 34)),
     ) {
       RoundedRectangle(cornerRadius: 6)
         .stroke(lineWidth: 4)
@@ -98,7 +98,7 @@ extension TesseraItem {
   static var partyPopper: TesseraItem {
     TesseraItem(
       allowedRotationRange: .degrees(-45)...(.degrees(45)),
-      collisionShape: .circle(radius: 20),
+      collisionShape: .circle(center: .zero, radius: 20),
     ) {
       Image(systemName: "party.popper.fill")
         .foregroundStyle(.red.opacity(0.5))
@@ -109,7 +109,7 @@ extension TesseraItem {
   /// A minus glyph.
   static var minus: TesseraItem {
     TesseraItem(
-      collisionShape: .rectangle(size: CGSize(width: 36, height: 4)),
+      collisionShape: .rectangle(center: .zero, size: CGSize(width: 36, height: 4)),
     ) {
       Text("-")
         .foregroundStyle(.gray)
@@ -120,7 +120,7 @@ extension TesseraItem {
   /// An equals glyph.
   static var equals: TesseraItem {
     TesseraItem(
-      collisionShape: .rectangle(size: CGSize(width: 36, height: 12)),
+      collisionShape: .rectangle(center: .zero, size: CGSize(width: 36, height: 12)),
     ) {
       Text("=")
         .foregroundStyle(.gray)
@@ -131,7 +131,7 @@ extension TesseraItem {
   /// A subtle circle outline.
   static var circleOutline: TesseraItem {
     TesseraItem(
-      collisionShape: .circle(radius: 15),
+      collisionShape: .circle(center: .zero, radius: 15),
     ) {
       Circle()
         .stroke(lineWidth: 4)

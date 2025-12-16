@@ -71,25 +71,25 @@ enum CollisionMath {
     circleSubdivisionCount: Int = 12,
   ) -> [CGPoint] {
     switch shape {
-    case let .circle(radius):
+    case let .circle(center, radius):
       let steps = max(circleSubdivisionCount, 6)
       return stride(from: 0, to: steps, by: 1).map { step in
         let angle = (Double(step) / Double(steps)) * (2 * Double.pi)
         let cosine = cos(angle)
         let sine = sin(angle)
         return CGPoint(
-          x: radius * CGFloat(cosine),
-          y: radius * CGFloat(sine),
+          x: center.x + radius * CGFloat(cosine),
+          y: center.y + radius * CGFloat(sine),
         )
       }
-    case let .rectangle(size):
+    case let .rectangle(center, size):
       let halfWidth = size.width / 2
       let halfHeight = size.height / 2
       return [
-        CGPoint(x: -halfWidth, y: -halfHeight),
-        CGPoint(x: halfWidth, y: -halfHeight),
-        CGPoint(x: halfWidth, y: halfHeight),
-        CGPoint(x: -halfWidth, y: halfHeight),
+        CGPoint(x: center.x - halfWidth, y: center.y - halfHeight),
+        CGPoint(x: center.x + halfWidth, y: center.y - halfHeight),
+        CGPoint(x: center.x + halfWidth, y: center.y + halfHeight),
+        CGPoint(x: center.x - halfWidth, y: center.y + halfHeight),
       ]
     case let .polygon(points):
       return points
