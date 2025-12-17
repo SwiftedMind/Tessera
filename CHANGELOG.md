@@ -3,6 +3,7 @@
 ### Added
 
 ### Enhanced
+- **Faster Collision Placement**: Improves `ShapePlacementEngine` collision checks by caching polygon axes, avoiding per-test world-polygon allocations, and using a nearest-image torus offset (with a safe fallback) for seamless wrapping.
 
 ### Fixed
 

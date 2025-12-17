@@ -2,6 +2,17 @@
 
 import CoreGraphics
 
+/// A polygon plus cached data to speed up collision checks.
+struct CollisionPolygon: Sendable {
+  var points: [CGPoint]
+  var localUnitAxes: [CGVector]
+
+  init(points: [CGPoint]) {
+    self.points = points
+    localUnitAxes = CollisionMath.separatingAxes(for: points)
+  }
+}
+
 /// Helper functions for shape-aware collision checks.
 enum CollisionMath {
   /// Applies a transform to a point in local space to produce world-space coordinates.
@@ -47,16 +58,99 @@ enum CollisionMath {
     transformB: CollisionTransform,
     buffer: CGFloat = 0,
   ) -> Bool {
-    guard !polygonA.isEmpty, !polygonB.isEmpty else { return false }
+    polygonsIntersect(
+      CollisionPolygon(points: polygonA),
+      transformA: transformA,
+      CollisionPolygon(points: polygonB),
+      transformB: transformB,
+      buffer: buffer,
+    )
+  }
 
-    let worldPolygonA = polygonA.map { applyTransform($0, using: transformA) }
-    let worldPolygonB = polygonB.map { applyTransform($0, using: transformB) }
+  /// Separating Axis Theorem intersection with optional buffer padding.
+  ///
+  /// This overload accepts cached polygon data to avoid repeated allocations and recomputation.
+  static func polygonsIntersect(
+    _ polygonA: CollisionPolygon,
+    transformA: CollisionTransform,
+    _ polygonB: CollisionPolygon,
+    transformB: CollisionTransform,
+    buffer: CGFloat = 0,
+  ) -> Bool {
+    guard !polygonA.points.isEmpty, !polygonB.points.isEmpty else { return false }
 
-    let axes = separatingAxes(for: worldPolygonA) + separatingAxes(for: worldPolygonB)
+    let halfBuffer = max(buffer, 0) / 2
 
-    for axis in axes {
-      let projectionA = projectionRange(of: worldPolygonA, onto: axis, buffer: buffer)
-      let projectionB = projectionRange(of: worldPolygonB, onto: axis, buffer: buffer)
+    let cosineRotationA = cos(transformA.rotation)
+    let sineRotationA = sin(transformA.rotation)
+    let cosineRotationB = cos(transformB.rotation)
+    let sineRotationB = sin(transformB.rotation)
+
+    let rotationDifference = transformA.rotation - transformB.rotation
+    let cosineRotationDifference = cos(rotationDifference)
+    let sineRotationDifference = sin(rotationDifference)
+
+    let positionA = transformA.position
+    let positionB = transformB.position
+
+    // Axes derived from polygon A edges (in A-local space).
+    for axisInLocalSpaceA in polygonA.localUnitAxes {
+      let axisInWorldSpace = rotate(axisInLocalSpaceA, cosine: cosineRotationA, sine: sineRotationA)
+      let axisInLocalSpaceB = rotate(
+        axisInLocalSpaceA,
+        cosine: cosineRotationDifference,
+        sine: sineRotationDifference,
+      )
+
+      let positionProjectionA = dot(positionA, axisInWorldSpace)
+      let positionProjectionB = dot(positionB, axisInWorldSpace)
+
+      let projectionA = projectionRange(
+        of: polygonA.points,
+        onto: axisInLocalSpaceA,
+        scale: transformA.scale,
+        positionProjection: positionProjectionA,
+        halfBuffer: halfBuffer,
+      )
+      let projectionB = projectionRange(
+        of: polygonB.points,
+        onto: axisInLocalSpaceB,
+        scale: transformB.scale,
+        positionProjection: positionProjectionB,
+        halfBuffer: halfBuffer,
+      )
+
+      if projectionA.max < projectionB.min || projectionB.max < projectionA.min {
+        return false
+      }
+    }
+
+    // Axes derived from polygon B edges (in B-local space).
+    for axisInLocalSpaceB in polygonB.localUnitAxes {
+      let axisInWorldSpace = rotate(axisInLocalSpaceB, cosine: cosineRotationB, sine: sineRotationB)
+      let axisInLocalSpaceA = rotate(
+        axisInLocalSpaceB,
+        cosine: cosineRotationDifference,
+        sine: -sineRotationDifference,
+      )
+
+      let positionProjectionA = dot(positionA, axisInWorldSpace)
+      let positionProjectionB = dot(positionB, axisInWorldSpace)
+
+      let projectionA = projectionRange(
+        of: polygonA.points,
+        onto: axisInLocalSpaceA,
+        scale: transformA.scale,
+        positionProjection: positionProjectionA,
+        halfBuffer: halfBuffer,
+      )
+      let projectionB = projectionRange(
+        of: polygonB.points,
+        onto: axisInLocalSpaceB,
+        scale: transformB.scale,
+        positionProjection: positionProjectionB,
+        halfBuffer: halfBuffer,
+      )
 
       if projectionA.max < projectionB.min || projectionB.max < projectionA.min {
         return false
@@ -96,7 +190,19 @@ enum CollisionMath {
     }
   }
 
-  private static func separatingAxes(for polygon: [CGPoint]) -> [CGVector] {
+  static func polygon(
+    for shape: CollisionShape,
+    circleSubdivisionCount: Int = 12,
+  ) -> CollisionPolygon {
+    CollisionPolygon(
+      points: polygonPoints(
+        for: shape,
+        circleSubdivisionCount: circleSubdivisionCount,
+      ),
+    )
+  }
+
+  fileprivate static func separatingAxes(for polygon: [CGPoint]) -> [CGVector] {
     guard polygon.count >= 2 else { return [] }
 
     var axes: [CGVector] = []
@@ -122,18 +228,31 @@ enum CollisionMath {
   private static func projectionRange(
     of polygon: [CGPoint],
     onto axis: CGVector,
-    buffer: CGFloat,
+    scale: CGFloat,
+    positionProjection: CGFloat,
+    halfBuffer: CGFloat,
   ) -> (min: CGFloat, max: CGFloat) {
     var minimum = CGFloat.greatestFiniteMagnitude
     var maximum = -CGFloat.greatestFiniteMagnitude
 
     for point in polygon {
-      let projection = point.x * axis.dx + point.y * axis.dy
+      let localProjection = point.x * axis.dx + point.y * axis.dy
+      let projection = localProjection * scale + positionProjection
       minimum = min(minimum, projection)
       maximum = max(maximum, projection)
     }
 
-    let halfBuffer = max(buffer, 0) / 2
     return (minimum - halfBuffer, maximum + halfBuffer)
+  }
+
+  private static func dot(_ point: CGPoint, _ vector: CGVector) -> CGFloat {
+    point.x * vector.dx + point.y * vector.dy
+  }
+
+  private static func rotate(_ vector: CGVector, cosine: CGFloat, sine: CGFloat) -> CGVector {
+    CGVector(
+      dx: vector.dx * cosine - vector.dy * sine,
+      dy: vector.dx * sine + vector.dy * cosine,
+    )
   }
 }

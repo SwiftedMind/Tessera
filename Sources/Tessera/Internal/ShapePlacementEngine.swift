@@ -108,14 +108,16 @@ enum ShapePlacementEngine {
     }
 
     let fixedColliders: [PlacedCollider] = fixedItemDescriptors.map { fixedItem in
-      PlacedCollider(
+      let collisionTransform = CollisionTransform(
+        position: fixedItem.position,
+        rotation: CGFloat(fixedItem.rotationRadians),
+        scale: fixedItem.scale,
+      )
+      return PlacedCollider(
         collisionShape: fixedItem.collisionShape,
-        collisionTransform: CollisionTransform(
-          position: fixedItem.position,
-          rotation: CGFloat(fixedItem.rotationRadians),
-          scale: fixedItem.scale,
-        ),
-        polygon: CollisionMath.polygonPoints(for: fixedItem.collisionShape),
+        collisionTransform: collisionTransform,
+        polygon: CollisionMath.polygon(for: fixedItem.collisionShape),
+        boundingRadius: fixedItem.collisionShape.boundingRadius(atScale: collisionTransform.scale),
       )
     }
 
@@ -133,8 +135,8 @@ enum ShapePlacementEngine {
     let gridColumnCount = max(1, Int(ceil(size.width / cellSize)))
     let gridRowCount = max(1, Int(ceil(size.height / cellSize)))
 
-    let polygonCache: [UUID: [CGPoint]] = itemDescriptors.reduce(into: [:]) { cache, item in
-      cache[item.id] = CollisionMath.polygonPoints(for: item.collisionShape)
+    let polygonCache: [UUID: CollisionPolygon] = itemDescriptors.reduce(into: [:]) { cache, item in
+      cache[item.id] = CollisionMath.polygon(for: item.collisionShape)
     }
 
     var colliders: [PlacedCollider] = fixedColliders
@@ -213,27 +215,24 @@ enum ShapePlacementEngine {
           candidatePolygon: selectedPolygon,
           existingColliderIndices: neighboringColliderIndices,
           allColliders: colliders,
+          tileSize: size,
+          edgeBehavior: edgeBehavior,
           wrapOffsets: wrapOffsets,
           minimumSpacing: minimumSpacing,
         ) else { continue }
 
         placedDescriptors.append(candidate)
+        let candidateTransform = candidate.collisionTransform
         colliders.append(
           PlacedCollider(
             collisionShape: selectedItem.collisionShape,
-            collisionTransform: candidate.collisionTransform,
+            collisionTransform: candidateTransform,
             polygon: selectedPolygon,
+            boundingRadius: selectedItem.collisionShape.boundingRadius(atScale: candidateTransform.scale),
           ),
         )
         let newColliderIndex = colliders.count - 1
-        let newColliderCoordinate = cellCoordinate(
-          for: position,
-          cellSize: cellSize,
-          gridColumnCount: gridColumnCount,
-          gridRowCount: gridRowCount,
-          edgeBehavior: edgeBehavior,
-        )
-        colliderGrid[newColliderCoordinate, default: []].append(newColliderIndex)
+        colliderGrid[candidateCoordinate, default: []].append(newColliderIndex)
         didPlaceItem = true
         break
       }
@@ -281,7 +280,8 @@ enum ShapePlacementEngine {
   private struct PlacedCollider: Sendable {
     var collisionShape: CollisionShape
     var collisionTransform: CollisionTransform
-    var polygon: [CGPoint]
+    var polygon: CollisionPolygon
+    var boundingRadius: CGFloat
   }
 
   private struct CellCoordinate: Hashable, Sendable {
@@ -445,37 +445,57 @@ enum ShapePlacementEngine {
 
   private static func isPlacementValid(
     candidate: PlacedItemDescriptor,
-    candidatePolygon: [CGPoint],
+    candidatePolygon: CollisionPolygon,
     existingColliderIndices: [Int],
     allColliders: [PlacedCollider],
+    tileSize: CGSize,
+    edgeBehavior: TesseraEdgeBehavior,
     wrapOffsets: [CGPoint],
     minimumSpacing: CGFloat,
   ) -> Bool {
+    let candidateBoundingRadius = candidate.collisionShape.boundingRadius(atScale: candidate.collisionTransform.scale)
+    let candidatePosition = candidate.collisionTransform.position
+    let minimumTileHalfDimension = min(tileSize.width, tileSize.height) / 2
+
     // Check candidate against every already-placed item, accounting for wrap offsets.
     for colliderIndex in existingColliderIndices {
       let collider = allColliders[colliderIndex]
-      for offset in wrapOffsets {
-        let shiftedTransform = CollisionTransform(
-          position: CGPoint(
-            x: collider.collisionTransform.position.x + offset.x,
-            y: collider.collisionTransform.position.y + offset.y,
-          ),
-          rotation: collider.collisionTransform.rotation,
-          scale: collider.collisionTransform.scale,
+      let colliderBoundingRadius = collider.boundingRadius
+      let combinedRadius = candidateBoundingRadius + colliderBoundingRadius
+      let bufferedDistance = combinedRadius + minimumSpacing
+      let bufferedDistanceSquared = bufferedDistance * bufferedDistance
+
+      let shouldUseNearestPeriodicImage = switch edgeBehavior {
+      case .finite:
+        true
+      case .seamlessWrapping:
+        bufferedDistance < minimumTileHalfDimension
+      }
+
+      if shouldUseNearestPeriodicImage {
+        let offset = nearestPeriodicOffset(
+          from: collider.collisionTransform.position,
+          to: candidatePosition,
+          tileSize: tileSize,
+          edgeBehavior: edgeBehavior,
         )
 
-        let candidateRadius = candidate.collisionShape.boundingRadius(atScale: candidate.collisionTransform.scale)
-        let colliderRadius = collider.collisionShape.boundingRadius(atScale: shiftedTransform.scale)
-        let combinedRadius = candidateRadius + colliderRadius
-        let bufferedDistance = combinedRadius + minimumSpacing
-        let bufferedDistanceSquared = bufferedDistance * bufferedDistance
-
-        let deltaX = candidate.collisionTransform.position.x - shiftedTransform.position.x
-        let deltaY = candidate.collisionTransform.position.y - shiftedTransform.position.y
+        let shiftedPosition = CGPoint(
+          x: collider.collisionTransform.position.x + offset.x,
+          y: collider.collisionTransform.position.y + offset.y,
+        )
+        let deltaX = candidatePosition.x - shiftedPosition.x
+        let deltaY = candidatePosition.y - shiftedPosition.y
         let centerDistanceSquared = deltaX * deltaX + deltaY * deltaY
 
         // If centers are farther apart than the buffered radii, spacing is satisfied.
         guard centerDistanceSquared < bufferedDistanceSquared else { continue }
+
+        let shiftedTransform = CollisionTransform(
+          position: shiftedPosition,
+          rotation: collider.collisionTransform.rotation,
+          scale: collider.collisionTransform.scale,
+        )
 
         // Within the buffered range, run the narrow-phase polygon test with spacing buffer.
         if CollisionMath.polygonsIntersect(
@@ -484,12 +504,56 @@ enum ShapePlacementEngine {
           collider.polygon,
           transformB: shiftedTransform,
           buffer: minimumSpacing,
-        ) {
-          return false
+        ) { return false }
+      } else {
+        for offset in wrapOffsets {
+          let shiftedPosition = CGPoint(
+            x: collider.collisionTransform.position.x + offset.x,
+            y: collider.collisionTransform.position.y + offset.y,
+          )
+          let deltaX = candidatePosition.x - shiftedPosition.x
+          let deltaY = candidatePosition.y - shiftedPosition.y
+          let centerDistanceSquared = deltaX * deltaX + deltaY * deltaY
+
+          // If centers are farther apart than the buffered radii, spacing is satisfied.
+          guard centerDistanceSquared < bufferedDistanceSquared else { continue }
+
+          let shiftedTransform = CollisionTransform(
+            position: shiftedPosition,
+            rotation: collider.collisionTransform.rotation,
+            scale: collider.collisionTransform.scale,
+          )
+
+          // Within the buffered range, run the narrow-phase polygon test with spacing buffer.
+          if CollisionMath.polygonsIntersect(
+            candidatePolygon,
+            transformA: candidate.collisionTransform,
+            collider.polygon,
+            transformB: shiftedTransform,
+            buffer: minimumSpacing,
+          ) { return false }
         }
       }
     }
 
     return true
+  }
+
+  private static func nearestPeriodicOffset(
+    from colliderPosition: CGPoint,
+    to candidatePosition: CGPoint,
+    tileSize: CGSize,
+    edgeBehavior: TesseraEdgeBehavior,
+  ) -> CGPoint {
+    guard edgeBehavior == .seamlessWrapping else { return .zero }
+    guard tileSize.width > 0, tileSize.height > 0 else { return .zero }
+
+    let deltaX = candidatePosition.x - colliderPosition.x
+    let deltaY = candidatePosition.y - colliderPosition.y
+
+    let offsetX = (deltaX / tileSize.width).rounded() * tileSize.width
+    let offsetY = (deltaY / tileSize.height).rounded() * tileSize.height
+
+    return CGPoint(x: offsetX, y: offsetY)
   }
 }
