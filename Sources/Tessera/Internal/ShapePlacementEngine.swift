@@ -331,29 +331,49 @@ enum ShapePlacementEngine {
     gridRowCount: Int,
     edgeBehavior: TesseraEdgeBehavior,
   ) -> [CellCoordinate] {
-    var coordinates: [CellCoordinate] = []
-    coordinates.reserveCapacity(9)
+    let offsetRange: ClosedRange<Int> = switch edgeBehavior {
+    case .finite:
+      -1...1
+    case .seamlessWrapping:
+      // In seamless wrapping mode, colliders can interact across tile boundaries (toroidal distance).
+      // When the tile size is not an exact multiple of `cellSize`, the band within one `cellSize` of an edge can span
+      // two grid columns/rows. Expanding the neighbor range to 5×5 ensures we do not miss wrap-adjacent colliders
+      // that end up in the second-to-last column/row.
+      -2...2
+    }
 
-    for rowOffset in -1...1 {
-      for columnOffset in -1...1 {
+    var coordinates: [CellCoordinate] = []
+    coordinates
+      .reserveCapacity((offsetRange.upperBound - offsetRange.lowerBound + 1) *
+        (offsetRange.upperBound - offsetRange.lowerBound + 1))
+
+    var visitedCoordinates: Set<CellCoordinate> = []
+    visitedCoordinates.reserveCapacity(coordinates.capacity)
+
+    for rowOffset in offsetRange {
+      for columnOffset in offsetRange {
         let neighborColumn = coordinate.column + columnOffset
         let neighborRow = coordinate.row + rowOffset
 
-        switch edgeBehavior {
+        let proposedCoordinate: CellCoordinate? = switch edgeBehavior {
         case .finite:
-          guard (0..<gridColumnCount).contains(neighborColumn),
-                (0..<gridRowCount).contains(neighborRow)
-          else { continue }
-
-          coordinates.append(CellCoordinate(column: neighborColumn, row: neighborRow))
+          if (0..<gridColumnCount).contains(neighborColumn),
+             (0..<gridRowCount).contains(neighborRow) {
+            CellCoordinate(column: neighborColumn, row: neighborRow)
+          } else {
+            nil
+          }
         case .seamlessWrapping:
-          coordinates.append(
-            CellCoordinate(
-              column: wrappedIndex(neighborColumn, modulus: gridColumnCount),
-              row: wrappedIndex(neighborRow, modulus: gridRowCount),
-            ),
+          CellCoordinate(
+            column: wrappedIndex(neighborColumn, modulus: gridColumnCount),
+            row: wrappedIndex(neighborRow, modulus: gridRowCount),
           )
         }
+
+        guard let proposedCoordinate else { continue }
+        guard visitedCoordinates.insert(proposedCoordinate).inserted else { continue }
+
+        coordinates.append(proposedCoordinate)
       }
     }
 
