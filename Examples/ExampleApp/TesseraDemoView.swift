@@ -95,11 +95,12 @@ private struct CollisionShapeEditorDemo: View {
   var previewSymbol: TesseraSymbol {
     TesseraSymbol(
       collisionShape: .polygon(points: [
-        CGPoint(x: 15, y: 10),
-        CGPoint(x: 32, y: 8),
-        CGPoint(x: 60, y: 22),
-        CGPoint(x: 30, y: 60),
-        CGPoint(x: 0, y: 22),
+        CGPoint(x: 6.46, y: 12.57),
+        CGPoint(x: 6.74, y: 39.74),
+        CGPoint(x: 28.65, y: 56.17),
+        CGPoint(x: 49.01, y: 42.06),
+        CGPoint(x: 48.73, y: 12.36),
+        CGPoint(x: 27.95, y: 4.56)
       ]),
     ) {
       Image(systemName: "shield.fill")
