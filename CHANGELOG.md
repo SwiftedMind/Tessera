@@ -3,9 +3,9 @@
 ### Added
 - **Collision Overlay Debugging**: `TesseraConfiguration.showsCollisionOverlay` draws collision shapes on canvas views,
   and `TesseraRenderOptions.showsCollisionOverlay` opt-in enables overlays for exports.
-- **Compound Collision Shapes**: `CollisionShape.polygons(pointSets:)` and `CollisionShape.anchoredPolygon(pointSets:anchor:size:)` let a single item use multiple polygons
+- **Compound Collision Shapes**: `CollisionShape.polygons(pointSets:)` and `CollisionShape.anchoredPolygon(pointSets:anchor:size:)` let a single item use multiple polygons.
   for collision checks; complex shapes can dramatically reduce placement performance.
-- **Collision Shape Previews**: `TesseraItemPreview` and `TesseraItem.preview(showsCollisionOverlay:)` render collision overlays to help tune polygons in SwiftUI previews.
+- **Collision Shape Previews**: `TesseraItem.collisionEditor()` returns a SwiftUI view with a fully-working editor that lets you build and export collision shapes visually. 
 
 ### Enhanced
 - **Faster Collision Placement**: Improves `ShapePlacementEngine` collision checks by caching polygon axes, avoiding per-test world-polygon allocations, and using a nearest-image torus offset (with a safe fallback) for seamless wrapping.

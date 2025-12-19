@@ -20,7 +20,7 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 ## Table of Contents
 
 - [Get Started](#get-started)
-- [API Overview](#api-overview)
+- [Terminology](#terminology)
 - [Determinism](#determinism)
 - [Fixed Items](#fixed-items)
 - [Exporting](#exporting)
@@ -35,7 +35,6 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 ### Requirements
 
 - iOS 17+ / macOS 14+
-- SwiftUI (Tessera uses `Canvas` and `ImageRenderer` under the hood)
 
 ### Add Tessera via Swift Package Manager
 
@@ -111,9 +110,9 @@ struct PatternBackground: View {
 }
 ```
 
-### Render a finite canvas (one-off composition)
+### Render a finite canvas
 
-Use `TesseraCanvas` when you want a single generated composition at a specific size (for UI or export). It fills the size provided by layout, so set a frame.
+Use `TesseraCanvas` when you want a single generated composition at a specific size (for UI or export). It fills the size provided by the layout, so set a frame.
 
 ```swift
 import SwiftUI
@@ -141,40 +140,15 @@ struct Poster: View {
 }
 ```
 
-## API Overview
+## Terminology
 
-- `TesseraConfiguration`
-  Describes how items are generated: `items`, `seed`, `minimumSpacing`, `density`, `baseScaleRange`, `patternOffset`,
-  `maximumItemCount`, `showsCollisionOverlay`.
-
-- `TesseraItem`
-  A drawable symbol with a `weight`, an `allowedRotationRange`, an optional `scaleRange`, and SwiftUI view content.
-  Tessera also needs collision geometry to keep spacing consistent, so each item provides either:
-  - an explicit `collisionShape`, or
-  - an `approximateSize` (Tessera derives a conservative circle collider).
-
-- `CollisionShape`
-  Approximate local-space geometry used for collision checks, such as `.circle(center:radius:)`, `.rectangle(center:size:)`,
-  `.polygon(points:)`, or `.polygons(points:)` for multi-part shapes.
-  The view-space polygon variants assume a top-leading origin and auto-center their bounding boxes, while
-  `.centeredPolygon(points:)` and
-  `.centeredPolygons(points:)` accept already centered points.
-  Use `.anchoredPolygon(viewPoints:anchor:size:)` or `.anchoredPolygons(viewPointSets:anchor:size:)` when your view origin is anchored
-  somewhere other than the top-leading corner.
-  Concave polygons are decomposed into convex pieces during collision checks.
-  Complex polygons and multi-polygon shapes can dramatically reduce placement performance.
-
-- `TesseraTile`
-  Renders a single tile (size specified via `tileSize`). Also provides `renderPNG(...)` and `renderPDF(...)`.
-
-- `TesseraTiledCanvas`
-  Repeats a single generated tile to fill available space (great for backgrounds).
-
-- `TesseraCanvas`
-  Generates a single composition at a finite size (great for posters, cards, and exports). Supports optional fixed placements via `TesseraFixedItem` and optional edge wrapping via `TesseraEdgeBehavior`.
-
-- `TesseraItemPreview`
-  Renders a `TesseraItem` with an optional collision overlay for designing `CollisionShape` polygons in SwiftUI previews.
+- `TesseraConfiguration` - Describes how items are generated
+- `TesseraItem` - A drawable symbol used to fill a repeatable tile or a finite canvas
+- `CollisionShape` - Approximate local-space geometry used for collision checks.
+- `TesseraTile` - A single drawable tile that can be seamlessly repeated.
+- `TesseraTiledCanvas` - Repeats a single generated tile to fill the available space (great for backgrounds).
+- `TesseraCanvas`- Generates a single composition at a finite size (great for posters, cards, and exports).
+- `CollisionShapeEditor` - An interactive editor that lets you visually build and export a collision shape for your symbols.
 
 ## Determinism
 
@@ -325,33 +299,9 @@ let bolt = TesseraItem(
 }
 ```
 
-## Collision Shape Previews
+## Collision Shape Editor
 
-Use `TesseraItemPreview` or `TesseraItem.preview(showsCollisionOverlay:)` to visualize a collision shape while you
-iterate on polygon points.
-
-```swift
-let shield = TesseraItem(
-  collisionShape: .polygon(points: [
-    CGPoint(x: 4, y: 0),
-    CGPoint(x: 44, y: 0),
-    CGPoint(x: 48, y: 18),
-    CGPoint(x: 24, y: 48),
-    CGPoint(x: 0, y: 18),
-  ])
-) {
-  Image(systemName: "shield.fill")
-    .font(.system(size: 44))
-    .foregroundStyle(.blue)
-}
-
-#Preview {
-  shield
-    .preview(showsCollisionOverlay: true)
-    .frame(width: 60, height: 60)
-    .padding()
-}
-```
+Use `TesseraItem.collision()` to get a SwiftUI view containing a fully working collision shape editor that lets you build and export collision shapes easily
 
 ## Notes
 

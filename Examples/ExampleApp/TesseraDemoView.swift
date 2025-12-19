@@ -5,7 +5,8 @@ import Tessera
 
 struct TesseraDemoView: View {
   @State private var selectedView: Int = 2
-  
+  @State private var showCollisions: Bool = false
+
   var body: some View {
     let demoItems: [TesseraItem] = [
       .squareOutline,
@@ -24,10 +25,12 @@ struct TesseraDemoView: View {
       minimumSpacing: 0,
       density: 0.8,
       baseScaleRange: 0.5...1.2,
-      showsCollisionOverlay: true,
+      showsCollisionOverlay: showCollisions,
     )
-    
+
     TabView(selection: $selectedView) {
+      
+      // Repeating Tiles
       TesseraTiledCanvas(
         demoConfiguration,
         tileSize: CGSize(width: 256, height: 256),
@@ -38,6 +41,7 @@ struct TesseraDemoView: View {
       }
       .tag(0)
 
+      // Fixed size Canvas
       TesseraCanvas(
         demoConfiguration,
         fixedItems: [
@@ -69,9 +73,10 @@ struct TesseraDemoView: View {
       }
       .tag(1)
 
-      TesseraItemPreviewDemo()
+      // Collision Shape Editor
+      TesseraItemCollisionEditorDemo()
         .tabItem {
-          Label("Collision Preview", systemImage: "viewfinder")
+          Label("Collision Editor", systemImage: "viewfinder")
         }
         .tag(2)
     }
@@ -83,19 +88,9 @@ struct TesseraDemoView: View {
     .preferredColorScheme(.dark)
 }
 
-private struct TesseraItemPreviewDemo: View {
-  @State private var showsCollisionOverlay: Bool = true
-
+private struct TesseraItemCollisionEditorDemo: View {
   var body: some View {
-    VStack(spacing: 24) {
-      previewItem
-        .preview(showsCollisionOverlay: showsCollisionOverlay)
-        .frame(width: 80, height: 80)
-
-      Toggle("Show Collision Overlay", isOn: $showsCollisionOverlay)
-        .toggleStyle(.switch)
-    }
-    .padding(32)
+    previewItem.collisionEditor()
   }
 
   var previewItem: TesseraItem {
@@ -210,12 +205,12 @@ extension TesseraItem {
   /// A concave polygon rendered as a filled L-shape.
   static var concaveBlock: TesseraItem {
     let points: [CGPoint] = [
-      CGPoint(x: 2,  y: 2),
+      CGPoint(x: 2, y: 2),
       CGPoint(x: 30, y: 2),
       CGPoint(x: 30, y: 10),
       CGPoint(x: 10, y: 10),
       CGPoint(x: 10, y: 30),
-      CGPoint(x: 2,  y: 30),
+      CGPoint(x: 2, y: 30),
     ]
 
     return TesseraItem(
