@@ -1,5 +1,6 @@
 <p align="center">
-<img width="800" height="429" alt="Frame 1" src="https://github.com/user-attachments/assets/7a323b3b-1734-4fd0-897b-2d3caadb8000" />
+<img width="800" height="429" alt="A set of Apple devices with various patterns displayed" src="https://github.com/user-attachments/assets/f0286305-ef68-470c-9e00-b8a96e3d35e0" />
+  
 </p>
 <br /><br />
 <img width="100" height="100" alt="Tessera Logo" src="https://github.com/user-attachments/assets/78c89bdb-6dfe-4f2a-b628-082cfc8d3328" />
