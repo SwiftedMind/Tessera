@@ -25,6 +25,7 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 - [Fixed Items](#fixed-items)
 - [Exporting](#exporting)
 - [Custom Items](#custom-items)
+- [Collision Shape Previews](#collision-shape-previews)
 - [Notes](#notes)
 - [License](#license)
 - [🙏 Acknowledgments](#-acknowledgments)
@@ -172,6 +173,9 @@ struct Poster: View {
 - `TesseraCanvas`
   Generates a single composition at a finite size (great for posters, cards, and exports). Supports optional fixed placements via `TesseraFixedItem` and optional edge wrapping via `TesseraEdgeBehavior`.
 
+- `TesseraItemPreview`
+  Renders a `TesseraItem` with an optional collision overlay for designing `CollisionShape` polygons in SwiftUI previews.
+
 ## Determinism
 
 Tessera is deterministic when you provide a seed. You can set `seed` on `TesseraConfiguration`, or override it per-view:
@@ -318,6 +322,34 @@ let bolt = TesseraItem(
   Image(systemName: "bolt.fill")
     .foregroundStyle(.yellow)
     .font(.system(size: 36))
+}
+```
+
+## Collision Shape Previews
+
+Use `TesseraItemPreview` or `TesseraItem.preview(showsCollisionOverlay:)` to visualize a collision shape while you
+iterate on polygon points.
+
+```swift
+let shield = TesseraItem(
+  collisionShape: .polygon(points: [
+    CGPoint(x: 4, y: 0),
+    CGPoint(x: 44, y: 0),
+    CGPoint(x: 48, y: 18),
+    CGPoint(x: 24, y: 48),
+    CGPoint(x: 0, y: 18),
+  ])
+) {
+  Image(systemName: "shield.fill")
+    .font(.system(size: 44))
+    .foregroundStyle(.blue)
+}
+
+#Preview {
+  shield
+    .preview(showsCollisionOverlay: true)
+    .frame(width: 60, height: 60)
+    .padding()
 }
 ```
 

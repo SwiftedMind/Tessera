@@ -4,16 +4,18 @@ import SwiftUI
 import Tessera
 
 struct TesseraDemoView: View {
+  @State private var selectedView: Int = 2
+  
   var body: some View {
     let demoItems: [TesseraItem] = [
-      //      .squareOutline,
-//      .roundedOutline,
-//      .partyPopper,
-//      .minus,
-//      .equals,
-//      .splitLetters,
+      .squareOutline,
+      .roundedOutline,
+      .partyPopper,
+      .minus,
+      .equals,
+      .splitLetters,
       .concaveBlock,
-//      .circleOutline,
+      .circleOutline,
     ]
 
     let demoConfiguration = TesseraConfiguration(
@@ -22,11 +24,10 @@ struct TesseraDemoView: View {
       minimumSpacing: 0,
       density: 0.8,
       baseScaleRange: 0.5...1.2,
-      maximumItemCount: 1,
       showsCollisionOverlay: true,
     )
-
-    TabView {
+    
+    TabView(selection: $selectedView) {
       TesseraTiledCanvas(
         demoConfiguration,
         tileSize: CGSize(width: 256, height: 256),
@@ -35,6 +36,7 @@ struct TesseraDemoView: View {
       .tabItem {
         Label("Tiled Canvas", systemImage: "square.grid.3x3.fill")
       }
+      .tag(0)
 
       TesseraCanvas(
         demoConfiguration,
@@ -65,6 +67,13 @@ struct TesseraDemoView: View {
       .tabItem {
         Label("Canvas", systemImage: "rectangle.and.pencil.and.ellipsis")
       }
+      .tag(1)
+
+      TesseraItemPreviewDemo()
+        .tabItem {
+          Label("Collision Preview", systemImage: "viewfinder")
+        }
+        .tag(2)
     }
   }
 }
@@ -72,6 +81,38 @@ struct TesseraDemoView: View {
 #Preview {
   TesseraDemoView()
     .preferredColorScheme(.dark)
+}
+
+private struct TesseraItemPreviewDemo: View {
+  @State private var showsCollisionOverlay: Bool = true
+
+  var body: some View {
+    VStack(spacing: 24) {
+      previewItem
+        .preview(showsCollisionOverlay: showsCollisionOverlay)
+        .frame(width: 80, height: 80)
+
+      Toggle("Show Collision Overlay", isOn: $showsCollisionOverlay)
+        .toggleStyle(.switch)
+    }
+    .padding(32)
+  }
+
+  var previewItem: TesseraItem {
+    TesseraItem(
+      collisionShape: .polygon(points: [
+        CGPoint(x: 15, y: 10),
+        CGPoint(x: 32, y: 8),
+        CGPoint(x: 60, y: 22),
+        CGPoint(x: 30, y: 60),
+        CGPoint(x: 0, y: 22),
+      ]),
+    ) {
+      Image(systemName: "shield.fill")
+        .font(.system(size: 52, weight: .semibold))
+        .foregroundStyle(.primary)
+    }
+  }
 }
 
 extension TesseraItem {
@@ -168,25 +209,20 @@ extension TesseraItem {
 
   /// A concave polygon rendered as a filled L-shape.
   static var concaveBlock: TesseraItem {
-    let concavePoints: [CGPoint] = [
-      CGPoint(x: -14, y: -14),
-      CGPoint(x: 14, y: -14),
-      CGPoint(x: 14, y: -6),
-      CGPoint(x: -6, y: -6),
-      CGPoint(x: -6, y: 14),
-      CGPoint(x: -14, y: 14),
+    let points: [CGPoint] = [
+      CGPoint(x: 2,  y: 2),
+      CGPoint(x: 30, y: 2),
+      CGPoint(x: 30, y: 10),
+      CGPoint(x: 10, y: 10),
+      CGPoint(x: 10, y: 30),
+      CGPoint(x: 2,  y: 30),
     ]
 
     return TesseraItem(
       allowedRotationRange: .degrees(0)...(.degrees(0)),
-      collisionShape: .polygon(points: [
-        CGPoint(x: 0, y: 0),
-        CGPoint(x: 32, y: 0),
-        CGPoint(x: 32, y: 32),
-        CGPoint(x: 0, y: 32),
-      ]),
+      collisionShape: .polygon(points: points),
     ) {
-      CenteredPolygonShape(points: concavePoints)
+      ConcavePolygonShape(points: points)
         .fill(.mint.opacity(0.5))
         .frame(width: 32, height: 32)
     }
@@ -208,19 +244,18 @@ extension TesseraItem {
   }
 }
 
-private struct CenteredPolygonShape: Shape {
+private struct ConcavePolygonShape: Shape {
   var points: [CGPoint]
 
   func path(in rect: CGRect) -> Path {
     var path = Path()
     guard let firstPoint = points.first else { return path }
 
-    let center = CGPoint(x: rect.midX, y: rect.midY)
-    let start = CGPoint(x: center.x + firstPoint.x, y: center.y + firstPoint.y)
+    let start = CGPoint(x: firstPoint.x, y: firstPoint.y)
     path.move(to: start)
 
     for point in points.dropFirst() {
-      path.addLine(to: CGPoint(x: center.x + point.x, y: center.y + point.y))
+      path.addLine(to: CGPoint(x: point.x, y: point.y))
     }
 
     path.closeSubpath()
