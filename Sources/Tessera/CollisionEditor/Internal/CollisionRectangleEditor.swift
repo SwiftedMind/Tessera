@@ -53,7 +53,7 @@ struct CollisionRectangleEditor: View {
             editorState.moveRectangle(
               from: startingCenter,
               by: value.translation,
-              using: itemLocalViewTransform,
+              using: symbolLocalViewTransform,
             )
           case let .resize(startingCenter, startingSize, handle):
             editorState.resizeRectangle(
@@ -61,7 +61,7 @@ struct CollisionRectangleEditor: View {
               startingSize: startingSize,
               handle: handle,
               to: location,
-              using: itemLocalViewTransform,
+              using: symbolLocalViewTransform,
             )
           case .none:
             break
@@ -73,7 +73,7 @@ struct CollisionRectangleEditor: View {
     )
   }
 
-  private var itemLocalViewTransform: CollisionEditorViewTransform {
+  private var symbolLocalViewTransform: CollisionEditorViewTransform {
     CollisionEditorViewTransform(
       renderedContentSize: canvasState.renderedContentSize,
       zoomScale: canvasState.zoomScale,
@@ -110,12 +110,12 @@ struct CollisionRectangleEditor: View {
     }
   }
 
-  private func displayPoint(for itemLocalPoint: CGPoint) -> CGPoint {
-    itemLocalViewTransform.viewPoint(fromItemLocalPoint: itemLocalPoint)
+  private func displayPoint(for symbolLocalPoint: CGPoint) -> CGPoint {
+    symbolLocalViewTransform.viewPoint(fromSymbolLocalPoint: symbolLocalPoint)
   }
 
-  private func displaySize(for itemLocalSize: CGSize) -> CGSize {
-    itemLocalViewTransform.viewSize(fromItemLocalSize: itemLocalSize)
+  private func displaySize(for symbolLocalSize: CGSize) -> CGSize {
+    symbolLocalViewTransform.viewSize(fromSymbolLocalSize: symbolLocalSize)
   }
 
   private func cornerDisplayPoints() -> [ResizeHandle: CGPoint] {

@@ -3,60 +3,60 @@
 import CoreGraphics
 import SwiftUI
 
-/// Places tessera items while respecting their approximate collision shapes.
+/// Places tessera symbols while respecting their approximate collision shapes.
 enum ShapePlacementEngine {
-  /// Generates placed items for a single tile using rejection sampling with wrap-aware collisions.
-  static func placeItems(
+  /// Generates placed symbols for a single tile using rejection sampling with wrap-aware collisions.
+  static func placeSymbols(
     in size: CGSize,
     configuration: TesseraConfiguration,
-    fixedItems: [TesseraFixedItem] = [],
+    pinnedSymbols: [TesseraPinnedSymbol] = [],
     edgeBehavior: TesseraEdgeBehavior = .seamlessWrapping,
     randomGenerator: inout some RandomNumberGenerator,
-  ) -> [PlacedItem] {
-    guard !configuration.items.isEmpty else { return [] }
+  ) -> [PlacedSymbol] {
+    guard !configuration.symbols.isEmpty else { return [] }
 
-    let itemDescriptors = configuration.items.map { item in
-      let scaleRange = item.scaleRange ?? configuration.baseScaleRange
-      return PlacementItemDescriptor(
-        id: item.id,
-        weight: item.weight,
-        allowedRotationRangeDegrees: item.allowedRotationRange.lowerBound.degrees...item.allowedRotationRange.upperBound
+    let symbolDescriptors = configuration.symbols.map { symbol in
+      let scaleRange = symbol.scaleRange ?? configuration.baseScaleRange
+      return PlacementSymbolDescriptor(
+        id: symbol.id,
+        weight: symbol.weight,
+        allowedRotationRangeDegrees: symbol.allowedRotationRange.lowerBound.degrees...symbol.allowedRotationRange.upperBound
           .degrees,
         resolvedScaleRange: scaleRange,
-        collisionShape: item.collisionShape,
+        collisionShape: symbol.collisionShape,
       )
     }
 
-    let fixedItemDescriptors = fixedItems.map { fixedItem in
-      FixedItemDescriptor(
-        id: fixedItem.id,
-        position: fixedItem.resolvedPosition(in: size),
-        rotationRadians: fixedItem.rotation.radians,
-        scale: fixedItem.scale,
-        collisionShape: fixedItem.collisionShape,
+    let pinnedSymbolDescriptors = pinnedSymbols.map { pinnedSymbol in
+      PinnedSymbolDescriptor(
+        id: pinnedSymbol.id,
+        position: pinnedSymbol.resolvedPosition(in: size),
+        rotationRadians: pinnedSymbol.rotation.radians,
+        scale: pinnedSymbol.scale,
+        collisionShape: pinnedSymbol.collisionShape,
       )
     }
 
-    let placedDescriptors = placeItemDescriptors(
+    let placedDescriptors = placeSymbolDescriptors(
       in: size,
-      itemDescriptors: itemDescriptors,
-      fixedItemDescriptors: fixedItemDescriptors,
+      symbolDescriptors: symbolDescriptors,
+      pinnedSymbolDescriptors: pinnedSymbolDescriptors,
       edgeBehavior: edgeBehavior,
       minimumSpacing: configuration.minimumSpacing,
       density: configuration.density,
-      maximumItemCount: configuration.maximumItemCount,
+      maximumSymbolCount: configuration.maximumSymbolCount,
       randomGenerator: &randomGenerator,
     )
 
-    let itemLookup: [UUID: TesseraItem] = configuration.items.reduce(into: [:]) { cache, item in
-      cache[item.id] = item
+    let symbolLookup: [UUID: TesseraSymbol] = configuration.symbols.reduce(into: [:]) { cache, symbol in
+      cache[symbol.id] = symbol
     }
 
     return placedDescriptors.compactMap { descriptor in
-      guard let item = itemLookup[descriptor.itemId] else { return nil }
+      guard let symbol = symbolLookup[descriptor.symbolId] else { return nil }
 
-      return PlacedItem(
-        item: item,
+      return PlacedSymbol(
+        symbol: symbol,
         position: descriptor.position,
         rotation: .radians(descriptor.rotationRadians),
         scale: descriptor.scale,
@@ -64,30 +64,30 @@ enum ShapePlacementEngine {
     }
   }
 
-  /// Generates placed item descriptors without capturing SwiftUI view builders.
+  /// Generates placed symbol descriptors without capturing SwiftUI view builders.
   ///
   /// This is safe to run on a background task and is used by `TesseraCanvas` caching.
-  static func placeItemDescriptors(
+  static func placeSymbolDescriptors(
     in size: CGSize,
-    itemDescriptors: [PlacementItemDescriptor],
-    fixedItemDescriptors: [FixedItemDescriptor] = [],
+    symbolDescriptors: [PlacementSymbolDescriptor],
+    pinnedSymbolDescriptors: [PinnedSymbolDescriptor] = [],
     edgeBehavior: TesseraEdgeBehavior = .seamlessWrapping,
     minimumSpacing: Double,
     density: Double,
-    maximumItemCount: Int,
+    maximumSymbolCount: Int,
     randomGenerator: inout some RandomNumberGenerator,
-  ) -> [PlacedItemDescriptor] {
-    guard !itemDescriptors.isEmpty else { return [] }
+  ) -> [PlacedSymbolDescriptor] {
+    guard !symbolDescriptors.isEmpty else { return [] }
 
     let minimumSpacing = CGFloat(minimumSpacing)
 
     let tileArea = Double(size.width * size.height)
-    let approximateItemArea = max(Double(minimumSpacing * minimumSpacing), 1)
+    let approximateSymbolArea = max(Double(minimumSpacing * minimumSpacing), 1)
     let clampedDensity = max(0, min(1, density))
-    let estimatedCount = Int(tileArea / approximateItemArea * clampedDensity)
-    let maximumCount = max(0, maximumItemCount)
+    let estimatedCount = Int(tileArea / approximateSymbolArea * clampedDensity)
+    let maximumCount = max(0, maximumSymbolCount)
     let targetCount = min(max(0, estimatedCount), maximumCount)
-    let remainingTargetCount = min(max(0, targetCount - fixedItemDescriptors.count), maximumCount)
+    let remainingTargetCount = min(max(0, targetCount - pinnedSymbolDescriptors.count), maximumCount)
 
     // Wrap offsets cover the 3×3 lattice to maintain seamless wrapping collisions.
     let wrapOffsets: [CGPoint] = switch edgeBehavior {
@@ -107,26 +107,26 @@ enum ShapePlacementEngine {
       ]
     }
 
-    let fixedColliders: [PlacedCollider] = fixedItemDescriptors.map { fixedItem in
+    let fixedColliders: [PlacedCollider] = pinnedSymbolDescriptors.map { pinnedSymbol in
       let collisionTransform = CollisionTransform(
-        position: fixedItem.position,
-        rotation: CGFloat(fixedItem.rotationRadians),
-        scale: fixedItem.scale,
+        position: pinnedSymbol.position,
+        rotation: CGFloat(pinnedSymbol.rotationRadians),
+        scale: pinnedSymbol.scale,
       )
       return PlacedCollider(
-        collisionShape: fixedItem.collisionShape,
+        collisionShape: pinnedSymbol.collisionShape,
         collisionTransform: collisionTransform,
-        polygons: CollisionMath.polygons(for: fixedItem.collisionShape),
-        boundingRadius: fixedItem.collisionShape.boundingRadius(atScale: collisionTransform.scale),
+        polygons: CollisionMath.polygons(for: pinnedSymbol.collisionShape),
+        boundingRadius: pinnedSymbol.collisionShape.boundingRadius(atScale: collisionTransform.scale),
       )
     }
 
     let maximumGeneratedBoundingRadius = maximumBoundingRadius(
-      for: itemDescriptors,
+      for: symbolDescriptors,
     )
-    let maximumFixedBoundingRadius = fixedItemDescriptors
-      .map { fixedItem in
-        fixedItem.collisionShape.boundingRadius(atScale: fixedItem.scale)
+    let maximumFixedBoundingRadius = pinnedSymbolDescriptors
+      .map { pinnedSymbol in
+        pinnedSymbol.collisionShape.boundingRadius(atScale: pinnedSymbol.scale)
       }
       .max() ?? 0
     let maximumBoundingRadius = max(maximumGeneratedBoundingRadius, maximumFixedBoundingRadius)
@@ -135,8 +135,8 @@ enum ShapePlacementEngine {
     let gridColumnCount = max(1, Int(ceil(size.width / cellSize)))
     let gridRowCount = max(1, Int(ceil(size.height / cellSize)))
 
-    let polygonCache: [UUID: [CollisionPolygon]] = itemDescriptors.reduce(into: [:]) { cache, item in
-      cache[item.id] = CollisionMath.polygons(for: item.collisionShape)
+    let polygonCache: [UUID: [CollisionPolygon]] = symbolDescriptors.reduce(into: [:]) { cache, symbol in
+      cache[symbol.id] = CollisionMath.polygons(for: symbol.collisionShape)
     }
 
     var colliders: [PlacedCollider] = fixedColliders
@@ -156,36 +156,36 @@ enum ShapePlacementEngine {
       colliderGrid[coordinate, default: []].append(colliderIndex)
     }
 
-    var placedDescriptors: [PlacedItemDescriptor] = []
+    var placedDescriptors: [PlacedSymbolDescriptor] = []
     placedDescriptors.reserveCapacity(remainingTargetCount)
 
     for _ in 0..<remainingTargetCount {
       if Task.isCancelled { return placedDescriptors }
 
-      guard let selectedItem = pickItem(from: itemDescriptors, using: &randomGenerator) else { break }
+      guard let selectedSymbol = pickSymbol(from: symbolDescriptors, using: &randomGenerator) else { break }
 
-      let scale = Double.random(in: selectedItem.resolvedScaleRange, using: &randomGenerator)
+      let scale = Double.random(in: selectedSymbol.resolvedScaleRange, using: &randomGenerator)
       let rotationRadians = randomAngleRadians(
-        in: selectedItem.allowedRotationRangeDegrees,
+        in: selectedSymbol.allowedRotationRangeDegrees,
         using: &randomGenerator,
       )
 
-      guard let selectedPolygons = polygonCache[selectedItem.id] else { continue }
+      guard let selectedPolygons = polygonCache[selectedSymbol.id] else { continue }
 
       let maximumAttempts = 20
-      var didPlaceItem = false
+      var didPlaceSymbol = false
 
       for _ in 0..<maximumAttempts {
         if Task.isCancelled { return placedDescriptors }
 
         // Rejection-sample a position and reuse if it clears all collisions.
         let position = randomPoint(in: size, using: &randomGenerator)
-        let candidate = PlacedItemDescriptor(
-          itemId: selectedItem.id,
+        let candidate = PlacedSymbolDescriptor(
+          symbolId: selectedSymbol.id,
           position: position,
           rotationRadians: rotationRadians,
           scale: CGFloat(scale),
-          collisionShape: selectedItem.collisionShape,
+          collisionShape: selectedSymbol.collisionShape,
         )
 
         let candidateCoordinate = cellCoordinate(
@@ -225,19 +225,19 @@ enum ShapePlacementEngine {
         let candidateTransform = candidate.collisionTransform
         colliders.append(
           PlacedCollider(
-            collisionShape: selectedItem.collisionShape,
+            collisionShape: selectedSymbol.collisionShape,
             collisionTransform: candidateTransform,
             polygons: selectedPolygons,
-            boundingRadius: selectedItem.collisionShape.boundingRadius(atScale: candidateTransform.scale),
+            boundingRadius: selectedSymbol.collisionShape.boundingRadius(atScale: candidateTransform.scale),
           ),
         )
         let newColliderIndex = colliders.count - 1
         colliderGrid[candidateCoordinate, default: []].append(newColliderIndex)
-        didPlaceItem = true
+        didPlaceSymbol = true
         break
       }
 
-      if !didPlaceItem {
+      if !didPlaceSymbol {
         continue
       }
     }
@@ -245,7 +245,7 @@ enum ShapePlacementEngine {
     return placedDescriptors
   }
 
-  struct PlacementItemDescriptor: Sendable {
+  struct PlacementSymbolDescriptor: Sendable {
     var id: UUID
     var weight: Double
     var allowedRotationRangeDegrees: ClosedRange<Double>
@@ -253,7 +253,7 @@ enum ShapePlacementEngine {
     var collisionShape: CollisionShape
   }
 
-  struct FixedItemDescriptor: Sendable {
+  struct PinnedSymbolDescriptor: Sendable {
     var id: UUID
     var position: CGPoint
     var rotationRadians: Double
@@ -261,8 +261,8 @@ enum ShapePlacementEngine {
     var collisionShape: CollisionShape
   }
 
-  struct PlacedItemDescriptor: Sendable {
-    var itemId: UUID
+  struct PlacedSymbolDescriptor: Sendable {
+    var symbolId: UUID
     var position: CGPoint
     var rotationRadians: Double
     var scale: CGFloat
@@ -290,12 +290,12 @@ enum ShapePlacementEngine {
   }
 
   private static func maximumBoundingRadius(
-    for items: [PlacementItemDescriptor],
+    for symbols: [PlacementSymbolDescriptor],
   ) -> CGFloat {
     var maximumRadius: CGFloat = 0
-    for item in items {
-      let maximumScale = item.resolvedScaleRange.upperBound
-      let radius = item.collisionShape.boundingRadius(atScale: CGFloat(maximumScale))
+    for symbol in symbols {
+      let maximumScale = symbol.resolvedScaleRange.upperBound
+      let radius = symbol.collisionShape.boundingRadius(atScale: CGFloat(maximumScale))
       maximumRadius = max(maximumRadius, radius)
     }
     return maximumRadius
@@ -387,23 +387,23 @@ enum ShapePlacementEngine {
     return remainder >= 0 ? remainder : remainder + modulus
   }
 
-  private static func pickItem(
-    from items: [PlacementItemDescriptor],
+  private static func pickSymbol(
+    from symbols: [PlacementSymbolDescriptor],
     using randomGenerator: inout some RandomNumberGenerator,
-  ) -> PlacementItemDescriptor? {
-    // Weighted pick to preserve caller-defined item frequencies.
-    let totalWeight = items.reduce(0) { $0 + $1.weight }
-    guard totalWeight > 0 else { return items.randomElement(using: &randomGenerator) }
+  ) -> PlacementSymbolDescriptor? {
+    // Weighted pick to preserve caller-defined symbol frequencies.
+    let totalWeight = symbols.reduce(0) { $0 + $1.weight }
+    guard totalWeight > 0 else { return symbols.randomElement(using: &randomGenerator) }
 
     let randomValue = Double.random(in: 0..<totalWeight, using: &randomGenerator)
     var accumulator = 0.0
 
-    for item in items {
-      accumulator += item.weight
-      if randomValue < accumulator { return item }
+    for symbol in symbols {
+      accumulator += symbol.weight
+      if randomValue < accumulator { return symbol }
     }
 
-    return items.last
+    return symbols.last
   }
 
   private static func randomPoint(
@@ -444,7 +444,7 @@ enum ShapePlacementEngine {
   }
 
   private static func isPlacementValid(
-    candidate: PlacedItemDescriptor,
+    candidate: PlacedSymbolDescriptor,
     candidatePolygons: [CollisionPolygon],
     existingColliderIndices: [Int],
     allColliders: [PlacedCollider],
@@ -457,7 +457,7 @@ enum ShapePlacementEngine {
     let candidatePosition = candidate.collisionTransform.position
     let minimumTileHalfDimension = min(tileSize.width, tileSize.height) / 2
 
-    // Check candidate against every already-placed item, accounting for wrap offsets.
+    // Check candidate against every already-placed symbol, accounting for wrap offsets.
     for colliderIndex in existingColliderIndices {
       let collider = allColliders[colliderIndex]
       let colliderBoundingRadius = collider.boundingRadius

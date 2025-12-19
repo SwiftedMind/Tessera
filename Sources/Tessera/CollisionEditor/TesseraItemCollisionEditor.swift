@@ -2,25 +2,25 @@
 
 import SwiftUI
 
-/// A collision editor for a tessera item.
+/// A collision editor for a tessera symbol.
 ///
-/// Use this view to build and copy collision shapes that match the rendered item size.
-public struct TesseraItemCollisionEditor: View {
+/// Use this view to build and copy collision shapes that match the rendered symbol size.
+public struct TesseraSymbolCollisionEditor: View {
   @State private var editorState: CollisionEditorState
 
-  public var item: TesseraItem
+  public var symbol: TesseraSymbol
   public var initialCollisionShape: CollisionShape?
   var renderedContent: AnyView
 
-  /// Creates a collision editor for a tessera item.
+  /// Creates a collision editor for a tessera symbol.
   ///
   /// - Parameters:
-  ///   - item: The tessera item to render.
+  ///   - symbol: The tessera symbol to render.
   ///   - initialCollisionShape: Optional shape to edit; defaults to a circle when `nil`.
-  public init(_ item: TesseraItem, initialCollisionShape: CollisionShape? = nil) {
-    self.item = item
+  public init(_ symbol: TesseraSymbol, initialCollisionShape: CollisionShape? = nil) {
+    self.symbol = symbol
     self.initialCollisionShape = initialCollisionShape
-    renderedContent = AnyView(item.makeView())
+    renderedContent = AnyView(symbol.makeView())
     _editorState = State(initialValue: CollisionEditorState(initialCollisionShape: initialCollisionShape))
   }
 
@@ -69,7 +69,7 @@ public struct TesseraItemCollisionEditor: View {
       let polygonCanvasState = CollisionPolygonEditor.CanvasState(
         renderedContentSize: editorState.safeRenderedContentSize,
         zoomScale: zoomScale,
-        itemLocalPoints: editorState.polygonItemLocalPoints,
+        symbolLocalPoints: editorState.polygonSymbolLocalPoints,
         isPolygonClosed: editorState.isPolygonClosed,
       )
 
@@ -110,8 +110,8 @@ public struct TesseraItemCollisionEditor: View {
 }
 
 #Preview {
-  TesseraItemCollisionEditor(
-    TesseraItem(
+  TesseraSymbolCollisionEditor(
+    TesseraSymbol(
       collisionShape: .circle(center: .zero, radius: 18),
     ) {
       Image(systemName: "sparkles")

@@ -2,7 +2,7 @@
 
 import SwiftUI
 
-/// Renders the item preview with an overlay for editor interactions.
+/// Renders the symbol preview with an overlay for editor interactions.
 struct CollisionEditorCanvasView<Overlay: View>: View {
   var renderedContent: AnyView
   var renderedContentSize: CGSize

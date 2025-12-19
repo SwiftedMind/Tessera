@@ -7,7 +7,7 @@ struct CollisionPolygonEditor: View {
   struct CanvasState: Equatable {
     var renderedContentSize: CGSize
     var zoomScale: CGFloat
-    var itemLocalPoints: [CGPoint]
+    var symbolLocalPoints: [CGPoint]
     var isPolygonClosed: Bool
   }
 
@@ -44,18 +44,18 @@ struct CollisionPolygonEditor: View {
             if let draggedPointIndex = nearestPointIndex(to: startLocation) {
               dragInteraction = .point(index: draggedPointIndex)
             } else if shouldBeginPolygonDrag(at: startLocation) {
-              dragInteraction = .polygon(startingItemLocalPoints: canvasState.itemLocalPoints)
+              dragInteraction = .polygon(startingSymbolLocalPoints: canvasState.symbolLocalPoints)
             }
           }
 
           switch dragInteraction {
           case let .point(draggedPointIndex):
-            editorState.movePoint(at: draggedPointIndex, to: location, using: itemLocalViewTransform)
-          case let .polygon(startingItemLocalPoints):
+            editorState.movePoint(at: draggedPointIndex, to: location, using: symbolLocalViewTransform)
+          case let .polygon(startingSymbolLocalPoints):
             editorState.movePolygon(
-              from: startingItemLocalPoints,
+              from: startingSymbolLocalPoints,
               by: value.translation,
-              using: itemLocalViewTransform,
+              using: symbolLocalViewTransform,
             )
           case .none:
             break
@@ -78,19 +78,19 @@ struct CollisionPolygonEditor: View {
               return
             }
 
-            editorState.movePoint(at: draggedPointIndex, to: location, using: itemLocalViewTransform)
+            editorState.movePoint(at: draggedPointIndex, to: location, using: symbolLocalViewTransform)
             return
           case .polygon:
             return
           case .none:
-            editorState.addPoint(at: location, using: itemLocalViewTransform)
+            editorState.addPoint(at: location, using: symbolLocalViewTransform)
             return
           }
         },
     )
   }
 
-  private var itemLocalViewTransform: CollisionEditorViewTransform {
+  private var symbolLocalViewTransform: CollisionEditorViewTransform {
     CollisionEditorViewTransform(
       renderedContentSize: canvasState.renderedContentSize,
       zoomScale: canvasState.zoomScale,
@@ -106,9 +106,9 @@ struct CollisionPolygonEditor: View {
 
   private var polygonPath: some View {
     Path { path in
-      guard canvasState.itemLocalPoints.isEmpty == false else { return }
+      guard canvasState.symbolLocalPoints.isEmpty == false else { return }
 
-      let points = canvasState.itemLocalPoints.map(displayPoint(for:))
+      let points = canvasState.symbolLocalPoints.map(displayPoint(for:))
       path.move(to: points[0])
       for point in points.dropFirst() {
         path.addLine(to: point)
@@ -120,9 +120,9 @@ struct CollisionPolygonEditor: View {
     }
     .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
     .overlay {
-      if canvasState.isPolygonClosed, canvasState.itemLocalPoints.count >= 3 {
+      if canvasState.isPolygonClosed, canvasState.symbolLocalPoints.count >= 3 {
         Path { path in
-          let points = canvasState.itemLocalPoints.map(displayPoint(for:))
+          let points = canvasState.symbolLocalPoints.map(displayPoint(for:))
           path.move(to: points[0])
           for point in points.dropFirst() {
             path.addLine(to: point)
@@ -135,28 +135,28 @@ struct CollisionPolygonEditor: View {
   }
 
   private var pointHandles: some View {
-    ForEach(canvasState.itemLocalPoints.indices, id: \.self) { index in
+    ForEach(canvasState.symbolLocalPoints.indices, id: \.self) { index in
       let handleSize: CGFloat = 14
 
       Circle()
-        .fill(index == canvasState.itemLocalPoints.startIndex ? Color.accentColor : Color.white)
+        .fill(index == canvasState.symbolLocalPoints.startIndex ? Color.accentColor : Color.white)
         .overlay {
           Circle()
             .strokeBorder(.black.opacity(0.2), lineWidth: 1)
         }
         .frame(width: handleSize, height: handleSize)
-        .position(displayPoint(for: canvasState.itemLocalPoints[index]))
+        .position(displayPoint(for: canvasState.symbolLocalPoints[index]))
         .allowsHitTesting(false)
     }
   }
 
-  private func displayPoint(for itemLocalPoint: CGPoint) -> CGPoint {
-    itemLocalViewTransform.viewPoint(fromItemLocalPoint: itemLocalPoint)
+  private func displayPoint(for symbolLocalPoint: CGPoint) -> CGPoint {
+    symbolLocalViewTransform.viewPoint(fromSymbolLocalPoint: symbolLocalPoint)
   }
 
   private func shouldBeginPolygonDrag(at location: CGPoint) -> Bool {
     guard canvasState.isPolygonClosed else { return false }
-    guard canvasState.itemLocalPoints.count >= 3 else { return false }
+    guard canvasState.symbolLocalPoints.count >= 3 else { return false }
 
     let polygonPath = polygonHitTestPath()
     return polygonPath.contains(location)
@@ -180,9 +180,9 @@ struct CollisionPolygonEditor: View {
 
   private func polygonClosedPath() -> Path {
     Path { path in
-      guard canvasState.itemLocalPoints.count >= 3 else { return }
+      guard canvasState.symbolLocalPoints.count >= 3 else { return }
 
-      let points = canvasState.itemLocalPoints.map(displayPoint(for:))
+      let points = canvasState.symbolLocalPoints.map(displayPoint(for:))
       path.move(to: points[0])
       for point in points.dropFirst() {
         path.addLine(to: point)
@@ -192,13 +192,13 @@ struct CollisionPolygonEditor: View {
   }
 
   private func nearestPointIndex(to location: CGPoint) -> Int? {
-    guard canvasState.itemLocalPoints.isEmpty == false else { return nil }
+    guard canvasState.symbolLocalPoints.isEmpty == false else { return nil }
 
     var bestIndex: Int?
     var bestDistance = CGFloat.greatestFiniteMagnitude
 
-    for index in canvasState.itemLocalPoints.indices {
-      let pointLocation = displayPoint(for: canvasState.itemLocalPoints[index])
+    for index in canvasState.symbolLocalPoints.indices {
+      let pointLocation = displayPoint(for: canvasState.symbolLocalPoints[index])
       let distance = hypot(location.x - pointLocation.x, location.y - pointLocation.y)
 
       if distance <= Self.pointSelectionRadius, distance < bestDistance {
@@ -212,8 +212,8 @@ struct CollisionPolygonEditor: View {
 
   private func shouldClosePolygonAfterTap(onPointAt index: Int, dragDistance: CGFloat) -> Bool {
     guard canvasState.isPolygonClosed == false else { return false }
-    guard canvasState.itemLocalPoints.count >= 3 else { return false }
-    guard index == canvasState.itemLocalPoints.startIndex else { return false }
+    guard canvasState.symbolLocalPoints.count >= 3 else { return false }
+    guard index == canvasState.symbolLocalPoints.startIndex else { return false }
 
     return dragDistance <= Self.closePolygonTapTolerance
   }
@@ -227,6 +227,6 @@ struct CollisionPolygonEditor: View {
 
   private enum DragInteraction {
     case point(index: Int)
-    case polygon(startingItemLocalPoints: [CGPoint])
+    case polygon(startingSymbolLocalPoints: [CGPoint])
   }
 }

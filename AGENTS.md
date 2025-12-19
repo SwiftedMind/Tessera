@@ -42,9 +42,9 @@ Use these documents proactively whenever you work on the corresponding area; the
 
 ## Architectural Structural Overview
 
-- **Public Surface**: `Sources/Tessera` exposes the SwiftUI-facing API. `Tessera` defines the tile configuration (size, items, spacing, density, seed). `TesseraItem` wraps individual SwiftUI content with weighting, rotation and scaling rules. `TesseraTiledCanvas` is the primary repeating view; it tiles a single tessera tile across a `Canvas`.
+- **Public Surface**: `Sources/Tessera` exposes the SwiftUI-facing API. `Tessera` defines the tile configuration (size, symbols, spacing, density, seed). `TesseraSymbol` wraps individual SwiftUI content with weighting, rotation and scaling rules. `TesseraTiledCanvas` is the primary repeating view; it tiles a single tessera tile across a `Canvas`.
 - **Rendering Pipeline**: `TesseraTiledCanvas` constructs a single cached symbol (`TesseraCanvasTile`) and draws it in a grid that covers the available space. The tile itself runs deterministic randomness via `SeededGenerator` so the same seed reproduces the same layout.
 - **Point Generation**: `Internal/PoissonDiskGenerator` produces evenly spaced candidate points with toroidal wrap-around using Poisson-disc sampling. It clamps fill probability, computes a cell grid, and iteratively accepts candidates that satisfy the minimum spacing.
-- **Item Placement**: `Internal/ItemAssigner` walks the generated points in shuffled order, discourages identical neighbors through a wrapped grid lookup, and chooses items by weight when necessary fallback to the full set.
+- **Symbol Placement**: `Internal/SymbolAssigner` walks the generated points in shuffled order, discourages identical neighbors through a wrapped grid lookup, and chooses symbols by weight when necessary fallback to the full set.
 - **Seamless Wrapping**: `TesseraCanvasTile` draws each symbol with a 3×3 offset lattice so symbols that touch edges wrap cleanly when tiles repeat, preserving seamless continuity in both axes.
 - **Determinism and Reuse**: Seeds propagate from `Tessera` into `TesseraTiledCanvas` and internal generators, ensuring repeatable outputs while keeping symbol resolution cached for performance during canvas redraws.

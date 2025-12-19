@@ -43,7 +43,7 @@ public struct TesseraTile: View {
   ///   - directory: Target directory where the file will be created.
   ///   - fileName: Base file name without extension; `.png` is appended automatically.
   ///   - backgroundColor: Optional background fill rendered behind the tile. Defaults to no background (transparent).
-  ///   - colorScheme: Optional SwiftUI color scheme override applied while rendering. Useful when items use semantic
+  ///   - colorScheme: Optional SwiftUI color scheme override applied while rendering. Useful when symbols use semantic
   /// colors such as `Color.primary`.
   ///   - options: Rendering configuration such as output pixel size and scale.
   /// - Returns: The resolved file URL that was written.
@@ -56,7 +56,7 @@ public struct TesseraTile: View {
   ) throws -> URL {
     let exportCanvas = TesseraCanvas(
       configuration,
-      fixedItems: [],
+      pinnedSymbols: [],
       seed: seed,
       edgeBehavior: .seamlessWrapping,
     )
@@ -76,7 +76,7 @@ public struct TesseraTile: View {
   ///   - directory: Target directory where the file will be created.
   ///   - fileName: Base file name without extension; `.pdf` is appended automatically.
   ///   - backgroundColor: Optional background fill rendered behind the tile. Defaults to no background (transparent).
-  ///   - colorScheme: Optional SwiftUI color scheme override applied while rendering. Useful when items use semantic
+  ///   - colorScheme: Optional SwiftUI color scheme override applied while rendering. Useful when symbols use semantic
   /// colors such as `Color.primary`.
   ///   - pageSize: Optional PDF page size in points; defaults to the tile size.
   ///   - options: Rendering configuration such as output pixel size and scale, applied while drawing into the PDF
@@ -92,7 +92,7 @@ public struct TesseraTile: View {
   ) throws -> URL {
     let exportCanvas = TesseraCanvas(
       configuration,
-      fixedItems: [],
+      pinnedSymbols: [],
       seed: seed,
       edgeBehavior: .seamlessWrapping,
     )

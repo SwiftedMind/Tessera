@@ -2,8 +2,8 @@
 
 import SwiftUI
 
-/// Describes a drawable item that can appear inside a tessera tile.
-public struct TesseraItem: Identifiable {
+/// Describes a drawable symbol that can appear inside a tessera tile.
+public struct TesseraSymbol: Identifiable {
   public var id: UUID
   public var weight: Double
   public var allowedRotationRange: ClosedRange<Angle>
@@ -11,11 +11,11 @@ public struct TesseraItem: Identifiable {
   public var collisionShape: CollisionShape
   private let builder: () -> AnyView
 
-  /// Creates an item.
+  /// Creates an symbol.
   /// - Parameters:
   ///   - id: Identifier; defaults to a random value so identical presets can coexist.
   ///   - weight: Relative probability of being chosen.
-  ///   - allowedRotationRange: Range of angles the item may rotate within.
+  ///   - allowedRotationRange: Range of angles the symbol may rotate within.
   ///   - scaleRange: Optional scale range overriding the tessera's base scale range.
   ///   - collisionShape: Approximate geometry used for collision checks. Complex polygons and multi-polygon shapes
   ///     increase placement cost.
@@ -40,7 +40,7 @@ public struct TesseraItem: Identifiable {
   /// - Parameters:
   ///   - id: Identifier; defaults to a random value so identical presets can coexist.
   ///   - weight: Relative probability of being chosen.
-  ///   - allowedRotationRange: Range of angles the item may rotate within.
+  ///   - allowedRotationRange: Range of angles the symbol may rotate within.
   ///   - scaleRange: Optional scale range overriding the tessera's base scale range.
   ///   - approximateSize: Size used to build a conservative circular collider.
   ///   - content: View builder for the rendered symbol.

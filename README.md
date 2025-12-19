@@ -11,7 +11,7 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 ## Features
 
 - Compose repeatable patterns from regular SwiftUI views.
-- Declarative configuration: describe items, spacing, density, and scale; provide a size at render time.
+- Declarative configuration: describe symbols, spacing, density, and scale; provide a size at render time.
 - Even spacing: shape-aware placement that avoids clustering.
 - Seamless wrapping: tile edges wrap toroidally so patterns repeat without seams.
 - Deterministic output: provide a seed for reproducible layouts; omit to randomize.
@@ -22,9 +22,9 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 - [Get Started](#get-started)
 - [Terminology](#terminology)
 - [Determinism](#determinism)
-- [Fixed Items](#fixed-items)
+- [Fixed Symbols](#fixed-symbols)
 - [Exporting](#exporting)
-- [Custom Items](#custom-items)
+- [Custom Symbols](#custom-symbols)
 - [Collision Shape Previews](#collision-shape-previews)
 - [Notes](#notes)
 - [License](#license)
@@ -77,26 +77,26 @@ struct PatternBackground: View {
 
   var configuration: TesseraConfiguration {
     TesseraConfiguration(
-      items: items,
+      symbols: symbols,
       minimumSpacing: 10,
       density: 0.6,
       baseScaleRange: 0.9...1.15
     )
   }
 
-  var items: [TesseraItem] {
+  var symbols: [TesseraSymbol] {
     [
-      TesseraItem(approximateSize: CGSize(width: 30, height: 30)) {
+      TesseraSymbol(approximateSize: CGSize(width: 30, height: 30)) {
         Image(systemName: "sparkle")
           .font(.system(size: 24, weight: .semibold))
           .foregroundStyle(.primary.opacity(0.9))
       },
-      TesseraItem(approximateSize: CGSize(width: 30, height: 30)) {
+      TesseraSymbol(approximateSize: CGSize(width: 30, height: 30)) {
         Image(systemName: "circle.grid.cross")
           .font(.system(size: 24, weight: .semibold))
           .foregroundStyle(.primary.opacity(0.7))
       },
-      TesseraItem(
+      TesseraSymbol(
         weight: 0.5,
         allowedRotationRange: .degrees(-15)...(.degrees(15)),
         approximateSize: CGSize(width: 36, height: 36)
@@ -125,12 +125,12 @@ struct Poster: View {
   }
 
   var configuration: TesseraConfiguration {
-    TesseraConfiguration(items: items, minimumSpacing: 10, density: 0.65)
+    TesseraConfiguration(symbols: symbols, minimumSpacing: 10, density: 0.65)
   }
 
-  var items: [TesseraItem] {
+  var symbols: [TesseraSymbol] {
     [
-      TesseraItem(approximateSize: CGSize(width: 34, height: 34)) {
+      TesseraSymbol(approximateSize: CGSize(width: 34, height: 34)) {
         Image(systemName: "scribble.variable")
           .font(.system(size: 28, weight: .semibold))
           .foregroundStyle(.primary.opacity(0.8))
@@ -142,8 +142,8 @@ struct Poster: View {
 
 ## Terminology
 
-- `TesseraConfiguration` - Describes how items are generated
-- `TesseraItem` - A drawable symbol used to fill a repeatable tile or a finite canvas
+- `TesseraConfiguration` - Describes how symbols are generated
+- `TesseraSymbol` - A drawable symbol used to fill a repeatable tile or a finite canvas
 - `CollisionShape` - Approximate local-space geometry used for collision checks.
 - `TesseraTile` - A single drawable tile that can be seamlessly repeated.
 - `TesseraTiledCanvas` - Repeats a single generated tile to fill the available space (great for backgrounds).
@@ -161,13 +161,13 @@ TesseraTiledCanvas(configuration, tileSize: CGSize(width: 256, height: 256), see
 To "move" a pattern without changing the layout, modify `patternOffset`:
 
 ```swift
-var configuration = TesseraConfiguration(items: items, minimumSpacing: 44, density: 0.6)
+var configuration = TesseraConfiguration(symbols: symbols, minimumSpacing: 44, density: 0.6)
 configuration.patternOffset = CGSize(width: 40, height: 0)
 ```
 
-## Fixed Items
+## Fixed Symbols
 
-Fixed items let you place specific content (like a logo or headline) while Tessera fills around it. Fixed items participate in collision checks, so generated items keep their distance.
+Fixed symbols let you place specific content (like a logo or headline) while Tessera fills around it. Fixed symbols participate in collision checks, so generated symbols keep their distance.
 
 ```swift
 import SwiftUI
@@ -177,7 +177,7 @@ struct HeroCard: View {
   var body: some View {
     TesseraCanvas(
       configuration,
-      fixedItems: [logo],
+      pinnedSymbols: [logo],
       edgeBehavior: .finite
     )
     .frame(width: 600, height: 360)
@@ -185,12 +185,12 @@ struct HeroCard: View {
   }
 
   var configuration: TesseraConfiguration {
-    TesseraConfiguration(items: items, minimumSpacing: 10, density: 0.7)
+    TesseraConfiguration(symbols: symbols, minimumSpacing: 10, density: 0.7)
   }
 
-  var items: [TesseraItem] {
+  var symbols: [TesseraSymbol] {
     [
-      TesseraItem(approximateSize: CGSize(width: 28, height: 28)) {
+      TesseraSymbol(approximateSize: CGSize(width: 28, height: 28)) {
         Image(systemName: "hexagon.fill")
           .font(.system(size: 22, weight: .bold))
           .foregroundStyle(.blue.opacity(0.55))
@@ -198,8 +198,8 @@ struct HeroCard: View {
     ]
   }
 
-  var logo: TesseraFixedItem {
-    TesseraFixedItem(
+  var logo: TesseraPinnedSymbol {
+    TesseraPinnedSymbol(
       position: .centered(),
       approximateSize: CGSize(width: 160, height: 160)
     ) {
@@ -220,14 +220,14 @@ import Foundation
 import SwiftUI
 import Tessera
 
-let items: [TesseraItem] = [
-  TesseraItem(approximateSize: CGSize(width: 30, height: 30)) {
+let symbols: [TesseraSymbol] = [
+  TesseraSymbol(approximateSize: CGSize(width: 30, height: 30)) {
     Image(systemName: "sparkle").font(.system(size: 24, weight: .semibold))
   },
-  TesseraItem(approximateSize: CGSize(width: 30, height: 30)) {
+  TesseraSymbol(approximateSize: CGSize(width: 30, height: 30)) {
     Image(systemName: "circle.grid.cross").font(.system(size: 24, weight: .semibold))
   },
-  TesseraItem(
+  TesseraSymbol(
     allowedRotationRange: .degrees(-10)...(.degrees(10)),
     approximateSize: CGSize(width: 36, height: 36)
   ) {
@@ -236,7 +236,7 @@ let items: [TesseraItem] = [
 ]
 
 let configuration = TesseraConfiguration(
-  items: items,
+  symbols: symbols,
   seed: 0,
   minimumSpacing: 10,
   density: 0.8,
@@ -284,10 +284,10 @@ Rendering options (`TesseraRenderOptions`):
 - `isOpaque`, `colorMode`: Forwarded to `ImageRenderer`.
 - `backgroundColor` (export function parameter): Optional fill rendered behind the export (defaults to none).
 
-## Custom Items
+## Custom Symbols
 
 ```swift
-let bolt = TesseraItem(
+let bolt = TesseraSymbol(
   weight: 2,
   allowedRotationRange: .degrees(-15)...(.degrees(15)),
   scaleRange: 0.8...1.2,
@@ -301,14 +301,14 @@ let bolt = TesseraItem(
 
 ## Collision Shape Editor
 
-Use `TesseraItem.collision()` to get a SwiftUI view containing a fully working collision shape editor that lets you build and export collision shapes easily
+Use `TesseraSymbol.collision()` to get a SwiftUI view containing a fully working collision shape editor that lets you build and export collision shapes easily
 
 ## Notes
 
-- Tessera uses `Canvas` symbols for performance; keep item views lightweight.
-- Collision geometry is intentionally approximate; use `collisionShape` when an item needs a more accurate footprint.
+- Tessera uses `Canvas` symbols for performance; keep symbol views lightweight.
+- Collision geometry is intentionally approximate; use `collisionShape` when an symbol needs a more accurate footprint.
   Complex polygons and multi-polygon shapes can dramatically reduce placement performance.
-- `maximumItemCount` is a safety cap. If you crank up `density` on large canvases, you may want to raise it.
+- `maximumSymbolCount` is a safety cap. If you crank up `density` on large canvases, you may want to raise it.
 
 ## License
 

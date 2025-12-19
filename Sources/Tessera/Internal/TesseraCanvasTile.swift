@@ -9,7 +9,7 @@ struct TesseraCanvasTile: View {
   var seed: UInt64
   var onComputationStateChange: ((Bool) -> Void)?
 
-  @State private var cachedPlacedItemDescriptors: [ShapePlacementEngine.PlacedItemDescriptor] = []
+  @State private var cachedPlacedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor] = []
 
   init(
     configuration: TesseraConfiguration,
@@ -26,12 +26,12 @@ struct TesseraCanvasTile: View {
   var body: some View {
     let configuration = configuration
     let tileSize = tileSize
-    let placedItemDescriptors = cachedPlacedItemDescriptors
+    let placedSymbolDescriptors = cachedPlacedSymbolDescriptors
     let onComputationStateChange = onComputationStateChange
     let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
-    let overlayShapesByItemId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
-      ? configuration.items.reduce(into: [:]) { cache, item in
-        cache[item.id] = CollisionOverlayShape(collisionShape: item.collisionShape)
+    let overlayShapesBySymbolId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
+      ? configuration.symbols.reduce(into: [:]) { cache, symbol in
+        cache[symbol.id] = CollisionOverlayShape(collisionShape: symbol.collisionShape)
       }
       : [:]
 
@@ -53,26 +53,26 @@ struct TesseraCanvasTile: View {
         CGSize(width: -size.width, height: -size.height),
       ]
 
-      for placedItem in placedItemDescriptors {
-        guard let symbol = context.resolveSymbol(id: placedItem.itemId) else { continue }
+      for placedSymbol in placedSymbolDescriptors {
+        guard let symbol = context.resolveSymbol(id: placedSymbol.symbolId) else { continue }
 
         for offset in offsets {
           var symbolContext = context
           symbolContext.translateBy(x: offset.width + wrappedOffset.width, y: offset.height + wrappedOffset.height)
-          symbolContext.translateBy(x: placedItem.position.x, y: placedItem.position.y)
-          symbolContext.rotate(by: .radians(placedItem.rotationRadians))
-          symbolContext.scaleBy(x: placedItem.scale, y: placedItem.scale)
+          symbolContext.translateBy(x: placedSymbol.position.x, y: placedSymbol.position.y)
+          symbolContext.rotate(by: .radians(placedSymbol.rotationRadians))
+          symbolContext.scaleBy(x: placedSymbol.scale, y: placedSymbol.scale)
           symbolContext.draw(symbol, at: .zero, anchor: .center)
 
           if isCollisionOverlayEnabled,
-             let overlayShape = overlayShapesByItemId[placedItem.itemId] {
+             let overlayShape = overlayShapesBySymbolId[placedSymbol.symbolId] {
             CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
           }
         }
       }
     } symbols: {
-      ForEach(configuration.items) { item in
-        item.makeView().tag(item.id)
+      ForEach(configuration.symbols) { symbol in
+        symbol.makeView().tag(symbol.id)
       }
     }
     .frame(width: tileSize.width, height: tileSize.height)
@@ -104,10 +104,10 @@ private extension TesseraCanvasTile {
     var baseScaleRangeLowerBound: Double
     var baseScaleRangeUpperBound: Double
     var patternOffset: CGSize
-    var maximumItemCount: Int
-    var itemKeys: [ItemKey]
+    var maximumSymbolCount: Int
+    var symbolKeys: [SymbolKey]
 
-    struct ItemKey: Hashable, Sendable {
+    struct SymbolKey: Hashable, Sendable {
       var id: UUID
       var weight: Double
       var allowedRotationRangeDegrees: ClosedRange<Double>
@@ -118,19 +118,19 @@ private extension TesseraCanvasTile {
 
   struct ComputationSnapshot: Sendable {
     var key: ComputationKey
-    var itemDescriptors: [ShapePlacementEngine.PlacementItemDescriptor]
+    var symbolDescriptors: [ShapePlacementEngine.PlacementSymbolDescriptor]
   }
 
   var currentComputationKey: ComputationKey {
-    let itemKeys: [ComputationKey.ItemKey] = configuration.items.map { item in
-      let scaleRange = item.scaleRange ?? configuration.baseScaleRange
-      return ComputationKey.ItemKey(
-        id: item.id,
-        weight: item.weight,
-        allowedRotationRangeDegrees: item.allowedRotationRange.lowerBound.degrees...item.allowedRotationRange.upperBound
+    let symbolKeys: [ComputationKey.SymbolKey] = configuration.symbols.map { symbol in
+      let scaleRange = symbol.scaleRange ?? configuration.baseScaleRange
+      return ComputationKey.SymbolKey(
+        id: symbol.id,
+        weight: symbol.weight,
+        allowedRotationRangeDegrees: symbol.allowedRotationRange.lowerBound.degrees...symbol.allowedRotationRange.upperBound
           .degrees,
         resolvedScaleRange: scaleRange,
-        collisionShape: item.collisionShape,
+        collisionShape: symbol.collisionShape,
       )
     }
 
@@ -142,45 +142,45 @@ private extension TesseraCanvasTile {
       baseScaleRangeLowerBound: configuration.baseScaleRange.lowerBound,
       baseScaleRangeUpperBound: configuration.baseScaleRange.upperBound,
       patternOffset: configuration.patternOffset,
-      maximumItemCount: configuration.maximumItemCount,
-      itemKeys: itemKeys,
+      maximumSymbolCount: configuration.maximumSymbolCount,
+      symbolKeys: symbolKeys,
     )
   }
 
   func makeComputationSnapshot() -> ComputationSnapshot {
-    let itemDescriptors: [ShapePlacementEngine.PlacementItemDescriptor] = configuration.items.map { item in
-      let scaleRange = item.scaleRange ?? configuration.baseScaleRange
-      return ShapePlacementEngine.PlacementItemDescriptor(
-        id: item.id,
-        weight: item.weight,
-        allowedRotationRangeDegrees: item.allowedRotationRange.lowerBound.degrees...item.allowedRotationRange.upperBound
+    let symbolDescriptors: [ShapePlacementEngine.PlacementSymbolDescriptor] = configuration.symbols.map { symbol in
+      let scaleRange = symbol.scaleRange ?? configuration.baseScaleRange
+      return ShapePlacementEngine.PlacementSymbolDescriptor(
+        id: symbol.id,
+        weight: symbol.weight,
+        allowedRotationRangeDegrees: symbol.allowedRotationRange.lowerBound.degrees...symbol.allowedRotationRange.upperBound
           .degrees,
         resolvedScaleRange: scaleRange,
-        collisionShape: item.collisionShape,
+        collisionShape: symbol.collisionShape,
       )
     }
 
     return ComputationSnapshot(
       key: currentComputationKey,
-      itemDescriptors: itemDescriptors,
+      symbolDescriptors: symbolDescriptors,
     )
   }
 
   func computePlacements(using snapshot: ComputationSnapshot) async {
     let computeTask = Task.detached(priority: .userInitiated) {
       var randomGenerator = SeededGenerator(seed: snapshot.key.seed)
-      return ShapePlacementEngine.placeItemDescriptors(
+      return ShapePlacementEngine.placeSymbolDescriptors(
         in: snapshot.key.tileSize,
-        itemDescriptors: snapshot.itemDescriptors,
+        symbolDescriptors: snapshot.symbolDescriptors,
         edgeBehavior: .seamlessWrapping,
         minimumSpacing: snapshot.key.minimumSpacing,
         density: snapshot.key.density,
-        maximumItemCount: snapshot.key.maximumItemCount,
+        maximumSymbolCount: snapshot.key.maximumSymbolCount,
         randomGenerator: &randomGenerator,
       )
     }
 
-    let placedItemDescriptors = await withTaskCancellationHandler {
+    let placedSymbolDescriptors = await withTaskCancellationHandler {
       await computeTask.value
     } onCancel: {
       computeTask.cancel()
@@ -189,7 +189,7 @@ private extension TesseraCanvasTile {
     await MainActor.run {
       guard snapshot.key == currentComputationKey else { return }
 
-      cachedPlacedItemDescriptors = placedItemDescriptors
+      cachedPlacedSymbolDescriptors = placedSymbolDescriptors
     }
   }
 }

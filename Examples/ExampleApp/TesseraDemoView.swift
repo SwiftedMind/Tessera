@@ -8,7 +8,7 @@ struct TesseraDemoView: View {
   @State private var showCollisions: Bool = false
 
   var body: some View {
-    let demoItems: [TesseraItem] = [
+    let demoSymbols: [TesseraSymbol] = [
       .squareOutline,
       .roundedOutline,
       .partyPopper,
@@ -20,7 +20,7 @@ struct TesseraDemoView: View {
     ]
 
     let demoConfiguration = TesseraConfiguration(
-      items: demoItems,
+      symbols: demoSymbols,
       seed: 0,
       minimumSpacing: 0,
       density: 0.8,
@@ -29,7 +29,6 @@ struct TesseraDemoView: View {
     )
 
     TabView(selection: $selectedView) {
-      
       // Repeating Tiles
       TesseraTiledCanvas(
         demoConfiguration,
@@ -41,11 +40,11 @@ struct TesseraDemoView: View {
       }
       .tag(0)
 
-      // Fixed size Canvas
+      // Finite-sized Canvas
       TesseraCanvas(
         demoConfiguration,
-        fixedItems: [
-          TesseraFixedItem(
+        pinnedSymbols: [
+          TesseraPinnedSymbol(
             position: .centered(),
             collisionShape: .circle(center: .zero, radius: 60),
           ) {
@@ -55,7 +54,7 @@ struct TesseraDemoView: View {
               .foregroundStyle(.orange)
               .frame(width: 100, height: 100)
           },
-          TesseraFixedItem(
+          TesseraPinnedSymbol(
             position: .bottomTrailing(offset: CGSize(width: -120, height: -120)),
             collisionShape: .circle(center: .zero, radius: 140),
           ) {
@@ -74,7 +73,7 @@ struct TesseraDemoView: View {
       .tag(1)
 
       // Collision Shape Editor
-      TesseraItemCollisionEditorDemo()
+      TesseraSymbolCollisionEditorDemo()
         .tabItem {
           Label("Collision Editor", systemImage: "viewfinder")
         }
@@ -88,13 +87,13 @@ struct TesseraDemoView: View {
     .preferredColorScheme(.dark)
 }
 
-private struct TesseraItemCollisionEditorDemo: View {
+private struct TesseraSymbolCollisionEditorDemo: View {
   var body: some View {
-    previewItem.collisionEditor()
+    previewSymbol.collisionEditor()
   }
 
-  var previewItem: TesseraItem {
-    TesseraItem(
+  var previewSymbol: TesseraSymbol {
+    TesseraSymbol(
       collisionShape: .polygon(points: [
         CGPoint(x: 15, y: 10),
         CGPoint(x: 32, y: 8),
@@ -110,10 +109,10 @@ private struct TesseraItemCollisionEditorDemo: View {
   }
 }
 
-extension TesseraItem {
+extension TesseraSymbol {
   /// A lightly stroked square outline.
-  static var squareOutline: TesseraItem {
-    TesseraItem(
+  static var squareOutline: TesseraSymbol {
+    TesseraSymbol(
       collisionShape: .rectangle(center: .zero, size: CGSize(width: 34, height: 34)),
     ) {
       Rectangle()
@@ -124,8 +123,8 @@ extension TesseraItem {
   }
 
   /// A softly rounded rectangle outline.
-  static var roundedOutline: TesseraItem {
-    TesseraItem(
+  static var roundedOutline: TesseraSymbol {
+    TesseraSymbol(
       collisionShape: .rectangle(center: .zero, size: CGSize(width: 34, height: 34)),
     ) {
       RoundedRectangle(cornerRadius: 6)
@@ -135,8 +134,8 @@ extension TesseraItem {
   }
 
   /// A celebratory SF Symbol.
-  static var partyPopper: TesseraItem {
-    TesseraItem(
+  static var partyPopper: TesseraSymbol {
+    TesseraSymbol(
       allowedRotationRange: .degrees(-45)...(.degrees(45)),
       collisionShape: .circle(center: .zero, radius: 20),
     ) {
@@ -147,8 +146,8 @@ extension TesseraItem {
   }
 
   /// A minus glyph.
-  static var minus: TesseraItem {
-    TesseraItem(
+  static var minus: TesseraSymbol {
+    TesseraSymbol(
       collisionShape: .rectangle(center: .zero, size: CGSize(width: 36, height: 4)),
     ) {
       Text("-")
@@ -158,8 +157,8 @@ extension TesseraItem {
   }
 
   /// An equals glyph.
-  static var equals: TesseraItem {
-    TesseraItem(
+  static var equals: TesseraSymbol {
+    TesseraSymbol(
       collisionShape: .rectangle(center: .zero, size: CGSize(width: 36, height: 12)),
     ) {
       Text("=")
@@ -169,8 +168,8 @@ extension TesseraItem {
   }
 
   /// A subtle circle outline.
-  static var circleOutline: TesseraItem {
-    TesseraItem(
+  static var circleOutline: TesseraSymbol {
+    TesseraSymbol(
       collisionShape: .circle(center: .zero, radius: 15),
     ) {
       Circle()
@@ -181,7 +180,7 @@ extension TesseraItem {
   }
 
   /// Two glyphs represented by separate polygons.
-  static var splitLetters: TesseraItem {
+  static var splitLetters: TesseraSymbol {
     let leftLetterPoints = rectanglePoints(
       centeredAt: CGPoint(x: -6, y: 0),
       size: CGSize(width: 24, height: 22),
@@ -191,7 +190,7 @@ extension TesseraItem {
       size: CGSize(width: 10, height: 22),
     )
 
-    return TesseraItem(
+    return TesseraSymbol(
       weight: 1,
       allowedRotationRange: .degrees(0)...(.degrees(0)),
       collisionShape: .polygons(pointSets: [leftLetterPoints, rightLetterPoints]),
@@ -203,7 +202,7 @@ extension TesseraItem {
   }
 
   /// A concave polygon rendered as a filled L-shape.
-  static var concaveBlock: TesseraItem {
+  static var concaveBlock: TesseraSymbol {
     let points: [CGPoint] = [
       CGPoint(x: 2, y: 2),
       CGPoint(x: 30, y: 2),
@@ -213,7 +212,7 @@ extension TesseraItem {
       CGPoint(x: 2, y: 30),
     ]
 
-    return TesseraItem(
+    return TesseraSymbol(
       allowedRotationRange: .degrees(0)...(.degrees(0)),
       collisionShape: .polygon(points: points),
     ) {

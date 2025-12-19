@@ -52,14 +52,14 @@ struct CollisionCircleEditor: View {
             editorState.moveCircle(
               from: startingCenter,
               by: value.translation,
-              using: itemLocalViewTransform,
+              using: symbolLocalViewTransform,
             )
           case let .resize(startingCenter, startingRadius):
             editorState.resizeCircle(
               from: startingCenter,
               startingRadius: startingRadius,
               to: location,
-              using: itemLocalViewTransform,
+              using: symbolLocalViewTransform,
             )
           case .none:
             break
@@ -71,7 +71,7 @@ struct CollisionCircleEditor: View {
     )
   }
 
-  private var itemLocalViewTransform: CollisionEditorViewTransform {
+  private var symbolLocalViewTransform: CollisionEditorViewTransform {
     CollisionEditorViewTransform(
       renderedContentSize: canvasState.renderedContentSize,
       zoomScale: canvasState.zoomScale,
@@ -109,12 +109,12 @@ struct CollisionCircleEditor: View {
       .allowsHitTesting(false)
   }
 
-  private func displayPoint(for itemLocalPoint: CGPoint) -> CGPoint {
-    itemLocalViewTransform.viewPoint(fromItemLocalPoint: itemLocalPoint)
+  private func displayPoint(for symbolLocalPoint: CGPoint) -> CGPoint {
+    symbolLocalViewTransform.viewPoint(fromSymbolLocalPoint: symbolLocalPoint)
   }
 
-  private func displayRadius(for itemLocalRadius: CGFloat) -> CGFloat {
-    itemLocalViewTransform.viewRadius(fromItemLocalRadius: itemLocalRadius)
+  private func displayRadius(for symbolLocalRadius: CGFloat) -> CGFloat {
+    symbolLocalViewTransform.viewRadius(fromSymbolLocalRadius: symbolLocalRadius)
   }
 
   private func isResizingStart(at location: CGPoint) -> Bool {

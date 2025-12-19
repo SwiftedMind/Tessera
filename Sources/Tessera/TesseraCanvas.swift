@@ -8,7 +8,7 @@ import UniformTypeIdentifiers
 
 /// Defines how a tessera canvas treats its edges.
 public enum TesseraEdgeBehavior: Sendable {
-  /// No wrapping. Items are clipped at the canvas bounds.
+  /// No wrapping. Symbols are clipped at the canvas bounds.
   case finite
   /// Toroidal wrapping like a tile, producing a seamlessly tileable canvas.
   case seamlessWrapping
@@ -16,8 +16,8 @@ public enum TesseraEdgeBehavior: Sendable {
 
 /// A fixed view placed once into a finite tessera canvas.
 ///
-/// Fixed items participate in collision checks so generated items fill around them.
-public struct TesseraFixedItem: Identifiable {
+/// Fixed symbols participate in collision checks so generated symbols fill around them.
+public struct TesseraPinnedSymbol: Identifiable {
   public var id: UUID
   /// Center position inside the canvas.
   public var position: TesseraPlacementPosition
@@ -25,13 +25,13 @@ public struct TesseraFixedItem: Identifiable {
   public var rotation: Angle
   /// Uniform scale applied to drawing and collision checks.
   public var scale: CGFloat
-  /// Collision geometry used as an obstacle for generated items.
+  /// Collision geometry used as an obstacle for generated symbols.
   ///
   /// Complex polygons and multi-polygon shapes increase placement cost.
   public var collisionShape: CollisionShape
   private let builder: () -> AnyView
 
-  /// Creates a fixed item.
+  /// Creates a fixed symbol.
   /// - Parameters:
   ///   - position: Center position inside the canvas.
   ///   - rotation: Rotation applied to drawing and collisions.
@@ -129,21 +129,21 @@ public struct TesseraFixedItem: Identifiable {
   }
 }
 
-/// Fills a finite canvas once using a tessera configuration, respecting fixed items.
+/// Fills a finite canvas once using a tessera configuration, respecting fixed symbols.
 public struct TesseraCanvas: View {
   public var configuration: TesseraConfiguration
-  public var fixedItems: [TesseraFixedItem]
+  public var pinnedSymbols: [TesseraPinnedSymbol]
   public var seed: UInt64
   public var edgeBehavior: TesseraEdgeBehavior
   public var onComputationStateChange: ((Bool) -> Void)?
 
-  @State private var cachedPlacedItemDescriptors: [ShapePlacementEngine.PlacedItemDescriptor] = []
+  @State private var cachedPlacedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor] = []
   @State private var resolvedCanvasSize: CGSize = .zero
 
   /// Creates a finite tessera canvas.
   /// - Parameters:
-  ///   - configuration: Base configuration (items, spacing, density, seed).
-  ///   - fixedItems: Views placed once; treated as obstacles.
+  ///   - configuration: Base configuration (symbols, spacing, density, seed).
+  ///   - pinnedSymbols: Views placed once; treated as obstacles.
   ///   - seed: Optional override for deterministic output.
   ///   - edgeBehavior: Whether to wrap edges toroidally or not.
   ///
@@ -151,13 +151,13 @@ public struct TesseraCanvas: View {
   /// on-screen size.
   public init(
     _ configuration: TesseraConfiguration,
-    fixedItems: [TesseraFixedItem] = [],
+    pinnedSymbols: [TesseraPinnedSymbol] = [],
     seed: UInt64? = nil,
     edgeBehavior: TesseraEdgeBehavior = .finite,
     onComputationStateChange: ((Bool) -> Void)? = nil,
   ) {
     self.configuration = configuration
-    self.fixedItems = fixedItems
+    self.pinnedSymbols = pinnedSymbols
     self.seed = seed ?? configuration.seed
     self.edgeBehavior = edgeBehavior
     self.onComputationStateChange = onComputationStateChange
@@ -165,19 +165,19 @@ public struct TesseraCanvas: View {
 
   public var body: some View {
     let configuration = configuration
-    let fixedItems = fixedItems
+    let pinnedSymbols = pinnedSymbols
     let edgeBehavior = edgeBehavior
-    let placedItemDescriptors = cachedPlacedItemDescriptors
+    let placedSymbolDescriptors = cachedPlacedSymbolDescriptors
     let onComputationStateChange = onComputationStateChange
     let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
-    let overlayShapesByItemId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
-      ? configuration.items.reduce(into: [:]) { cache, item in
-        cache[item.id] = CollisionOverlayShape(collisionShape: item.collisionShape)
+    let overlayShapesBySymbolId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
+      ? configuration.symbols.reduce(into: [:]) { cache, symbol in
+        cache[symbol.id] = CollisionOverlayShape(collisionShape: symbol.collisionShape)
       }
       : [:]
-    let overlayShapesByFixedItemId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
-      ? fixedItems.reduce(into: [:]) { cache, item in
-        cache[item.id] = CollisionOverlayShape(collisionShape: item.collisionShape)
+    let overlayShapesByPinnedSymbolId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
+      ? pinnedSymbols.reduce(into: [:]) { cache, symbol in
+        cache[symbol.id] = CollisionOverlayShape(collisionShape: symbol.collisionShape)
       }
       : [:]
 
@@ -204,49 +204,49 @@ public struct TesseraCanvas: View {
         ]
       }
 
-      for fixedItem in fixedItems {
-        guard let symbol = context.resolveSymbol(id: fixedItem.id) else { continue }
+      for pinnedSymbol in pinnedSymbols {
+        guard let symbol = context.resolveSymbol(id: pinnedSymbol.id) else { continue }
 
-        let resolvedPosition = fixedItem.resolvedPosition(in: size)
+        let resolvedPosition = pinnedSymbol.resolvedPosition(in: size)
 
         for offset in offsets {
           var symbolContext = context
           symbolContext.translateBy(x: offset.width, y: offset.height)
           symbolContext.translateBy(x: resolvedPosition.x, y: resolvedPosition.y)
-          symbolContext.rotate(by: fixedItem.rotation)
-          symbolContext.scaleBy(x: fixedItem.scale, y: fixedItem.scale)
+          symbolContext.rotate(by: pinnedSymbol.rotation)
+          symbolContext.scaleBy(x: pinnedSymbol.scale, y: pinnedSymbol.scale)
           symbolContext.draw(symbol, at: .zero, anchor: .center)
 
           if isCollisionOverlayEnabled,
-             let overlayShape = overlayShapesByFixedItemId[fixedItem.id] {
+             let overlayShape = overlayShapesByPinnedSymbolId[pinnedSymbol.id] {
             CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
           }
         }
       }
 
-      for placedItem in placedItemDescriptors {
-        guard let symbol = context.resolveSymbol(id: placedItem.itemId) else { continue }
+      for placedSymbol in placedSymbolDescriptors {
+        guard let symbol = context.resolveSymbol(id: placedSymbol.symbolId) else { continue }
 
         for offset in offsets {
           var symbolContext = context
           symbolContext.translateBy(x: offset.width + wrappedOffset.width, y: offset.height + wrappedOffset.height)
-          symbolContext.translateBy(x: placedItem.position.x, y: placedItem.position.y)
-          symbolContext.rotate(by: .radians(placedItem.rotationRadians))
-          symbolContext.scaleBy(x: placedItem.scale, y: placedItem.scale)
+          symbolContext.translateBy(x: placedSymbol.position.x, y: placedSymbol.position.y)
+          symbolContext.rotate(by: .radians(placedSymbol.rotationRadians))
+          symbolContext.scaleBy(x: placedSymbol.scale, y: placedSymbol.scale)
           symbolContext.draw(symbol, at: .zero, anchor: .center)
 
           if isCollisionOverlayEnabled,
-             let overlayShape = overlayShapesByItemId[placedItem.itemId] {
+             let overlayShape = overlayShapesBySymbolId[placedSymbol.symbolId] {
             CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
           }
         }
       }
     } symbols: {
-      ForEach(configuration.items) { item in
-        item.makeView().tag(item.id)
+      ForEach(configuration.symbols) { symbol in
+        symbol.makeView().tag(symbol.id)
       }
-      ForEach(fixedItems) { fixedItem in
-        fixedItem.makeView().tag(fixedItem.id)
+      ForEach(pinnedSymbols) { pinnedSymbol in
+        pinnedSymbol.makeView().tag(pinnedSymbol.id)
       }
     }
     .clipped()
@@ -275,7 +275,7 @@ public struct TesseraCanvas: View {
 
       let canvasSize = resolvedCanvasSize
       guard canvasSize.width > 0, canvasSize.height > 0 else {
-        cachedPlacedItemDescriptors = []
+        cachedPlacedSymbolDescriptors = []
         return
       }
 
@@ -291,7 +291,7 @@ public struct TesseraCanvas: View {
   ///   - canvasSize: The size of the canvas to export.
   ///   - backgroundColor: Optional background fill rendered behind the canvas. Defaults to no background
   /// (transparent).
-  ///   - colorScheme: Optional SwiftUI color scheme override applied while rendering. Useful when items use semantic
+  ///   - colorScheme: Optional SwiftUI color scheme override applied while rendering. Useful when symbols use semantic
   /// colors such as `Color.primary`.
   ///   - options: Rendering configuration such as output pixel size and scale.
   /// - Returns: The resolved file URL that was written.
@@ -306,12 +306,12 @@ public struct TesseraCanvas: View {
     var renderConfiguration = configuration
     renderConfiguration.showsCollisionOverlay = options.showsCollisionOverlay
     let destinationURL = resolvedOutputURL(directory: directory, fileName: fileName, fileExtension: "png")
-    let placedItemDescriptors = makeSynchronousPlacedDescriptors(for: canvasSize)
+    let placedSymbolDescriptors = makeSynchronousPlacedDescriptors(for: canvasSize)
     let renderView = TesseraCanvasStaticRenderView(
       configuration: renderConfiguration,
       canvasSize: canvasSize,
-      fixedItems: fixedItems,
-      placedItemDescriptors: placedItemDescriptors,
+      pinnedSymbols: pinnedSymbols,
+      placedSymbolDescriptors: placedSymbolDescriptors,
       edgeBehavior: edgeBehavior,
     )
     let exportView = TesseraCanvasExportRenderView(
@@ -358,7 +358,7 @@ public struct TesseraCanvas: View {
   ///   - canvasSize: The size of the canvas to export.
   ///   - backgroundColor: Optional background fill rendered behind the canvas. Defaults to no background
   /// (transparent).
-  ///   - colorScheme: Optional SwiftUI color scheme override applied while rendering. Useful when items use semantic
+  ///   - colorScheme: Optional SwiftUI color scheme override applied while rendering. Useful when symbols use semantic
   /// colors such as `Color.primary`.
   ///   - pageSize: Optional PDF page size in points; defaults to the canvas size.
   ///   - options: Rendering configuration such as output pixel size and scale, applied while drawing into the PDF
@@ -386,12 +386,12 @@ public struct TesseraCanvas: View {
       throw TesseraRenderError.failedToCreateDestination
     }
 
-    let placedItemDescriptors = makeSynchronousPlacedDescriptors(for: canvasSize)
+    let placedSymbolDescriptors = makeSynchronousPlacedDescriptors(for: canvasSize)
     let renderView = TesseraCanvasStaticRenderView(
       configuration: renderConfiguration,
       canvasSize: canvasSize,
-      fixedItems: fixedItems,
-      placedItemDescriptors: placedItemDescriptors,
+      pinnedSymbols: pinnedSymbols,
+      placedSymbolDescriptors: placedSymbolDescriptors,
       edgeBehavior: edgeBehavior,
     )
     let exportView = TesseraCanvasExportRenderView(
@@ -464,11 +464,11 @@ private extension TesseraCanvas {
     var baseScaleRangeLowerBound: Double
     var baseScaleRangeUpperBound: Double
     var patternOffset: CGSize
-    var maximumItemCount: Int
-    var itemKeys: [ItemKey]
-    var fixedItemKeys: [FixedItemKey]
+    var maximumSymbolCount: Int
+    var symbolKeys: [SymbolKey]
+    var pinnedSymbolKeys: [PinnedSymbolKey]
 
-    struct ItemKey: Hashable, Sendable {
+    struct SymbolKey: Hashable, Sendable {
       var id: UUID
       var weight: Double
       var allowedRotationRangeDegrees: ClosedRange<Double>
@@ -476,7 +476,7 @@ private extension TesseraCanvas {
       var collisionShape: CollisionShape
     }
 
-    struct FixedItemKey: Hashable, Sendable {
+    struct PinnedSymbolKey: Hashable, Sendable {
       enum PositionKind: Hashable, Sendable {
         case absolute
         case relative
@@ -498,8 +498,8 @@ private extension TesseraCanvas {
 
   struct ComputationSnapshot: Sendable {
     var key: ComputationKey
-    var itemDescriptors: [ShapePlacementEngine.PlacementItemDescriptor]
-    var fixedItemDescriptors: [ShapePlacementEngine.FixedItemDescriptor]
+    var symbolDescriptors: [ShapePlacementEngine.PlacementSymbolDescriptor]
+    var pinnedSymbolDescriptors: [ShapePlacementEngine.PinnedSymbolDescriptor]
   }
 
   var currentComputationKey: ComputationKey {
@@ -510,27 +510,27 @@ private extension TesseraCanvas {
     let key = makeComputationKey(for: canvasSize)
     return ComputationSnapshot(
       key: key,
-      itemDescriptors: makeItemDescriptors(),
-      fixedItemDescriptors: makeFixedItemDescriptors(for: canvasSize),
+      symbolDescriptors: makeSymbolDescriptors(),
+      pinnedSymbolDescriptors: makePinnedSymbolDescriptors(for: canvasSize),
     )
   }
 
   func computePlacements(using snapshot: ComputationSnapshot) async {
     let computeTask = Task.detached(priority: .userInitiated) {
       var randomGenerator = SeededGenerator(seed: snapshot.key.seed)
-      return ShapePlacementEngine.placeItemDescriptors(
+      return ShapePlacementEngine.placeSymbolDescriptors(
         in: snapshot.key.canvasSize,
-        itemDescriptors: snapshot.itemDescriptors,
-        fixedItemDescriptors: snapshot.fixedItemDescriptors,
+        symbolDescriptors: snapshot.symbolDescriptors,
+        pinnedSymbolDescriptors: snapshot.pinnedSymbolDescriptors,
         edgeBehavior: snapshot.key.edgeBehavior,
         minimumSpacing: snapshot.key.minimumSpacing,
         density: snapshot.key.density,
-        maximumItemCount: snapshot.key.maximumItemCount,
+        maximumSymbolCount: snapshot.key.maximumSymbolCount,
         randomGenerator: &randomGenerator,
       )
     }
 
-    let placedItemDescriptors = await withTaskCancellationHandler {
+    let placedSymbolDescriptors = await withTaskCancellationHandler {
       await computeTask.value
     } onCancel: {
       computeTask.cancel()
@@ -539,69 +539,69 @@ private extension TesseraCanvas {
     await MainActor.run {
       guard snapshot.key == currentComputationKey else { return }
 
-      cachedPlacedItemDescriptors = placedItemDescriptors
+      cachedPlacedSymbolDescriptors = placedSymbolDescriptors
     }
   }
 
-  func makeSynchronousPlacedDescriptors(for canvasSize: CGSize) -> [ShapePlacementEngine.PlacedItemDescriptor] {
-    let itemDescriptors = makeItemDescriptors()
-    let fixedItemDescriptors = makeFixedItemDescriptors(for: canvasSize)
+  func makeSynchronousPlacedDescriptors(for canvasSize: CGSize) -> [ShapePlacementEngine.PlacedSymbolDescriptor] {
+    let symbolDescriptors = makeSymbolDescriptors()
+    let pinnedSymbolDescriptors = makePinnedSymbolDescriptors(for: canvasSize)
     var randomGenerator = SeededGenerator(seed: seed)
-    return ShapePlacementEngine.placeItemDescriptors(
+    return ShapePlacementEngine.placeSymbolDescriptors(
       in: canvasSize,
-      itemDescriptors: itemDescriptors,
-      fixedItemDescriptors: fixedItemDescriptors,
+      symbolDescriptors: symbolDescriptors,
+      pinnedSymbolDescriptors: pinnedSymbolDescriptors,
       edgeBehavior: edgeBehavior,
       minimumSpacing: configuration.minimumSpacing,
       density: configuration.density,
-      maximumItemCount: configuration.maximumItemCount,
+      maximumSymbolCount: configuration.maximumSymbolCount,
       randomGenerator: &randomGenerator,
     )
   }
 
-  func makeItemDescriptors() -> [ShapePlacementEngine.PlacementItemDescriptor] {
-    configuration.items.map { item in
-      let scaleRange = item.scaleRange ?? configuration.baseScaleRange
-      return ShapePlacementEngine.PlacementItemDescriptor(
-        id: item.id,
-        weight: item.weight,
-        allowedRotationRangeDegrees: item.allowedRotationRange.lowerBound.degrees...item.allowedRotationRange.upperBound
+  func makeSymbolDescriptors() -> [ShapePlacementEngine.PlacementSymbolDescriptor] {
+    configuration.symbols.map { symbol in
+      let scaleRange = symbol.scaleRange ?? configuration.baseScaleRange
+      return ShapePlacementEngine.PlacementSymbolDescriptor(
+        id: symbol.id,
+        weight: symbol.weight,
+        allowedRotationRangeDegrees: symbol.allowedRotationRange.lowerBound.degrees...symbol.allowedRotationRange.upperBound
           .degrees,
         resolvedScaleRange: scaleRange,
-        collisionShape: item.collisionShape,
+        collisionShape: symbol.collisionShape,
       )
     }
   }
 
-  func makeFixedItemDescriptors(for canvasSize: CGSize) -> [ShapePlacementEngine.FixedItemDescriptor] {
-    fixedItems.map { fixedItem in
-      ShapePlacementEngine.FixedItemDescriptor(
-        id: fixedItem.id,
-        position: fixedItem.resolvedPosition(in: canvasSize),
-        rotationRadians: fixedItem.rotation.radians,
-        scale: fixedItem.scale,
-        collisionShape: fixedItem.collisionShape,
+  func makePinnedSymbolDescriptors(for canvasSize: CGSize) -> [ShapePlacementEngine.PinnedSymbolDescriptor] {
+    pinnedSymbols.map { pinnedSymbol in
+      ShapePlacementEngine.PinnedSymbolDescriptor(
+        id: pinnedSymbol.id,
+        position: pinnedSymbol.resolvedPosition(in: canvasSize),
+        rotationRadians: pinnedSymbol.rotation.radians,
+        scale: pinnedSymbol.scale,
+        collisionShape: pinnedSymbol.collisionShape,
       )
     }
   }
 
   func makeComputationKey(for canvasSize: CGSize) -> ComputationKey {
-    let itemKeys: [ComputationKey.ItemKey] = configuration.items.map { item in
-      let scaleRange = item.scaleRange ?? configuration.baseScaleRange
-      return ComputationKey.ItemKey(
-        id: item.id,
-        weight: item.weight,
-        allowedRotationRangeDegrees: item.allowedRotationRange.lowerBound.degrees...item.allowedRotationRange.upperBound
+    let symbolKeys: [ComputationKey.SymbolKey] = configuration.symbols.map { symbol in
+      let scaleRange = symbol.scaleRange ?? configuration.baseScaleRange
+      return ComputationKey.SymbolKey(
+        id: symbol.id,
+        weight: symbol.weight,
+        allowedRotationRangeDegrees: symbol.allowedRotationRange.lowerBound.degrees...symbol.allowedRotationRange.upperBound
           .degrees,
         resolvedScaleRange: scaleRange,
-        collisionShape: item.collisionShape,
+        collisionShape: symbol.collisionShape,
       )
     }
 
-    let fixedItemKeys: [ComputationKey.FixedItemKey] = fixedItems.map { fixedItem in
-      let positionKey = makeFixedItemPositionKey(from: fixedItem.position)
-      return ComputationKey.FixedItemKey(
-        id: fixedItem.id,
+    let pinnedSymbolKeys: [ComputationKey.PinnedSymbolKey] = pinnedSymbols.map { pinnedSymbol in
+      let positionKey = makePinnedSymbolPositionKey(from: pinnedSymbol.position)
+      return ComputationKey.PinnedSymbolKey(
+        id: pinnedSymbol.id,
         positionKind: positionKey.positionKind,
         absoluteX: positionKey.absoluteX,
         absoluteY: positionKey.absoluteY,
@@ -609,9 +609,9 @@ private extension TesseraCanvas {
         unitPointY: positionKey.unitPointY,
         offsetWidth: positionKey.offsetWidth,
         offsetHeight: positionKey.offsetHeight,
-        rotationRadians: fixedItem.rotation.radians,
-        scale: fixedItem.scale,
-        collisionShape: fixedItem.collisionShape,
+        rotationRadians: pinnedSymbol.rotation.radians,
+        scale: pinnedSymbol.scale,
+        collisionShape: pinnedSymbol.collisionShape,
       )
     }
 
@@ -624,14 +624,14 @@ private extension TesseraCanvas {
       baseScaleRangeLowerBound: configuration.baseScaleRange.lowerBound,
       baseScaleRangeUpperBound: configuration.baseScaleRange.upperBound,
       patternOffset: configuration.patternOffset,
-      maximumItemCount: configuration.maximumItemCount,
-      itemKeys: itemKeys,
-      fixedItemKeys: fixedItemKeys,
+      maximumSymbolCount: configuration.maximumSymbolCount,
+      symbolKeys: symbolKeys,
+      pinnedSymbolKeys: pinnedSymbolKeys,
     )
   }
 
-  private func makeFixedItemPositionKey(from position: TesseraPlacementPosition) -> (
-    positionKind: ComputationKey.FixedItemKey.PositionKind,
+  private func makePinnedSymbolPositionKey(from position: TesseraPlacementPosition) -> (
+    positionKind: ComputationKey.PinnedSymbolKey.PositionKind,
     absoluteX: Double,
     absoluteY: Double,
     unitPointX: Double,
@@ -667,20 +667,20 @@ private extension TesseraCanvas {
 private struct TesseraCanvasStaticRenderView: View {
   var configuration: TesseraConfiguration
   var canvasSize: CGSize
-  var fixedItems: [TesseraFixedItem]
-  var placedItemDescriptors: [ShapePlacementEngine.PlacedItemDescriptor]
+  var pinnedSymbols: [TesseraPinnedSymbol]
+  var placedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor]
   var edgeBehavior: TesseraEdgeBehavior
 
   var body: some View {
     let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
-    let overlayShapesByItemId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
-      ? configuration.items.reduce(into: [:]) { cache, item in
-        cache[item.id] = CollisionOverlayShape(collisionShape: item.collisionShape)
+    let overlayShapesBySymbolId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
+      ? configuration.symbols.reduce(into: [:]) { cache, symbol in
+        cache[symbol.id] = CollisionOverlayShape(collisionShape: symbol.collisionShape)
       }
       : [:]
-    let overlayShapesByFixedItemId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
-      ? fixedItems.reduce(into: [:]) { cache, item in
-        cache[item.id] = CollisionOverlayShape(collisionShape: item.collisionShape)
+    let overlayShapesByPinnedSymbolId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
+      ? pinnedSymbols.reduce(into: [:]) { cache, symbol in
+        cache[symbol.id] = CollisionOverlayShape(collisionShape: symbol.collisionShape)
       }
       : [:]
 
@@ -707,49 +707,49 @@ private struct TesseraCanvasStaticRenderView: View {
         ]
       }
 
-      for fixedItem in fixedItems {
-        guard let symbol = context.resolveSymbol(id: fixedItem.id) else { continue }
+      for pinnedSymbol in pinnedSymbols {
+        guard let symbol = context.resolveSymbol(id: pinnedSymbol.id) else { continue }
 
-        let resolvedPosition = fixedItem.resolvedPosition(in: size)
+        let resolvedPosition = pinnedSymbol.resolvedPosition(in: size)
 
         for offset in offsets {
           var symbolContext = context
           symbolContext.translateBy(x: offset.width, y: offset.height)
           symbolContext.translateBy(x: resolvedPosition.x, y: resolvedPosition.y)
-          symbolContext.rotate(by: fixedItem.rotation)
-          symbolContext.scaleBy(x: fixedItem.scale, y: fixedItem.scale)
+          symbolContext.rotate(by: pinnedSymbol.rotation)
+          symbolContext.scaleBy(x: pinnedSymbol.scale, y: pinnedSymbol.scale)
           symbolContext.draw(symbol, at: .zero, anchor: .center)
 
           if isCollisionOverlayEnabled,
-             let overlayShape = overlayShapesByFixedItemId[fixedItem.id] {
+             let overlayShape = overlayShapesByPinnedSymbolId[pinnedSymbol.id] {
             CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
           }
         }
       }
 
-      for placedItem in placedItemDescriptors {
-        guard let symbol = context.resolveSymbol(id: placedItem.itemId) else { continue }
+      for placedSymbol in placedSymbolDescriptors {
+        guard let symbol = context.resolveSymbol(id: placedSymbol.symbolId) else { continue }
 
         for offset in offsets {
           var symbolContext = context
           symbolContext.translateBy(x: offset.width + wrappedOffset.width, y: offset.height + wrappedOffset.height)
-          symbolContext.translateBy(x: placedItem.position.x, y: placedItem.position.y)
-          symbolContext.rotate(by: .radians(placedItem.rotationRadians))
-          symbolContext.scaleBy(x: placedItem.scale, y: placedItem.scale)
+          symbolContext.translateBy(x: placedSymbol.position.x, y: placedSymbol.position.y)
+          symbolContext.rotate(by: .radians(placedSymbol.rotationRadians))
+          symbolContext.scaleBy(x: placedSymbol.scale, y: placedSymbol.scale)
           symbolContext.draw(symbol, at: .zero, anchor: .center)
 
           if isCollisionOverlayEnabled,
-             let overlayShape = overlayShapesByItemId[placedItem.itemId] {
+             let overlayShape = overlayShapesBySymbolId[placedSymbol.symbolId] {
             CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
           }
         }
       }
     } symbols: {
-      ForEach(configuration.items) { item in
-        item.makeView().tag(item.id)
+      ForEach(configuration.symbols) { symbol in
+        symbol.makeView().tag(symbol.id)
       }
-      ForEach(fixedItems) { fixedItem in
-        fixedItem.makeView().tag(fixedItem.id)
+      ForEach(pinnedSymbols) { pinnedSymbol in
+        pinnedSymbol.makeView().tag(pinnedSymbol.id)
       }
     }
     .frame(width: canvasSize.width, height: canvasSize.height)

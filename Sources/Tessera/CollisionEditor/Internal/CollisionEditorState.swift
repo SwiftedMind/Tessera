@@ -13,7 +13,7 @@ final class CollisionEditorState {
   }
 
   var selectedShapeKind: CollisionEditorShapeKind = .circle
-  var polygonItemLocalPoints: [CGPoint] = []
+  var polygonSymbolLocalPoints: [CGPoint] = []
   var isPolygonClosed: Bool = false
   var circleCenter: CGPoint = .zero
   var circleRadius: CGFloat = 0.35
@@ -35,11 +35,11 @@ final class CollisionEditorState {
 
 extension CollisionEditorState {
   var hasPolygonPoints: Bool {
-    polygonItemLocalPoints.isEmpty == false
+    polygonSymbolLocalPoints.isEmpty == false
   }
 
   var canClosePolygon: Bool {
-    polygonItemLocalPoints.count >= 3 && isPolygonClosed == false
+    polygonSymbolLocalPoints.count >= 3 && isPolygonClosed == false
   }
 
   var safeRenderedContentSize: CGSize {
@@ -51,14 +51,14 @@ extension CollisionEditorState {
   }
 
   func undoPolygonPoint() {
-    _ = polygonItemLocalPoints.popLast()
-    if polygonItemLocalPoints.count < 3 {
+    _ = polygonSymbolLocalPoints.popLast()
+    if polygonSymbolLocalPoints.count < 3 {
       isPolygonClosed = false
     }
   }
 
   func clearPolygonPoints() {
-    polygonItemLocalPoints = []
+    polygonSymbolLocalPoints = []
     isPolygonClosed = false
   }
 
@@ -150,14 +150,14 @@ extension CollisionEditorState {
   func addPoint(at displayLocation: CGPoint, using transform: CollisionEditorViewTransform) {
     guard isPolygonClosed == false else { return }
 
-    let itemLocalPoint = transform.itemLocalPoint(fromViewPoint: displayLocation)
+    let symbolLocalPoint = transform.symbolLocalPoint(fromViewPoint: displayLocation)
 
     if shouldClosePolygon(at: displayLocation, using: transform) {
       isPolygonClosed = true
       return
     }
 
-    polygonItemLocalPoints.append(itemLocalPoint)
+    polygonSymbolLocalPoints.append(symbolLocalPoint)
   }
 
   func closePolygon() {
@@ -167,29 +167,29 @@ extension CollisionEditorState {
   }
 
   func movePoint(at index: Int, to displayLocation: CGPoint, using transform: CollisionEditorViewTransform) {
-    guard polygonItemLocalPoints.indices.contains(index) else { return }
+    guard polygonSymbolLocalPoints.indices.contains(index) else { return }
 
-    polygonItemLocalPoints[index] = transform.itemLocalPoint(fromViewPoint: displayLocation)
+    polygonSymbolLocalPoints[index] = transform.symbolLocalPoint(fromViewPoint: displayLocation)
   }
 
   func movePolygon(
-    from startingItemLocalPoints: [CGPoint],
+    from startingSymbolLocalPoints: [CGPoint],
     by displayTranslation: CGSize,
     using transform: CollisionEditorViewTransform,
   ) {
-    guard startingItemLocalPoints.isEmpty == false else { return }
+    guard startingSymbolLocalPoints.isEmpty == false else { return }
 
-    let translationInItemLocalCoordinates = transform.itemLocalTranslation(fromViewTranslation: displayTranslation)
+    let translationInSymbolLocalCoordinates = transform.symbolLocalTranslation(fromViewTranslation: displayTranslation)
 
-    let clampedTranslationInItemLocalCoordinates = clampedPolygonTranslation(
-      for: startingItemLocalPoints,
-      proposedTranslation: translationInItemLocalCoordinates,
+    let clampedTranslationInSymbolLocalCoordinates = clampedPolygonTranslation(
+      for: startingSymbolLocalPoints,
+      proposedTranslation: translationInSymbolLocalCoordinates,
     )
 
-    polygonItemLocalPoints = startingItemLocalPoints.map { point in
+    polygonSymbolLocalPoints = startingSymbolLocalPoints.map { point in
       CGPoint(
-        x: point.x + clampedTranslationInItemLocalCoordinates.x,
-        y: point.y + clampedTranslationInItemLocalCoordinates.y,
+        x: point.x + clampedTranslationInSymbolLocalCoordinates.x,
+        y: point.y + clampedTranslationInSymbolLocalCoordinates.y,
       )
     }
   }
@@ -199,11 +199,11 @@ extension CollisionEditorState {
     by displayTranslation: CGSize,
     using transform: CollisionEditorViewTransform,
   ) {
-    let translationInItemLocalCoordinates = transform.itemLocalTranslation(fromViewTranslation: displayTranslation)
+    let translationInSymbolLocalCoordinates = transform.symbolLocalTranslation(fromViewTranslation: displayTranslation)
 
     let proposedCenter = CGPoint(
-      x: startingCenter.x + translationInItemLocalCoordinates.x,
-      y: startingCenter.y + translationInItemLocalCoordinates.y,
+      x: startingCenter.x + translationInSymbolLocalCoordinates.x,
+      y: startingCenter.y + translationInSymbolLocalCoordinates.y,
     )
 
     let clampedCircle = clampedCircle(center: proposedCenter, radius: circleRadius)
@@ -222,7 +222,7 @@ extension CollisionEditorState {
     let zoomScale = transform.viewScaleTransform.invertibleScale
     let minimumDimension = min(safeRenderedContentSize.width, safeRenderedContentSize.height)
 
-    let centerDisplayPoint = transform.viewPoint(fromItemLocalPoint: startingCenter)
+    let centerDisplayPoint = transform.viewPoint(fromSymbolLocalPoint: startingCenter)
     let displayDistance = hypot(displayLocation.x - centerDisplayPoint.x, displayLocation.y - centerDisplayPoint.y)
     let baseDistance = displayDistance / zoomScale
     let proposedRadius = baseDistance / minimumDimension
@@ -242,11 +242,11 @@ extension CollisionEditorState {
     by displayTranslation: CGSize,
     using transform: CollisionEditorViewTransform,
   ) {
-    let translationInItemLocalCoordinates = transform.itemLocalTranslation(fromViewTranslation: displayTranslation)
+    let translationInSymbolLocalCoordinates = transform.symbolLocalTranslation(fromViewTranslation: displayTranslation)
 
     let proposedCenter = CGPoint(
-      x: startingCenter.x + translationInItemLocalCoordinates.x,
-      y: startingCenter.y + translationInItemLocalCoordinates.y,
+      x: startingCenter.x + translationInSymbolLocalCoordinates.x,
+      y: startingCenter.y + translationInSymbolLocalCoordinates.y,
     )
 
     let clampedRectangle = clampedRectangle(center: proposedCenter, size: rectangleSize)
@@ -263,7 +263,7 @@ extension CollisionEditorState {
     to displayLocation: CGPoint,
     using transform: CollisionEditorViewTransform,
   ) {
-    let draggedCorner = transform.itemLocalPoint(fromViewPoint: displayLocation)
+    let draggedCorner = transform.symbolLocalPoint(fromViewPoint: displayLocation)
 
     let halfWidth = startingSize.width / 2
     let halfHeight = startingSize.height / 2
@@ -298,10 +298,10 @@ extension CollisionEditorState {
   }
 
   private func shouldClosePolygon(at displayLocation: CGPoint, using transform: CollisionEditorViewTransform) -> Bool {
-    guard polygonItemLocalPoints.count >= 3 else { return false }
-    guard let firstPoint = polygonItemLocalPoints.first else { return false }
+    guard polygonSymbolLocalPoints.count >= 3 else { return false }
+    guard let firstPoint = polygonSymbolLocalPoints.first else { return false }
 
-    let firstDisplayPoint = transform.viewPoint(fromItemLocalPoint: firstPoint)
+    let firstDisplayPoint = transform.viewPoint(fromSymbolLocalPoint: firstPoint)
     let distance = hypot(displayLocation.x - firstDisplayPoint.x, displayLocation.y - firstDisplayPoint.y)
     return distance <= 16
   }
@@ -367,10 +367,10 @@ extension CollisionEditorState {
     clampedWidth: CGFloat,
     clampedHeight: CGFloat,
   ) {
-    polygonItemLocalPoints = centeredPoints.map { point in
+    polygonSymbolLocalPoints = centeredPoints.map { point in
       CGPoint(x: point.x / clampedWidth, y: point.y / clampedHeight)
     }
-    isPolygonClosed = polygonItemLocalPoints.count >= 3
+    isPolygonClosed = polygonSymbolLocalPoints.count >= 3
     selectedShapeKind = .polygon
   }
 
@@ -384,13 +384,13 @@ extension CollisionEditorState {
     applyCenteredPolygonPoints(points, clampedWidth: clampedWidth, clampedHeight: clampedHeight)
   }
 
-  private func clampedPolygonTranslation(for itemLocalPoints: [CGPoint], proposedTranslation: CGPoint) -> CGPoint {
-    guard itemLocalPoints.isEmpty == false else { return .zero }
+  private func clampedPolygonTranslation(for symbolLocalPoints: [CGPoint], proposedTranslation: CGPoint) -> CGPoint {
+    guard symbolLocalPoints.isEmpty == false else { return .zero }
 
-    let minimumX = itemLocalPoints.map(\.x).min() ?? 0
-    let maximumX = itemLocalPoints.map(\.x).max() ?? 0
-    let minimumY = itemLocalPoints.map(\.y).min() ?? 0
-    let maximumY = itemLocalPoints.map(\.y).max() ?? 0
+    let minimumX = symbolLocalPoints.map(\.x).min() ?? 0
+    let maximumX = symbolLocalPoints.map(\.x).max() ?? 0
+    let minimumY = symbolLocalPoints.map(\.y).min() ?? 0
+    let maximumY = symbolLocalPoints.map(\.y).max() ?? 0
 
     let minimumAllowedTranslationX = -0.5 - minimumX
     let maximumAllowedTranslationX = 0.5 - maximumX
@@ -406,11 +406,11 @@ extension CollisionEditorState {
   private func clampedCircle(center: CGPoint, radius: CGFloat) -> CollisionEditorShape {
     let clampedRadius = min(max(radius, 0), 0.5)
     let minimumDimension = min(safeRenderedContentSize.width, safeRenderedContentSize.height)
-    let radiusInItemLocalX = clampedRadius * minimumDimension / safeRenderedContentSize.width
-    let radiusInItemLocalY = clampedRadius * minimumDimension / safeRenderedContentSize.height
+    let radiusInSymbolLocalX = clampedRadius * minimumDimension / safeRenderedContentSize.width
+    let radiusInSymbolLocalY = clampedRadius * minimumDimension / safeRenderedContentSize.height
 
-    let clampedCenterX = min(max(center.x, -0.5 + radiusInItemLocalX), 0.5 - radiusInItemLocalX)
-    let clampedCenterY = min(max(center.y, -0.5 + radiusInItemLocalY), 0.5 - radiusInItemLocalY)
+    let clampedCenterX = min(max(center.x, -0.5 + radiusInSymbolLocalX), 0.5 - radiusInSymbolLocalX)
+    let clampedCenterY = min(max(center.y, -0.5 + radiusInSymbolLocalY), 0.5 - radiusInSymbolLocalY)
 
     return .circle(center: CGPoint(x: clampedCenterX, y: clampedCenterY), radius: clampedRadius)
   }
@@ -442,8 +442,8 @@ extension CollisionEditorState {
       renderedContentSize: safeRenderedContentSize,
       zoomScale: 1,
     )
-    let viewPoints = polygonItemLocalPoints.map { point in
-      outputTransform.viewPoint(fromItemLocalPoint: point)
+    let viewPoints = polygonSymbolLocalPoints.map { point in
+      outputTransform.viewPoint(fromSymbolLocalPoint: point)
     }
     return pointArraySnippet(for: viewPoints)
   }
@@ -468,8 +468,8 @@ extension CollisionEditorState {
       renderedContentSize: safeRenderedContentSize,
       zoomScale: 1,
     )
-    let viewPoints = polygonItemLocalPoints.map { point in
-      outputTransform.viewPoint(fromItemLocalPoint: point)
+    let viewPoints = polygonSymbolLocalPoints.map { point in
+      outputTransform.viewPoint(fromSymbolLocalPoint: point)
     }
     let pointsSnippet = pointArraySnippet(for: viewPoints)
     let sizeSnippet = sizeSnippet(for: safeRenderedContentSize)

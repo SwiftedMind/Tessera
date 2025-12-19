@@ -12,7 +12,7 @@ import Testing
   let fileName = UUID().uuidString
 
   let exportedURL = try tile.renderPNG(to: temporaryDirectory, fileName: fileName)
-  defer { try? FileManager.default.removeItem(at: exportedURL) }
+  defer { try? FileManager.default.removeSymbol(at: exportedURL) }
 
   let cgImage = try cgImageFromPNGFile(at: exportedURL)
   #expect(imageContainsVisiblePixels(cgImage))
@@ -24,7 +24,7 @@ import Testing
   let fileName = UUID().uuidString
 
   let exportedURL = try tile.renderPDF(to: temporaryDirectory, fileName: fileName)
-  defer { try? FileManager.default.removeItem(at: exportedURL) }
+  defer { try? FileManager.default.removeSymbol(at: exportedURL) }
 
   let cgImage = try cgImageFromPDFFile(at: exportedURL)
   #expect(imageContainsVisiblePixels(cgImage))
@@ -37,7 +37,7 @@ import Testing
   let fileName = UUID().uuidString
 
   let exportedURL = try canvas.renderPNG(to: temporaryDirectory, fileName: fileName, canvasSize: canvasSize)
-  defer { try? FileManager.default.removeItem(at: exportedURL) }
+  defer { try? FileManager.default.removeSymbol(at: exportedURL) }
 
   let cgImage = try cgImageFromPNGFile(at: exportedURL)
   let cornerPixel = try pixelComponents(in: cgImage, x: 0, y: 0)
@@ -56,7 +56,7 @@ import Testing
     canvasSize: canvasSize,
     backgroundColor: .green,
   )
-  defer { try? FileManager.default.removeItem(at: greenBackgroundURL) }
+  defer { try? FileManager.default.removeSymbol(at: greenBackgroundURL) }
 
   let blueBackgroundURL = try canvas.renderPNG(
     to: temporaryDirectory,
@@ -64,7 +64,7 @@ import Testing
     canvasSize: canvasSize,
     backgroundColor: .blue,
   )
-  defer { try? FileManager.default.removeItem(at: blueBackgroundURL) }
+  defer { try? FileManager.default.removeSymbol(at: blueBackgroundURL) }
 
   let greenImage = try cgImageFromPNGFile(at: greenBackgroundURL)
   let greenCornerPixel = try pixelComponents(in: greenImage, x: 0, y: 0)
@@ -93,7 +93,7 @@ import Testing
     canvasSize: canvasSize,
     pageSize: pageSize,
   )
-  defer { try? FileManager.default.removeItem(at: exportedURL) }
+  defer { try? FileManager.default.removeSymbol(at: exportedURL) }
 
   let cgImage = try cgImageFromPDFFile(at: exportedURL)
   let cornerPixel = try pixelComponents(in: cgImage, x: 0, y: 0)
@@ -114,7 +114,7 @@ import Testing
     backgroundColor: .green,
     pageSize: pageSize,
   )
-  defer { try? FileManager.default.removeItem(at: greenBackgroundURL) }
+  defer { try? FileManager.default.removeSymbol(at: greenBackgroundURL) }
 
   let blueBackgroundURL = try canvas.renderPDF(
     to: temporaryDirectory,
@@ -123,7 +123,7 @@ import Testing
     backgroundColor: .blue,
     pageSize: pageSize,
   )
-  defer { try? FileManager.default.removeItem(at: blueBackgroundURL) }
+  defer { try? FileManager.default.removeSymbol(at: blueBackgroundURL) }
 
   let greenImage = try cgImageFromPDFFile(at: greenBackgroundURL)
   let greenCornerPixel = try pixelComponents(in: greenImage, x: 0, y: 0)
@@ -141,7 +141,7 @@ import Testing
 
 @MainActor
 private func makeTestTile() -> TesseraTile {
-  let item = TesseraItem(
+  let symbol = TesseraSymbol(
     weight: 1,
     allowedRotationRange: .degrees(0)...(.degrees(0)),
     scaleRange: 1...1,
@@ -153,13 +153,13 @@ private func makeTestTile() -> TesseraTile {
   }
 
   let configuration = TesseraConfiguration(
-    items: [item],
+    symbols: [symbol],
     seed: 1,
     minimumSpacing: 2,
     density: 1,
     baseScaleRange: 1...1,
     patternOffset: .zero,
-    maximumItemCount: 64,
+    maximumSymbolCount: 64,
   )
 
   return TesseraTile(configuration, tileSize: CGSize(width: 128, height: 128))
@@ -168,16 +168,16 @@ private func makeTestTile() -> TesseraTile {
 @MainActor
 private func makeTestCanvasWithCenteredFixedCircle(canvasSize: CGSize) -> TesseraCanvas {
   let configuration = TesseraConfiguration(
-    items: [],
+    symbols: [],
     seed: 1,
     minimumSpacing: 10,
     density: 0,
     baseScaleRange: 1...1,
     patternOffset: .zero,
-    maximumItemCount: 0,
+    maximumSymbolCount: 0,
   )
 
-  let fixedCircle = TesseraFixedItem(
+  let fixedCircle = TesseraPinnedSymbol(
     position: CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2),
     rotation: .degrees(0),
     scale: 1,
@@ -188,7 +188,7 @@ private func makeTestCanvasWithCenteredFixedCircle(canvasSize: CGSize) -> Tesser
       .frame(width: 20, height: 20)
   }
 
-  return TesseraCanvas(configuration, fixedItems: [fixedCircle], seed: 1, edgeBehavior: .finite)
+  return TesseraCanvas(configuration, pinnedSymbols: [fixedCircle], seed: 1, edgeBehavior: .finite)
 }
 
 private func cgImageFromPNGFile(at url: URL) throws -> CGImage {

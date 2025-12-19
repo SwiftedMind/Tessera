@@ -3,7 +3,7 @@
 import CoreGraphics
 import SwiftUI
 
-/// A coarse description of a drawable item's geometry used for collision checks.
+/// A coarse description of a drawable symbol's geometry used for collision checks.
 ///
 /// > Important: Complex polygons and multi-polygon shapes are more expensive to evaluate and can reduce placement
 /// > performance, especially at high densities.
