@@ -165,9 +165,9 @@ var configuration = TesseraConfiguration(symbols: symbols, minimumSpacing: 44, d
 configuration.patternOffset = CGSize(width: 40, height: 0)
 ```
 
-## Fixed Symbols
+## Pinned Symbols
 
-Fixed symbols let you place specific content (like a logo or headline) while Tessera fills around it. Fixed symbols participate in collision checks, so generated symbols keep their distance.
+Pinned symbols let you place specific content (like a logo or headline) while Tessera fills around it. Fixed symbols participate in collision checks, so generated symbols keep their distance.
 
 ```swift
 import SwiftUI

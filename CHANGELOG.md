@@ -8,6 +8,7 @@
 - **Collision Shape Previews**: `TesseraSymbol.collisionEditor()` returns a SwiftUI view with a fully-working editor that lets you build and export collision shapes visually. 
 
 ### Enhanced
+- **Items Renamed To Symbols**: `TesseraItem` and `TesseraFixedItem` have been renamed to `TesseraSymbol` and `TesseraPinnedSymbol`
 - **Faster Collision Placement**: Improves `ShapePlacementEngine` collision checks by caching polygon axes, avoiding per-test world-polygon allocations, and using a nearest-image torus offset (with a safe fallback) for seamless wrapping.
 - **Concave Polygon Collisions**: Concave polygons are decomposed into convex pieces for more accurate collisions, at a
   higher placement cost for complex shapes.
