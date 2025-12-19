@@ -1,4 +1,4 @@
-## [Upcoming]
+## [2.0.0]
 
 ### Added
 - **Collision Overlay Debugging**: `TesseraConfiguration.showsCollisionOverlay` draws collision shapes on canvas views,
