@@ -1,4 +1,3 @@
-<br /><br />
 <img width="100" height="100" alt="Tessera Logo" src="https://github.com/user-attachments/assets/78c89bdb-6dfe-4f2a-b628-082cfc8d3328" />
 
 # Tessera
