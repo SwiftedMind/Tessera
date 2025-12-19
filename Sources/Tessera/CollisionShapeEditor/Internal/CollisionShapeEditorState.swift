@@ -12,7 +12,7 @@ final class CollisionEditorState {
     }
   }
 
-  var selectedShapeKind: CollisionEditorShapeKind = .circle
+  var selectedShapeKind: CollisionShapeEditor.ShapeKind = .circle
   var polygonSymbolLocalPoints: [CGPoint] = []
   var isPolygonClosed: Bool = false
   var circleCenter: CGPoint = .zero
@@ -147,7 +147,7 @@ extension CollisionEditorState {
     }
   }
 
-  func addPoint(at displayLocation: CGPoint, using transform: CollisionEditorViewTransform) {
+  func addPoint(at displayLocation: CGPoint, using transform: CollisionShapeEditor.ViewTransform) {
     guard isPolygonClosed == false else { return }
 
     let symbolLocalPoint = transform.symbolLocalPoint(fromViewPoint: displayLocation)
@@ -166,7 +166,7 @@ extension CollisionEditorState {
     isPolygonClosed = true
   }
 
-  func movePoint(at index: Int, to displayLocation: CGPoint, using transform: CollisionEditorViewTransform) {
+  func movePoint(at index: Int, to displayLocation: CGPoint, using transform: CollisionShapeEditor.ViewTransform) {
     guard polygonSymbolLocalPoints.indices.contains(index) else { return }
 
     polygonSymbolLocalPoints[index] = transform.symbolLocalPoint(fromViewPoint: displayLocation)
@@ -175,7 +175,7 @@ extension CollisionEditorState {
   func movePolygon(
     from startingSymbolLocalPoints: [CGPoint],
     by displayTranslation: CGSize,
-    using transform: CollisionEditorViewTransform,
+    using transform: CollisionShapeEditor.ViewTransform,
   ) {
     guard startingSymbolLocalPoints.isEmpty == false else { return }
 
@@ -197,7 +197,7 @@ extension CollisionEditorState {
   func moveCircle(
     from startingCenter: CGPoint,
     by displayTranslation: CGSize,
-    using transform: CollisionEditorViewTransform,
+    using transform: CollisionShapeEditor.ViewTransform,
   ) {
     let translationInSymbolLocalCoordinates = transform.symbolLocalTranslation(fromViewTranslation: displayTranslation)
 
@@ -217,7 +217,7 @@ extension CollisionEditorState {
     from startingCenter: CGPoint,
     startingRadius: CGFloat,
     to displayLocation: CGPoint,
-    using transform: CollisionEditorViewTransform,
+    using transform: CollisionShapeEditor.ViewTransform,
   ) {
     let zoomScale = transform.viewScaleTransform.invertibleScale
     let minimumDimension = min(safeRenderedContentSize.width, safeRenderedContentSize.height)
@@ -240,7 +240,7 @@ extension CollisionEditorState {
   func moveRectangle(
     from startingCenter: CGPoint,
     by displayTranslation: CGSize,
-    using transform: CollisionEditorViewTransform,
+    using transform: CollisionShapeEditor.ViewTransform,
   ) {
     let translationInSymbolLocalCoordinates = transform.symbolLocalTranslation(fromViewTranslation: displayTranslation)
 
@@ -259,9 +259,9 @@ extension CollisionEditorState {
   func resizeRectangle(
     from startingCenter: CGPoint,
     startingSize: CGSize,
-    handle: CollisionRectangleEditor.ResizeHandle,
+    handle: CollisionShapeEditor.RectangleEditor.ResizeHandle,
     to displayLocation: CGPoint,
-    using transform: CollisionEditorViewTransform,
+    using transform: CollisionShapeEditor.ViewTransform,
   ) {
     let draggedCorner = transform.symbolLocalPoint(fromViewPoint: displayLocation)
 
@@ -297,7 +297,7 @@ extension CollisionEditorState {
     }
   }
 
-  private func shouldClosePolygon(at displayLocation: CGPoint, using transform: CollisionEditorViewTransform) -> Bool {
+  private func shouldClosePolygon(at displayLocation: CGPoint, using transform: CollisionShapeEditor.ViewTransform) -> Bool {
     guard polygonSymbolLocalPoints.count >= 3 else { return false }
     guard let firstPoint = polygonSymbolLocalPoints.first else { return false }
 
@@ -438,7 +438,7 @@ extension CollisionEditorState {
       return "Measuring rendered size…"
     }
 
-    let outputTransform = CollisionEditorViewTransform(
+    let outputTransform = CollisionShapeEditor.ViewTransform(
       renderedContentSize: safeRenderedContentSize,
       zoomScale: 1,
     )
@@ -464,7 +464,7 @@ extension CollisionEditorState {
   }
 
   private func anchoredPolygonSnippet() -> String {
-    let outputTransform = CollisionEditorViewTransform(
+    let outputTransform = CollisionShapeEditor.ViewTransform(
       renderedContentSize: safeRenderedContentSize,
       zoomScale: 1,
     )

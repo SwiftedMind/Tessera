@@ -20,12 +20,11 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 ## Table of Contents
 
 - [Get Started](#get-started)
+- [Pinned Symbols](#pinned-symbols)
+- [Exporting](#exporting)
+- [Collision Shape Previews](#collision-shape-previews)
 - [Terminology](#terminology)
 - [Determinism](#determinism)
-- [Fixed Symbols](#fixed-symbols)
-- [Exporting](#exporting)
-- [Custom Symbols](#custom-symbols)
-- [Collision Shape Previews](#collision-shape-previews)
 - [Notes](#notes)
 - [License](#license)
 - [🙏 Acknowledgments](#-acknowledgments)
@@ -46,20 +45,11 @@ In `Package.swift`:
 dependencies: [
   .package(url: "https://github.com/SwiftedMind/Tessera.git", from: "1.0.0"),
 ]
-
-targets: [
-  .target(
-    name: "YourTarget",
-    dependencies: [
-      .product(name: "Tessera", package: "Tessera"),
-    ]
-  )
-]
 ```
 
 ### Render a tiled background (endlessly repeating)
 
-`TesseraTiledCanvas` generates a single tile (based on `tileSize`), caches it as a `Canvas` symbol, then repeats it to fill all available space.
+`TesseraTiledCanvas` generates a single tile, caches it as a `Canvas` symbol, then repeats it to fill all available space.
 
 ```swift
 import SwiftUI
@@ -140,34 +130,9 @@ struct Poster: View {
 }
 ```
 
-## Terminology
-
-- `TesseraConfiguration` - Describes how symbols are generated
-- `TesseraSymbol` - A drawable symbol used to fill a repeatable tile or a finite canvas
-- `CollisionShape` - Approximate local-space geometry used for collision checks.
-- `TesseraTile` - A single drawable tile that can be seamlessly repeated.
-- `TesseraTiledCanvas` - Repeats a single generated tile to fill the available space (great for backgrounds).
-- `TesseraCanvas`- Generates a single composition at a finite size (great for posters, cards, and exports).
-- `CollisionShapeEditor` - An interactive editor that lets you visually build and export a collision shape for your symbols.
-
-## Determinism
-
-Tessera is deterministic when you provide a seed. You can set `seed` on `TesseraConfiguration`, or override it per-view:
-
-```swift
-TesseraTiledCanvas(configuration, tileSize: CGSize(width: 256, height: 256), seed: 123)
-```
-
-To "move" a pattern without changing the layout, modify `patternOffset`:
-
-```swift
-var configuration = TesseraConfiguration(symbols: symbols, minimumSpacing: 44, density: 0.6)
-configuration.patternOffset = CGSize(width: 40, height: 0)
-```
-
 ## Pinned Symbols
 
-Pinned symbols let you place specific content (like a logo or headline) while Tessera fills around it. Fixed symbols participate in collision checks, so generated symbols keep their distance.
+Pinned symbols let you place specific content (like a logo or headline) on a fixed-sized canvas while Tessera fills the space around it with repeating Tessera symbols. Fixed symbols participate in collision checks, so generated symbols keep their distance.
 
 ```swift
 import SwiftUI
@@ -213,7 +178,7 @@ struct HeroCard: View {
 
 ## Exporting
 
-Render a tile to PNG or vector-friendly PDF using the built-in exporter (powered by `ImageRenderer`).
+Export a tile or tiled canvas to PNG or vector-friendly PDF using the built-in exporter (powered by `ImageRenderer`).
 
 ```swift
 import Foundation
@@ -284,24 +249,34 @@ Rendering options (`TesseraRenderOptions`):
 - `isOpaque`, `colorMode`: Forwarded to `ImageRenderer`.
 - `backgroundColor` (export function parameter): Optional fill rendered behind the export (defaults to none).
 
-## Custom Symbols
-
-```swift
-let bolt = TesseraSymbol(
-  weight: 2,
-  allowedRotationRange: .degrees(-15)...(.degrees(15)),
-  scaleRange: 0.8...1.2,
-  approximateSize: CGSize(width: 36, height: 36)
-) {
-  Image(systemName: "bolt.fill")
-    .foregroundStyle(.yellow)
-    .font(.system(size: 36))
-}
-```
-
 ## Collision Shape Editor
 
-Use `TesseraSymbol.collision()` to get a SwiftUI view containing a fully working collision shape editor that lets you build and export collision shapes easily
+Use `TesseraSymbol.collisionShapeEditor()` to get a SwiftUI view containing a fully working collision shape editor that lets you build and export collision shapes easily
+
+## Terminology
+
+- `TesseraConfiguration` - Describes how symbols are generated.
+- `TesseraSymbol` - A drawable symbol used to fill a repeatable tile or a finite canvas
+- `CollisionShape` - Approximate local-space geometry used for collision checks of symbols.
+- `TesseraTile` - A single drawable tile that can be seamlessly repeated.
+- `TesseraTiledCanvas` - Repeats a single generated tile to fill the available space (great for backgrounds).
+- `TesseraCanvas`- Generates a single composition at a finite size (great for posters, cards, and exports).
+- `CollisionShapeEditor` - An interactive editor that lets you visually build and export a collision shape for your symbols.
+
+## Determinism
+
+Tessera is deterministic when you provide a seed. You can set `seed` on `TesseraConfiguration`, or override it per-view:
+
+```swift
+TesseraTiledCanvas(configuration, tileSize: CGSize(width: 256, height: 256), seed: 123)
+```
+
+To "move" a pattern without changing the layout, modify `patternOffset`:
+
+```swift
+var configuration = TesseraConfiguration(symbols: symbols, minimumSpacing: 44, density: 0.6)
+configuration.patternOffset = CGSize(width: 40, height: 0)
+```
 
 ## Notes
 
@@ -336,6 +311,6 @@ SOFTWARE.
 
 ## 🙏 Acknowledgments
 
-- Built with the amazing Swift ecosystem and community
+Built with the amazing Swift ecosystem and community
 
 Made with ❤️ for the Swift community

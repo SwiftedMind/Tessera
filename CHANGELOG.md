@@ -5,7 +5,7 @@
   and `TesseraRenderOptions.showsCollisionOverlay` opt-in enables overlays for exports.
 - **Compound Collision Shapes**: `CollisionShape.polygons(pointSets:)` and `CollisionShape.anchoredPolygon(pointSets:anchor:size:)` let a single symbol use multiple polygons.
   for collision checks; complex shapes can dramatically reduce placement performance.
-- **Collision Shape Previews**: `TesseraSymbol.collisionEditor()` returns a SwiftUI view with a fully-working editor that lets you build and export collision shapes visually. 
+- **Collision Shape Previews**: `TesseraSymbol.collisionShapeEditor()` returns a SwiftUI view with a fully-working editor that lets you build and export collision shapes visually. 
 
 ### Enhanced
 - **Items Renamed To Symbols**: `TesseraItem` and `TesseraFixedItem` have been renamed to `TesseraSymbol` and `TesseraPinnedSymbol`

@@ -73,7 +73,7 @@ struct TesseraDemoView: View {
       .tag(1)
 
       // Collision Shape Editor
-      TesseraSymbolCollisionEditorDemo()
+      CollisionShapeEditorDemo()
         .tabItem {
           Label("Collision Editor", systemImage: "viewfinder")
         }
@@ -87,9 +87,9 @@ struct TesseraDemoView: View {
     .preferredColorScheme(.dark)
 }
 
-private struct TesseraSymbolCollisionEditorDemo: View {
+private struct CollisionShapeEditorDemo: View {
   var body: some View {
-    previewSymbol.collisionEditor()
+    previewSymbol.collisionShapeEditor()
   }
 
   var previewSymbol: TesseraSymbol {

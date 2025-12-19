@@ -5,7 +5,7 @@ import SwiftUI
 /// A collision editor for a tessera symbol.
 ///
 /// Use this view to build and copy collision shapes that match the rendered symbol size.
-public struct TesseraSymbolCollisionEditor: View {
+public struct CollisionShapeEditor: View {
   @State private var editorState: CollisionEditorState
 
   public var symbol: TesseraSymbol
@@ -27,21 +27,21 @@ public struct TesseraSymbolCollisionEditor: View {
   public var body: some View {
     ScrollView {
       VStack(spacing: 24) {
-        CollisionEditorHeaderView(
+        HeaderView(
           title: "Collision Editor",
         )
         VStack(spacing: 0) {
-          CollisionEditorShapePickerView()
+          PickerView()
           editorCanvas
-          CollisionEditorShapeControlsView()
+          ControlsView()
         }
         Divider()
-        CollisionEditorOutputSectionView()
+        OutputSectionView()
       }
       .padding(.vertical)
       .padding(.horizontal)
       .background {
-        CollisionEditorRenderedContentSizer(
+        RenderedContentSizer(
           renderedContent: renderedContent,
         )
       }
@@ -61,12 +61,12 @@ public struct TesseraSymbolCollisionEditor: View {
         availableSize: availableSize,
       )
       
-      let canvasState = CollisionEditorCanvasState(
+      let canvasState = CanvasState(
         renderedContentSize: editorState.safeRenderedContentSize,
         zoomScale: zoomScale,
       )
       
-      let polygonCanvasState = CollisionPolygonEditor.CanvasState(
+      let polygonCanvasState = PolygonEditor.CanvasState(
         renderedContentSize: editorState.safeRenderedContentSize,
         zoomScale: zoomScale,
         symbolLocalPoints: editorState.polygonSymbolLocalPoints,
@@ -79,17 +79,17 @@ public struct TesseraSymbolCollisionEditor: View {
         } else {
           switch editorState.selectedShapeKind {
           case .polygon:
-            CollisionPolygonEditor(
+            PolygonEditor(
               renderedContent: renderedContent,
               canvasState: polygonCanvasState,
             )
           case .circle:
-            CollisionCircleEditor(
+            CircleEditor(
               renderedContent: renderedContent,
               canvasState: canvasState,
             )
           case .rectangle:
-            CollisionRectangleEditor(
+            RectangleEditor(
               renderedContent: renderedContent,
               canvasState: canvasState,
             )
@@ -110,7 +110,7 @@ public struct TesseraSymbolCollisionEditor: View {
 }
 
 #Preview {
-  TesseraSymbolCollisionEditor(
+  CollisionShapeEditor(
     TesseraSymbol(
       collisionShape: .circle(center: .zero, radius: 18),
     ) {
