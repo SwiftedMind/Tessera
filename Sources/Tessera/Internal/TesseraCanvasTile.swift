@@ -28,6 +28,12 @@ struct TesseraCanvasTile: View {
     let tileSize = tileSize
     let placedItemDescriptors = cachedPlacedItemDescriptors
     let onComputationStateChange = onComputationStateChange
+    let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
+    let overlayShapesByItemId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
+      ? configuration.items.reduce(into: [:]) { cache, item in
+        cache[item.id] = CollisionOverlayShape(collisionShape: item.collisionShape)
+      }
+      : [:]
 
     Canvas(rendersAsynchronously: true) { context, size in
       let wrappedOffset = CGSize(
@@ -57,6 +63,11 @@ struct TesseraCanvasTile: View {
           symbolContext.rotate(by: .radians(placedItem.rotationRadians))
           symbolContext.scaleBy(x: placedItem.scale, y: placedItem.scale)
           symbolContext.draw(symbol, at: .zero, anchor: .center)
+
+          if isCollisionOverlayEnabled,
+             let overlayShape = overlayShapesByItemId[placedItem.itemId] {
+            CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
+          }
         }
       }
     } symbols: {

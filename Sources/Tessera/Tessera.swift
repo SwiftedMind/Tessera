@@ -117,6 +117,10 @@ public struct TesseraRenderOptions {
   /// Explicit scale override. If `targetPixelSize` is set, that takes precedence. Defaults to 2 for Retina-friendly
   /// PNGs.
   public var scale: CGFloat?
+  /// Whether to draw collision overlays while exporting.
+  ///
+  /// When set, this overrides `TesseraConfiguration.showsCollisionOverlay` for the export pipeline.
+  public var showsCollisionOverlay: Bool
   public var isOpaque: Bool
   public var colorMode: ColorRenderingMode
 
@@ -125,16 +129,20 @@ public struct TesseraRenderOptions {
   ///   - targetPixelSize: Desired output in pixels; if set, the renderer derives the scale from the tessera tile size.
   ///   - scale: Rasterization scale applied to the renderer; defaults to 2 for Retina-quality PNGs when
   /// `targetPixelSize` is nil.
+  ///   - showsCollisionOverlay: Whether to draw collision overlays while exporting. This overrides
+  ///     `TesseraConfiguration.showsCollisionOverlay` for the export pipeline.
   ///   - isOpaque: Whether the exported image should omit an alpha channel when possible.
   ///   - colorMode: Working color mode used during rendering.
   public init(
     targetPixelSize: CGSize? = nil,
     scale: CGFloat? = nil,
+    showsCollisionOverlay: Bool = false,
     isOpaque: Bool = false,
     colorMode: ColorRenderingMode = .extendedLinear,
   ) {
     self.targetPixelSize = targetPixelSize
     self.scale = scale
+    self.showsCollisionOverlay = showsCollisionOverlay
     self.isOpaque = isOpaque
     self.colorMode = colorMode
   }

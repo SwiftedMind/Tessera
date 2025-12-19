@@ -26,6 +26,8 @@ public struct TesseraFixedItem: Identifiable {
   /// Uniform scale applied to drawing and collision checks.
   public var scale: CGFloat
   /// Collision geometry used as an obstacle for generated items.
+  ///
+  /// Complex polygons and multi-polygon shapes increase placement cost.
   public var collisionShape: CollisionShape
   private let builder: () -> AnyView
 
@@ -34,7 +36,8 @@ public struct TesseraFixedItem: Identifiable {
   ///   - position: Center position inside the canvas.
   ///   - rotation: Rotation applied to drawing and collisions.
   ///   - scale: Uniform scale applied to drawing and collisions.
-  ///   - collisionShape: Obstacle shape in local space.
+  ///   - collisionShape: Obstacle shape in local space. Complex polygons and multi-polygon shapes increase placement
+  ///     cost.
   ///   - content: View builder for the fixed symbol.
   public init(
     id: UUID = UUID(),
@@ -166,6 +169,17 @@ public struct TesseraCanvas: View {
     let edgeBehavior = edgeBehavior
     let placedItemDescriptors = cachedPlacedItemDescriptors
     let onComputationStateChange = onComputationStateChange
+    let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
+    let overlayShapesByItemId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
+      ? configuration.items.reduce(into: [:]) { cache, item in
+        cache[item.id] = CollisionOverlayShape(collisionShape: item.collisionShape)
+      }
+      : [:]
+    let overlayShapesByFixedItemId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
+      ? fixedItems.reduce(into: [:]) { cache, item in
+        cache[item.id] = CollisionOverlayShape(collisionShape: item.collisionShape)
+      }
+      : [:]
 
     Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: true) { context, size in
       let wrappedOffset = CGSize(
@@ -202,6 +216,11 @@ public struct TesseraCanvas: View {
           symbolContext.rotate(by: fixedItem.rotation)
           symbolContext.scaleBy(x: fixedItem.scale, y: fixedItem.scale)
           symbolContext.draw(symbol, at: .zero, anchor: .center)
+
+          if isCollisionOverlayEnabled,
+             let overlayShape = overlayShapesByFixedItemId[fixedItem.id] {
+            CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
+          }
         }
       }
 
@@ -215,6 +234,11 @@ public struct TesseraCanvas: View {
           symbolContext.rotate(by: .radians(placedItem.rotationRadians))
           symbolContext.scaleBy(x: placedItem.scale, y: placedItem.scale)
           symbolContext.draw(symbol, at: .zero, anchor: .center)
+
+          if isCollisionOverlayEnabled,
+             let overlayShape = overlayShapesByItemId[placedItem.itemId] {
+            CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
+          }
         }
       }
     } symbols: {
@@ -279,10 +303,12 @@ public struct TesseraCanvas: View {
     colorScheme: ColorScheme? = nil,
     options: TesseraRenderOptions = TesseraRenderOptions(),
   ) throws -> URL {
+    var renderConfiguration = configuration
+    renderConfiguration.showsCollisionOverlay = options.showsCollisionOverlay
     let destinationURL = resolvedOutputURL(directory: directory, fileName: fileName, fileExtension: "png")
     let placedItemDescriptors = makeSynchronousPlacedDescriptors(for: canvasSize)
     let renderView = TesseraCanvasStaticRenderView(
-      configuration: configuration,
+      configuration: renderConfiguration,
       canvasSize: canvasSize,
       fixedItems: fixedItems,
       placedItemDescriptors: placedItemDescriptors,
@@ -347,6 +373,8 @@ public struct TesseraCanvas: View {
     pageSize: CGSize? = nil,
     options: TesseraRenderOptions = TesseraRenderOptions(scale: 1),
   ) throws -> URL {
+    var renderConfiguration = configuration
+    renderConfiguration.showsCollisionOverlay = options.showsCollisionOverlay
     let destinationURL = resolvedOutputURL(directory: directory, fileName: fileName, fileExtension: "pdf")
     let renderSize = pageSize ?? canvasSize
     var mediaBox = CGRect(origin: .zero, size: renderSize)
@@ -360,7 +388,7 @@ public struct TesseraCanvas: View {
 
     let placedItemDescriptors = makeSynchronousPlacedDescriptors(for: canvasSize)
     let renderView = TesseraCanvasStaticRenderView(
-      configuration: configuration,
+      configuration: renderConfiguration,
       canvasSize: canvasSize,
       fixedItems: fixedItems,
       placedItemDescriptors: placedItemDescriptors,
@@ -644,6 +672,18 @@ private struct TesseraCanvasStaticRenderView: View {
   var edgeBehavior: TesseraEdgeBehavior
 
   var body: some View {
+    let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
+    let overlayShapesByItemId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
+      ? configuration.items.reduce(into: [:]) { cache, item in
+        cache[item.id] = CollisionOverlayShape(collisionShape: item.collisionShape)
+      }
+      : [:]
+    let overlayShapesByFixedItemId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
+      ? fixedItems.reduce(into: [:]) { cache, item in
+        cache[item.id] = CollisionOverlayShape(collisionShape: item.collisionShape)
+      }
+      : [:]
+
     Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: false) { context, size in
       let wrappedOffset = CGSize(
         width: configuration.patternOffset.width.truncatingRemainder(dividingBy: size.width),
@@ -679,6 +719,11 @@ private struct TesseraCanvasStaticRenderView: View {
           symbolContext.rotate(by: fixedItem.rotation)
           symbolContext.scaleBy(x: fixedItem.scale, y: fixedItem.scale)
           symbolContext.draw(symbol, at: .zero, anchor: .center)
+
+          if isCollisionOverlayEnabled,
+             let overlayShape = overlayShapesByFixedItemId[fixedItem.id] {
+            CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
+          }
         }
       }
 
@@ -692,6 +737,11 @@ private struct TesseraCanvasStaticRenderView: View {
           symbolContext.rotate(by: .radians(placedItem.rotationRadians))
           symbolContext.scaleBy(x: placedItem.scale, y: placedItem.scale)
           symbolContext.draw(symbol, at: .zero, anchor: .center)
+
+          if isCollisionOverlayEnabled,
+             let overlayShape = overlayShapesByItemId[placedItem.itemId] {
+            CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
+          }
         }
       }
     } symbols: {

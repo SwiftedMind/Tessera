@@ -17,7 +17,8 @@ public struct TesseraItem: Identifiable {
   ///   - weight: Relative probability of being chosen.
   ///   - allowedRotationRange: Range of angles the item may rotate within.
   ///   - scaleRange: Optional scale range overriding the tessera's base scale range.
-  ///   - collisionShape: Approximate geometry used for collision checks.
+  ///   - collisionShape: Approximate geometry used for collision checks. Complex polygons and multi-polygon shapes
+  ///     increase placement cost.
   ///   - content: View builder for the rendered symbol.
   public init(
     id: UUID = UUID(),

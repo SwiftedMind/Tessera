@@ -116,7 +116,7 @@ enum ShapePlacementEngine {
       return PlacedCollider(
         collisionShape: fixedItem.collisionShape,
         collisionTransform: collisionTransform,
-        polygon: CollisionMath.polygon(for: fixedItem.collisionShape),
+        polygons: CollisionMath.polygons(for: fixedItem.collisionShape),
         boundingRadius: fixedItem.collisionShape.boundingRadius(atScale: collisionTransform.scale),
       )
     }
@@ -135,8 +135,8 @@ enum ShapePlacementEngine {
     let gridColumnCount = max(1, Int(ceil(size.width / cellSize)))
     let gridRowCount = max(1, Int(ceil(size.height / cellSize)))
 
-    let polygonCache: [UUID: CollisionPolygon] = itemDescriptors.reduce(into: [:]) { cache, item in
-      cache[item.id] = CollisionMath.polygon(for: item.collisionShape)
+    let polygonCache: [UUID: [CollisionPolygon]] = itemDescriptors.reduce(into: [:]) { cache, item in
+      cache[item.id] = CollisionMath.polygons(for: item.collisionShape)
     }
 
     var colliders: [PlacedCollider] = fixedColliders
@@ -170,7 +170,7 @@ enum ShapePlacementEngine {
         using: &randomGenerator,
       )
 
-      guard let selectedPolygon = polygonCache[selectedItem.id] else { continue }
+      guard let selectedPolygons = polygonCache[selectedItem.id] else { continue }
 
       let maximumAttempts = 20
       var didPlaceItem = false
@@ -212,7 +212,7 @@ enum ShapePlacementEngine {
 
         guard isPlacementValid(
           candidate: candidate,
-          candidatePolygon: selectedPolygon,
+          candidatePolygons: selectedPolygons,
           existingColliderIndices: neighboringColliderIndices,
           allColliders: colliders,
           tileSize: size,
@@ -227,7 +227,7 @@ enum ShapePlacementEngine {
           PlacedCollider(
             collisionShape: selectedItem.collisionShape,
             collisionTransform: candidateTransform,
-            polygon: selectedPolygon,
+            polygons: selectedPolygons,
             boundingRadius: selectedItem.collisionShape.boundingRadius(atScale: candidateTransform.scale),
           ),
         )
@@ -280,7 +280,7 @@ enum ShapePlacementEngine {
   private struct PlacedCollider: Sendable {
     var collisionShape: CollisionShape
     var collisionTransform: CollisionTransform
-    var polygon: CollisionPolygon
+    var polygons: [CollisionPolygon]
     var boundingRadius: CGFloat
   }
 
@@ -445,7 +445,7 @@ enum ShapePlacementEngine {
 
   private static func isPlacementValid(
     candidate: PlacedItemDescriptor,
-    candidatePolygon: CollisionPolygon,
+    candidatePolygons: [CollisionPolygon],
     existingColliderIndices: [Int],
     allColliders: [PlacedCollider],
     tileSize: CGSize,
@@ -499,9 +499,9 @@ enum ShapePlacementEngine {
 
         // Within the buffered range, run the narrow-phase polygon test with spacing buffer.
         if CollisionMath.polygonsIntersect(
-          candidatePolygon,
+          candidatePolygons,
           transformA: candidate.collisionTransform,
-          collider.polygon,
+          collider.polygons,
           transformB: shiftedTransform,
           buffer: minimumSpacing,
         ) { return false }
@@ -526,9 +526,9 @@ enum ShapePlacementEngine {
 
           // Within the buffered range, run the narrow-phase polygon test with spacing buffer.
           if CollisionMath.polygonsIntersect(
-            candidatePolygon,
+            candidatePolygons,
             transformA: candidate.collisionTransform,
-            collider.polygon,
+            collider.polygons,
             transformB: shiftedTransform,
             buffer: minimumSpacing,
           ) { return false }

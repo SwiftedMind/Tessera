@@ -20,6 +20,10 @@ public struct TesseraConfiguration {
   public var patternOffset: CGSize
   /// Upper bound on how many generated items may be placed.
   public var maximumItemCount: Int
+  /// Whether to render a debug overlay for collision shapes in on-screen canvases.
+  ///
+  /// Exported renders ignore this setting unless `TesseraRenderOptions.showsCollisionOverlay` is enabled.
+  public var showsCollisionOverlay: Bool
 
   /// Creates a tessera configuration.
   /// - Parameters:
@@ -30,6 +34,7 @@ public struct TesseraConfiguration {
   ///   - baseScaleRange: Default scale range applied when an item does not provide its own scale range.
   ///   - patternOffset: Positional offset applied to all generated items.
   ///   - maximumItemCount: Upper bound on how many generated items may be placed.
+  ///   - showsCollisionOverlay: Whether to render a debug overlay for collision shapes in on-screen canvases.
   public init(
     items: [TesseraItem],
     seed: UInt64 = TesseraConfiguration.randomSeed(),
@@ -38,6 +43,7 @@ public struct TesseraConfiguration {
     baseScaleRange: ClosedRange<Double> = 0.9...1.1,
     patternOffset: CGSize = .zero,
     maximumItemCount: Int = 512,
+    showsCollisionOverlay: Bool = false,
   ) {
     self.items = items
     self.seed = seed
@@ -46,6 +52,7 @@ public struct TesseraConfiguration {
     self.baseScaleRange = baseScaleRange
     self.patternOffset = patternOffset
     self.maximumItemCount = maximumItemCount
+    self.showsCollisionOverlay = showsCollisionOverlay
   }
 
   /// Generates a new random seed.

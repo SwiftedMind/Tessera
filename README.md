@@ -143,7 +143,8 @@ struct Poster: View {
 ## API Overview
 
 - `TesseraConfiguration`
-  Describes how items are generated: `items`, `seed`, `minimumSpacing`, `density`, `baseScaleRange`, `patternOffset`, `maximumItemCount`.
+  Describes how items are generated: `items`, `seed`, `minimumSpacing`, `density`, `baseScaleRange`, `patternOffset`,
+  `maximumItemCount`, `showsCollisionOverlay`.
 
 - `TesseraItem`
   A drawable symbol with a `weight`, an `allowedRotationRange`, an optional `scaleRange`, and SwiftUI view content.
@@ -152,7 +153,15 @@ struct Poster: View {
   - an `approximateSize` (Tessera derives a conservative circle collider).
 
 - `CollisionShape`
-  Approximate local-space geometry used for collision checks, such as `.circle(center:radius:)` and `.rectangle(center:size:)`.
+  Approximate local-space geometry used for collision checks, such as `.circle(center:radius:)`, `.rectangle(center:size:)`,
+  `.polygon(points:)`, or `.polygons(points:)` for multi-part shapes.
+  The view-space polygon variants assume a top-leading origin and auto-center their bounding boxes, while
+  `.centeredPolygon(points:)` and
+  `.centeredPolygons(points:)` accept already centered points.
+  Use `.anchoredPolygon(viewPoints:anchor:size:)` or `.anchoredPolygons(viewPointSets:anchor:size:)` when your view origin is anchored
+  somewhere other than the top-leading corner.
+  Concave polygons are decomposed into convex pieces during collision checks.
+  Complex polygons and multi-polygon shapes can dramatically reduce placement performance.
 
 - `TesseraTile`
   Renders a single tile (size specified via `tileSize`). Also provides `renderPNG(...)` and `renderPDF(...)`.
@@ -293,6 +302,7 @@ Rendering options (`TesseraRenderOptions`):
 
 - `targetPixelSize`: Desired output size in pixels (derives scale from content size).
 - `scale`: Explicit rasterization scale when `targetPixelSize` is `nil` (defaults to 2).
+- `showsCollisionOverlay`: Whether to draw collision overlays while exporting (defaults to `false`).
 - `isOpaque`, `colorMode`: Forwarded to `ImageRenderer`.
 - `backgroundColor` (export function parameter): Optional fill rendered behind the export (defaults to none).
 
@@ -315,6 +325,7 @@ let bolt = TesseraItem(
 
 - Tessera uses `Canvas` symbols for performance; keep item views lightweight.
 - Collision geometry is intentionally approximate; use `collisionShape` when an item needs a more accurate footprint.
+  Complex polygons and multi-polygon shapes can dramatically reduce placement performance.
 - `maximumItemCount` is a safety cap. If you crank up `density` on large canvases, you may want to raise it.
 
 ## License
