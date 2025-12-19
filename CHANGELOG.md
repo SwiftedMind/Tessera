@@ -18,6 +18,7 @@
 ### Fixed
 
 ### Breaking Changes
+- **Items Renamed To Symbols**: `TesseraItem` and `TesseraFixedItem` have been renamed to `TesseraSymbol` and `TesseraPinnedSymbol`
 - **Offset Collision Shapes**: `CollisionShape.circle(center:radius:)` and `CollisionShape.rectangle(center:size:)` add a local-space `center`, so colliders are no longer forced to be centered at the origin.
 - **View-Space Polygon Defaults**: `CollisionShape.polygon(points:)` and `CollisionShape.polygons(points:)` now interpret
   points as anchored to the top leading edge of the view, instead of the center.
