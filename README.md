@@ -43,7 +43,7 @@ In `Package.swift`:
 
 ```swift
 dependencies: [
-  .package(url: "https://github.com/SwiftedMind/Tessera.git", from: "1.0.0"),
+  .package(url: "https://github.com/SwiftedMind/Tessera.git", from: "2.0.0"),
 ]
 ```
 
