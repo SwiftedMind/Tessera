@@ -5,7 +5,7 @@
 Tessera is a Swift package that turns a single generated tile composed of arbitrary SwiftUI views into an endlessly repeating, seamlessly wrapping pattern.
 
 <p align="center">
-<img alt="Frame 1" src="https://github.com/user-attachments/assets/0927a201-d069-4578-9c59-f0079f473fee" />
+<img alt="TEST 1" src="https://github.com/user-attachments/assets/6b7e9519-5182-4063-b067-b4c853d5c4be" />
 </p>
 
 ## Features
