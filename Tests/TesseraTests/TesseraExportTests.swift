@@ -154,12 +154,15 @@ private func makeTestTile() -> TesseraTile {
 
   let configuration = TesseraConfiguration(
     symbols: [symbol],
-    seed: 1,
-    minimumSpacing: 2,
-    density: 1,
-    baseScaleRange: 1...1,
-    patternOffset: .zero,
-    maximumSymbolCount: 64,
+    placement: .organic(
+      TesseraPlacement.Organic(
+        seed: 1,
+        minimumSpacing: 2,
+        density: 1,
+        baseScaleRange: 1...1,
+        maximumSymbolCount: 64,
+      ),
+    ),
   )
 
   return TesseraTile(configuration, tileSize: CGSize(width: 128, height: 128))
@@ -169,12 +172,15 @@ private func makeTestTile() -> TesseraTile {
 private func makeTestCanvasWithCenteredFixedCircle(canvasSize: CGSize) -> TesseraCanvas {
   let configuration = TesseraConfiguration(
     symbols: [],
-    seed: 1,
-    minimumSpacing: 10,
-    density: 0,
-    baseScaleRange: 1...1,
-    patternOffset: .zero,
-    maximumSymbolCount: 0,
+    placement: .organic(
+      TesseraPlacement.Organic(
+        seed: 1,
+        minimumSpacing: 10,
+        density: 0,
+        baseScaleRange: 1...1,
+        maximumSymbolCount: 0,
+      ),
+    ),
   )
 
   let fixedCircle = TesseraPinnedSymbol(

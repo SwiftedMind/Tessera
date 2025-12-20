@@ -21,11 +21,48 @@ struct TesseraDemoView: View {
 
     let demoConfiguration = TesseraConfiguration(
       symbols: demoSymbols,
-      seed: 0,
-      minimumSpacing: 0,
-      density: 0.8,
-      baseScaleRange: 0.5...1.2,
-      showsCollisionOverlay: showCollisions,
+      placement: .organic(
+        TesseraPlacement.Organic(
+          seed: 0,
+          minimumSpacing: 0,
+          density: 0.8,
+          baseScaleRange: 0.5...1.2,
+          showsCollisionOverlay: showCollisions,
+        ),
+      ),
+    )
+
+    let gridConfiguration = TesseraConfiguration(
+      symbols: [
+        TesseraSymbol(
+          allowedRotationRange: .degrees(0)...(.degrees(0)),
+          collisionShape: .rectangle(center: .zero, size: CGSize(width: 0, height: 0)),
+          content: {
+            Image(systemName: "plus")
+              .resizable()
+              .aspectRatio(contentMode: .fit)
+              .frame(width: 25, height: 25)
+          },
+        ),
+        TesseraSymbol(
+          allowedRotationRange: .degrees(0)...(.degrees(0)),
+          collisionShape: .rectangle(center: .zero, size: CGSize(width: 0, height: 0)),
+          content: {
+            Image(systemName: "plus")
+              .resizable()
+              .aspectRatio(contentMode: .fit)
+              .frame(width: 25, height: 25)
+              .opacity(0.5)
+              .rotationEffect(.degrees(45))
+          },
+        ),
+      ],
+      placement: .grid(
+        TesseraPlacement.Grid(
+          cellSize: CGSize(width: 50, height: 50),
+          offsetStrategy: .rowShift(fraction: 0.5),
+        ),
+      ),
     )
 
     TabView(selection: $selectedView) {
@@ -72,12 +109,24 @@ struct TesseraDemoView: View {
       }
       .tag(1)
 
+      
+      // Grid Placement
+      TesseraTiledCanvas(
+        gridConfiguration,
+        tileSize: CGSize(width: 250, height: 250),
+      )
+      .ignoresSafeArea()
+      .tabItem {
+        Label("Grid", systemImage: "square.grid.2x2")
+      }
+      .tag(2)
+
       // Collision Shape Editor
       CollisionShapeEditorDemo()
         .tabItem {
           Label("Collision Editor", systemImage: "viewfinder")
         }
-        .tag(2)
+        .tag(3)
     }
   }
 }
@@ -100,7 +149,7 @@ private struct CollisionShapeEditorDemo: View {
         CGPoint(x: 28.65, y: 56.17),
         CGPoint(x: 49.01, y: 42.06),
         CGPoint(x: 48.73, y: 12.36),
-        CGPoint(x: 27.95, y: 4.56)
+        CGPoint(x: 27.95, y: 4.56),
       ]),
     ) {
       Image(systemName: "shield.fill")

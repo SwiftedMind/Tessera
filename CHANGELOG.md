@@ -1,3 +1,16 @@
+## [Upcoming]
+
+### Added
+- **Grid Placement Mode**: Added `TesseraPlacement.grid` with offset strategies for seamless grid-based patterns.
+
+### Enhanced
+
+### Fixed
+
+### Breaking Changes
+- **Placement Configuration Refactor**: `TesseraConfiguration` now takes a `TesseraPlacement` with per-mode settings
+  (for example `TesseraPlacement.Organic`), moving organic-only properties out of the top-level configuration.
+
 ## [2.0.0]
 
 ### Added

@@ -98,13 +98,8 @@ struct TesseraCanvasTile: View {
 private extension TesseraCanvasTile {
   struct ComputationKey: Hashable, Sendable {
     var tileSize: CGSize
-    var seed: UInt64
-    var minimumSpacing: Double
-    var density: Double
-    var baseScaleRangeLowerBound: Double
-    var baseScaleRangeUpperBound: Double
+    var placement: TesseraPlacement
     var patternOffset: CGSize
-    var maximumSymbolCount: Int
     var symbolKeys: [SymbolKey]
 
     struct SymbolKey: Hashable, Sendable {
@@ -121,13 +116,24 @@ private extension TesseraCanvasTile {
     var symbolDescriptors: [ShapePlacementEngine.PlacementSymbolDescriptor]
   }
 
+  var resolvedPlacement: TesseraPlacement {
+    switch configuration.placement {
+    case var .organic(organicPlacement):
+      organicPlacement.seed = seed
+      return .organic(organicPlacement)
+    case .grid:
+      return configuration.placement
+    }
+  }
+
   var currentComputationKey: ComputationKey {
     let symbolKeys: [ComputationKey.SymbolKey] = configuration.symbols.map { symbol in
-      let scaleRange = symbol.scaleRange ?? configuration.baseScaleRange
+      let scaleRange = resolvedScaleRange(for: symbol, placement: resolvedPlacement)
       return ComputationKey.SymbolKey(
         id: symbol.id,
         weight: symbol.weight,
-        allowedRotationRangeDegrees: symbol.allowedRotationRange.lowerBound.degrees...symbol.allowedRotationRange.upperBound
+        allowedRotationRangeDegrees: symbol.allowedRotationRange.lowerBound.degrees...symbol.allowedRotationRange
+          .upperBound
           .degrees,
         resolvedScaleRange: scaleRange,
         collisionShape: symbol.collisionShape,
@@ -136,24 +142,20 @@ private extension TesseraCanvasTile {
 
     return ComputationKey(
       tileSize: tileSize,
-      seed: seed,
-      minimumSpacing: configuration.minimumSpacing,
-      density: configuration.density,
-      baseScaleRangeLowerBound: configuration.baseScaleRange.lowerBound,
-      baseScaleRangeUpperBound: configuration.baseScaleRange.upperBound,
+      placement: resolvedPlacement,
       patternOffset: configuration.patternOffset,
-      maximumSymbolCount: configuration.maximumSymbolCount,
       symbolKeys: symbolKeys,
     )
   }
 
   func makeComputationSnapshot() -> ComputationSnapshot {
     let symbolDescriptors: [ShapePlacementEngine.PlacementSymbolDescriptor] = configuration.symbols.map { symbol in
-      let scaleRange = symbol.scaleRange ?? configuration.baseScaleRange
+      let scaleRange = resolvedScaleRange(for: symbol, placement: resolvedPlacement)
       return ShapePlacementEngine.PlacementSymbolDescriptor(
         id: symbol.id,
         weight: symbol.weight,
-        allowedRotationRangeDegrees: symbol.allowedRotationRange.lowerBound.degrees...symbol.allowedRotationRange.upperBound
+        allowedRotationRangeDegrees: symbol.allowedRotationRange.lowerBound.degrees...symbol.allowedRotationRange
+          .upperBound
           .degrees,
         resolvedScaleRange: scaleRange,
         collisionShape: symbol.collisionShape,
@@ -166,16 +168,36 @@ private extension TesseraCanvasTile {
     )
   }
 
+  func resolvedScaleRange(
+    for symbol: TesseraSymbol,
+    placement: TesseraPlacement,
+  ) -> ClosedRange<Double> {
+    switch placement {
+    case let .organic(organicPlacement):
+      symbol.scaleRange ?? organicPlacement.baseScaleRange
+    case .grid:
+      symbol.scaleRange ?? 1...1
+    }
+  }
+
+  func seed(for placement: TesseraPlacement) -> UInt64 {
+    switch placement {
+    case let .organic(organicPlacement):
+      organicPlacement.seed
+    case .grid:
+      0
+    }
+  }
+
   func computePlacements(using snapshot: ComputationSnapshot) async {
+    let placementSeed = seed(for: snapshot.key.placement)
     let computeTask = Task.detached(priority: .userInitiated) {
-      var randomGenerator = SeededGenerator(seed: snapshot.key.seed)
+      var randomGenerator = SeededGenerator(seed: placementSeed)
       return ShapePlacementEngine.placeSymbolDescriptors(
         in: snapshot.key.tileSize,
         symbolDescriptors: snapshot.symbolDescriptors,
         edgeBehavior: .seamlessWrapping,
-        minimumSpacing: snapshot.key.minimumSpacing,
-        density: snapshot.key.density,
-        maximumSymbolCount: snapshot.key.maximumSymbolCount,
+        placement: snapshot.key.placement,
         randomGenerator: &randomGenerator,
       )
     }
