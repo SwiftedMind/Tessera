@@ -10,6 +10,8 @@
 ### Breaking Changes
 - **Placement Configuration Refactor**: `TesseraConfiguration` now takes a `TesseraPlacement` with per-mode settings
   (for example `TesseraPlacement.Organic`), moving organic-only properties out of the top-level configuration.
+- **Grid Placement Counts**: `TesseraPlacement.Grid` now uses `columnCount` and `rowCount`, and the grid cell size is
+  derived from the tile size instead of being configured directly.
 
 ## [2.0.0]
 

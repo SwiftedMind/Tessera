@@ -1,7 +1,5 @@
 // By Dennis Müller
 
-import CoreGraphics
-
 /// Describes how Tessera chooses symbol positions.
 public enum TesseraPlacement: Hashable, Sendable {
   /// Evenly spaced, organic placement using wrap-aware rejection sampling.
@@ -53,10 +51,14 @@ public enum TesseraPlacement: Hashable, Sendable {
 
   /// Configuration for grid placement.
   public struct Grid: Hashable, Sendable {
-    /// Desired size of each grid cell.
+    /// The number of columns in the grid.
     ///
-    /// The engine adjusts the spacing to fit the tile size for seamless wrapping.
-    public var cellSize: CGSize
+    /// The engine may round up to an even value when seamless wrapping and offset strategies require it.
+    public var columnCount: Int
+    /// The number of rows in the grid.
+    ///
+    /// The engine may round up to an even value when seamless wrapping and offset strategies require it.
+    public var rowCount: Int
     /// Offset strategy applied to grid rows or columns.
     public var offsetStrategy: GridOffsetStrategy
     /// Order in which symbols are assigned to grid cells.
@@ -64,16 +66,18 @@ public enum TesseraPlacement: Hashable, Sendable {
 
     /// Creates a grid placement configuration.
     /// - Parameters:
-    ///   - cellSize: Desired size of each grid cell. The engine adjusts the spacing to fit the tile size for seamless
-    ///     wrapping.
+    ///   - columnCount: The number of columns in the grid.
+    ///   - rowCount: The number of rows in the grid.
     ///   - offsetStrategy: Offset strategy applied to grid rows or columns.
     ///   - symbolOrder: Order in which symbols are assigned to grid cells.
     public init(
-      cellSize: CGSize,
+      columnCount: Int,
+      rowCount: Int,
       offsetStrategy: GridOffsetStrategy = .none,
       symbolOrder: GridSymbolOrder = .sequence,
     ) {
-      self.cellSize = cellSize
+      self.columnCount = columnCount
+      self.rowCount = rowCount
       self.offsetStrategy = offsetStrategy
       self.symbolOrder = symbolOrder
     }

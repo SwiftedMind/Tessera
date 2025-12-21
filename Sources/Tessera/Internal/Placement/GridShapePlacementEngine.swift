@@ -33,7 +33,6 @@ enum GridShapePlacementEngine {
     let resolvedGrid = resolveGrid(
       for: size,
       configuration: configuration,
-      symbolCount: symbolCount,
       edgeBehavior: edgeBehavior,
     )
     let normalizedFraction = normalizedOffsetFraction(from: configuration.offsetStrategy)
@@ -139,36 +138,23 @@ enum GridShapePlacementEngine {
   private static func resolveGrid(
     for size: CGSize,
     configuration: TesseraPlacement.Grid,
-    symbolCount: Int,
     edgeBehavior: TesseraEdgeBehavior,
   ) -> ResolvedGrid {
-    let safeCellWidth = max(configuration.cellSize.width, 1)
-    let safeCellHeight = max(configuration.cellSize.height, 1)
-    let baseColumnCount = max(1, Int((size.width / safeCellWidth).rounded()))
-    let baseRowCount = max(1, Int((size.height / safeCellHeight).rounded()))
+    let baseColumnCount = max(1, configuration.columnCount)
+    let baseRowCount = max(1, configuration.rowCount)
     let rowNeedsEven = edgeBehavior == .seamlessWrapping && rowShiftRequiresEvenRowCount(
       for: configuration.offsetStrategy,
     )
     let columnNeedsEven = edgeBehavior == .seamlessWrapping && columnShiftRequiresEvenColumnCount(
       for: configuration.offsetStrategy,
     )
-    let columnMultiple = columnRequiredMultiple(
-      symbolCount: symbolCount,
-      symbolOrder: configuration.symbolOrder,
+    let columnCount = adjustedCountForOffsetRequirement(
+      baseCount: baseColumnCount,
       requiresEven: columnNeedsEven,
     )
-    let rowMultiple = rowNeedsEven ? 2 : 1
-    let columnCount = adjustedGridCount(
-      baseCount: baseColumnCount,
-      desiredCellSize: safeCellWidth,
-      totalLength: size.width,
-      requiredMultiple: columnMultiple,
-    )
-    let rowCount = adjustedGridCount(
+    let rowCount = adjustedCountForOffsetRequirement(
       baseCount: baseRowCount,
-      desiredCellSize: safeCellHeight,
-      totalLength: size.height,
-      requiredMultiple: rowMultiple,
+      requiresEven: rowNeedsEven,
     )
     let resolvedCellSize = CGSize(
       width: size.width / CGFloat(columnCount),
@@ -181,30 +167,15 @@ enum GridShapePlacementEngine {
     )
   }
 
-  private static func adjustedGridCount(
+  private static func adjustedCountForOffsetRequirement(
     baseCount: Int,
-    desiredCellSize: CGFloat,
-    totalLength: CGFloat,
-    requiredMultiple: Int,
+    requiresEven: Bool,
   ) -> Int {
-    let safeMultiple = max(1, requiredMultiple)
-    guard totalLength > 0 else { return max(1, baseCount) }
-
-    let floorMultiple = max(safeMultiple, (baseCount / safeMultiple) * safeMultiple)
-    let ceilMultiple = max(
-      safeMultiple,
-      ((baseCount + safeMultiple - 1) / safeMultiple) * safeMultiple,
-    )
-
-    let floorCellSize = totalLength / CGFloat(floorMultiple)
-    let ceilCellSize = totalLength / CGFloat(ceilMultiple)
-    let floorDelta = abs(floorCellSize - desiredCellSize)
-    let ceilDelta = abs(ceilCellSize - desiredCellSize)
-
-    if floorDelta == ceilDelta {
-      return max(1, ceilMultiple)
+    guard requiresEven, baseCount.isMultiple(of: 2) == false else {
+      return max(1, baseCount)
     }
-    return floorDelta < ceilDelta ? max(1, floorMultiple) : max(1, ceilMultiple)
+    // Round up to the next even count to preserve seamless offsets.
+    return max(2, baseCount + 1)
   }
 
   private static func rowShiftRequiresEvenRowCount(
@@ -227,36 +198,6 @@ enum GridShapePlacementEngine {
     case .none, .rowShift:
       false
     }
-  }
-
-  private static func columnRequiredMultiple(
-    symbolCount: Int,
-    symbolOrder: TesseraPlacement.GridSymbolOrder,
-    requiresEven: Bool,
-  ) -> Int {
-    let baseMultiple = switch symbolOrder {
-    case .sequence:
-      max(1, symbolCount)
-    }
-    let evenMultiple = requiresEven ? 2 : 1
-    return lcm(baseMultiple, evenMultiple)
-  }
-
-  private static func lcm(_ lhs: Int, _ rhs: Int) -> Int {
-    guard lhs > 0, rhs > 0 else { return max(lhs, rhs) }
-
-    return lhs / gcd(lhs, rhs) * rhs
-  }
-
-  private static func gcd(_ lhs: Int, _ rhs: Int) -> Int {
-    var a = lhs
-    var b = rhs
-    while b != 0 {
-      let remainder = a % b
-      a = b
-      b = remainder
-    }
-    return a
   }
 
   private static func normalizedOffsetFraction(from strategy: TesseraPlacement.GridOffsetStrategy) -> Double {

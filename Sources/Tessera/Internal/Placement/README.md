@@ -68,7 +68,7 @@ let descriptors = ShapePlacementEngine.placeSymbolDescriptors(
 
 The grid engine:
 
-1. Resolves a grid size and cell dimensions from the configuration.
+1. Resolves a grid size and cell dimensions from the configured row and column counts.
 2. Computes each cell center and applies any row/column offset.
 3. Validates placements against pinned symbols.
 4. Returns all accepted placements.

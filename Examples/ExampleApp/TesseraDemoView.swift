@@ -59,7 +59,8 @@ struct TesseraDemoView: View {
       ],
       placement: .grid(
         TesseraPlacement.Grid(
-          cellSize: CGSize(width: 50, height: 50),
+          columnCount: 6,
+          rowCount: 6,
           offsetStrategy: .rowShift(fraction: 0.5),
         ),
       ),
