@@ -45,7 +45,6 @@ public struct TesseraTiledCanvas: View {
         configuration: configuration,
         tileSize: tileSize,
         seed: seed,
-        showsWrappedDuplicates: false,
         onComputationStateChange: onComputationStateChange,
       )
       .frame(width: tileSize.width, height: tileSize.height)
