@@ -88,6 +88,18 @@ struct TesseraCanvasTile: View {
         canvas.clipped()
       }
     }
+    .overlay(alignment: .topLeading) {
+      if isCollisionOverlayEnabled {
+        Text(showsWrappedDuplicates ? "Tile Wrap: On" : "Tile Wrap: Off")
+          .font(.caption2)
+          .padding(.horizontal, 6)
+          .padding(.vertical, 4)
+          .background(Color.red.opacity(0.85))
+          .foregroundStyle(.white)
+          .clipShape(RoundedRectangle(cornerRadius: 4))
+          .padding(6)
+      }
+    }
     .task(id: currentComputationKey) {
       await MainActor.run {
         onComputationStateChange?(true)
