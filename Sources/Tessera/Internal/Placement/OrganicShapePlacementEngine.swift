@@ -176,6 +176,16 @@ enum OrganicShapePlacementEngine {
       }
     }
 
+    if shouldPostValidate(symbolDescriptors) {
+      return postValidatePlacements(
+        placedDescriptors,
+        tileSize: size,
+        symbolDescriptors: symbolDescriptors,
+        edgeBehavior: edgeBehavior,
+        minimumSpacing: minimumSpacing,
+      )
+    }
+
     return placedDescriptors
   }
 
@@ -189,6 +199,69 @@ enum OrganicShapePlacementEngine {
       maximumRadius = max(maximumRadius, radius)
     }
     return maximumRadius
+  }
+
+  /// Returns whether any symbol descriptors include composite collision shapes.
+  private static func shouldPostValidate(_ symbols: [PlacementSymbolDescriptor]) -> Bool {
+    symbols.contains { symbol in
+      switch symbol.collisionShape {
+      case .polygons, .anchoredPolygons, .centeredPolygons:
+        true
+      case .circle, .rectangle, .polygon, .anchoredPolygon, .centeredPolygon:
+        false
+      }
+    }
+  }
+
+  /// Re-validates placements against all prior colliders to catch missed overlaps.
+  private static func postValidatePlacements(
+    _ placedDescriptors: [PlacedSymbolDescriptor],
+    tileSize: CGSize,
+    symbolDescriptors: [PlacementSymbolDescriptor],
+    edgeBehavior: TesseraEdgeBehavior,
+    minimumSpacing: CGFloat,
+  ) -> [PlacedSymbolDescriptor] {
+    guard placedDescriptors.isEmpty == false else { return placedDescriptors }
+
+    let wrapOffsets = ShapePlacementWrapping.wrapOffsets(for: tileSize, edgeBehavior: edgeBehavior)
+    let polygonCache: [UUID: [CollisionPolygon]] = symbolDescriptors.reduce(into: [:]) { cache, symbol in
+      cache[symbol.id] = CollisionMath.polygons(for: symbol.collisionShape)
+    }
+
+    var acceptedDescriptors: [PlacedSymbolDescriptor] = []
+    acceptedDescriptors.reserveCapacity(placedDescriptors.count)
+    var colliders: [PlacedCollider] = []
+    colliders.reserveCapacity(placedDescriptors.count)
+
+    for candidate in placedDescriptors {
+      guard let candidatePolygons = polygonCache[candidate.symbolId] else { continue }
+
+      let colliderIndices = Array(colliders.indices)
+      let isValid = ShapePlacementCollision.isPlacementValid(
+        candidate: candidate,
+        candidatePolygons: candidatePolygons,
+        existingColliderIndices: colliderIndices,
+        allColliders: colliders,
+        tileSize: tileSize,
+        edgeBehavior: edgeBehavior,
+        wrapOffsets: wrapOffsets,
+        minimumSpacing: minimumSpacing,
+      )
+
+      guard isValid else { continue }
+
+      acceptedDescriptors.append(candidate)
+      colliders.append(
+        PlacedCollider(
+          collisionShape: candidate.collisionShape,
+          collisionTransform: candidate.collisionTransform,
+          polygons: candidatePolygons,
+          boundingRadius: candidate.collisionShape.boundingRadius(atScale: candidate.scale),
+        ),
+      )
+    }
+
+    return acceptedDescriptors
   }
 
   private static func cellCoordinate(
