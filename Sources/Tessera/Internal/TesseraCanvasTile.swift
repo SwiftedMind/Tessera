@@ -7,6 +7,8 @@ struct TesseraCanvasTile: View {
   var configuration: TesseraConfiguration
   var tileSize: CGSize
   var seed: UInt64
+  /// Whether to render wrapped duplicates inside the tile for seamless edge previews.
+  var showsWrappedDuplicates: Bool
   var onComputationStateChange: ((Bool) -> Void)?
 
   @State private var cachedPlacedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor] = []
@@ -15,11 +17,13 @@ struct TesseraCanvasTile: View {
     configuration: TesseraConfiguration,
     tileSize: CGSize,
     seed: UInt64,
+    showsWrappedDuplicates: Bool,
     onComputationStateChange: ((Bool) -> Void)? = nil,
   ) {
     self.configuration = configuration
     self.tileSize = tileSize
     self.seed = seed
+    self.showsWrappedDuplicates = showsWrappedDuplicates
     self.onComputationStateChange = onComputationStateChange
   }
 
@@ -41,7 +45,7 @@ struct TesseraCanvasTile: View {
         height: configuration.patternOffset.height.truncatingRemainder(dividingBy: size.height),
       )
 
-      let offsets: [CGSize] = [
+      let offsets: [CGSize] = showsWrappedDuplicates ? [
         .zero,
         CGSize(width: size.width, height: 0),
         CGSize(width: -size.width, height: 0),
@@ -51,7 +55,7 @@ struct TesseraCanvasTile: View {
         CGSize(width: size.width, height: -size.height),
         CGSize(width: -size.width, height: size.height),
         CGSize(width: -size.width, height: -size.height),
-      ]
+      ] : [.zero]
 
       for placedSymbol in placedSymbolDescriptors {
         guard let symbol = context.resolveSymbol(id: placedSymbol.symbolId) else { continue }
