@@ -34,6 +34,7 @@ public struct TesseraTile: View {
       configuration: configuration,
       tileSize: tileSize,
       seed: seed,
+      showsWrappedDuplicates: true,
       onComputationStateChange: onComputationStateChange,
     )
   }

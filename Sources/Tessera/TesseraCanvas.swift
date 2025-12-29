@@ -138,6 +138,10 @@ public struct TesseraCanvas: View {
   public var onComputationStateChange: ((Bool) -> Void)?
 
   @State private var cachedPlacedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor] = []
+  /// Snapshot of the configuration used for the cached placements.
+  @State private var cachedConfiguration: TesseraConfiguration
+  /// Snapshot of pinned symbols used for the cached placements.
+  @State private var cachedPinnedSymbols: [TesseraPinnedSymbol]
   @State private var resolvedCanvasSize: CGSize = .zero
 
   /// Creates a finite tessera canvas.
@@ -161,11 +165,14 @@ public struct TesseraCanvas: View {
     self.seed = seed ?? configuration.organicPlacement?.seed ?? TesseraConfiguration.randomSeed()
     self.edgeBehavior = edgeBehavior
     self.onComputationStateChange = onComputationStateChange
+    _cachedConfiguration = State(initialValue: configuration)
+    _cachedPinnedSymbols = State(initialValue: pinnedSymbols)
   }
 
   public var body: some View {
-    let configuration = configuration
-    let pinnedSymbols = pinnedSymbols
+    // Render from the cached snapshot to keep placements aligned with symbol geometry.
+    let configuration = cachedConfiguration
+    let pinnedSymbols = cachedPinnedSymbols
     let edgeBehavior = edgeBehavior
     let placedSymbolDescriptors = cachedPlacedSymbolDescriptors
     let onComputationStateChange = onComputationStateChange
@@ -550,6 +557,8 @@ private extension TesseraCanvas {
       guard snapshot.key == currentComputationKey else { return }
 
       cachedPlacedSymbolDescriptors = placedSymbolDescriptors
+      cachedConfiguration = configuration
+      cachedPinnedSymbols = pinnedSymbols
     }
   }
 
