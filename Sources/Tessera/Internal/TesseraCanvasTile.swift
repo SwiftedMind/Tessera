@@ -12,6 +12,8 @@ struct TesseraCanvasTile: View {
   var onComputationStateChange: ((Bool) -> Void)?
 
   @State private var cachedPlacedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor] = []
+  /// Cached overlap counts for debugging seamless placement.
+  @State private var cachedOverlapCounts: CollisionOverlapCounts = .empty
 
   init(
     configuration: TesseraConfiguration,
@@ -31,6 +33,7 @@ struct TesseraCanvasTile: View {
     let configuration = configuration
     let tileSize = tileSize
     let placedSymbolDescriptors = cachedPlacedSymbolDescriptors
+    let overlapCounts = cachedOverlapCounts
     let onComputationStateChange = onComputationStateChange
     let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
     let overlayShapesBySymbolId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
@@ -88,9 +91,16 @@ struct TesseraCanvasTile: View {
         canvas.clipped()
       }
     }
+    .overlay {
+      if isCollisionOverlayEnabled {
+        Rectangle()
+          .stroke(Color.red.opacity(0.6), lineWidth: 1)
+      }
+    }
     .overlay(alignment: .topLeading) {
       if isCollisionOverlayEnabled {
-        Text(showsWrappedDuplicates ? "Tile Wrap: On" : "Tile Wrap: Off")
+        let wrapText = showsWrappedDuplicates ? "Tile Wrap: On" : "Tile Wrap: Off"
+        Text("\(wrapText) · Local: \(overlapCounts.local) · Seam: \(overlapCounts.seam)")
           .font(.caption2)
           .padding(.horizontal, 6)
           .padding(.vertical, 4)
@@ -231,10 +241,122 @@ private extension TesseraCanvasTile {
       computeTask.cancel()
     }
 
+    let overlapCounts = configuration.showsCollisionOverlay
+      ? CollisionOverlapDiagnostics.overlapCounts(
+        in: placedSymbolDescriptors,
+        tileSize: snapshot.key.tileSize,
+        edgeBehavior: .seamlessWrapping,
+      )
+      : .empty
+
     await MainActor.run {
       guard snapshot.key == currentComputationKey else { return }
 
       cachedPlacedSymbolDescriptors = placedSymbolDescriptors
+      cachedOverlapCounts = overlapCounts
     }
+  }
+}
+
+/// Stores overlap counts for local and seam checks.
+private struct CollisionOverlapCounts: Sendable {
+  var local: Int
+  var seam: Int
+
+  static let empty = CollisionOverlapCounts(local: 0, seam: 0)
+}
+
+/// Computes overlap counts for placed symbols.
+private enum CollisionOverlapDiagnostics {
+  /// Counts overlaps inside the tile and across the seam.
+  static func overlapCounts(
+    in placedSymbols: [ShapePlacementEngine.PlacedSymbolDescriptor],
+    tileSize: CGSize,
+    edgeBehavior: TesseraEdgeBehavior,
+  ) -> CollisionOverlapCounts {
+    guard placedSymbols.count > 1 else { return .empty }
+
+    let wrapOffsets = ShapePlacementWrapping.wrapOffsets(for: tileSize, edgeBehavior: edgeBehavior)
+    let seamOffsets = wrapOffsets.filter { $0 != .zero }
+    let polygonCache: [UUID: [CollisionPolygon]] = placedSymbols.reduce(into: [:]) { cache, symbol in
+      cache[symbol.symbolId] = CollisionMath.polygons(for: symbol.collisionShape)
+    }
+
+    var localCount = 0
+    var seamCount = 0
+
+    for firstIndex in placedSymbols.indices {
+      let first = placedSymbols[firstIndex]
+      let firstTransform = first.collisionTransform
+      let firstBoundingRadius = first.collisionShape.boundingRadius(atScale: firstTransform.scale)
+      guard let firstPolygons = polygonCache[first.symbolId] else { continue }
+
+      for secondIndex in placedSymbols.indices where secondIndex > firstIndex {
+        let second = placedSymbols[secondIndex]
+        let secondBoundingRadius = second.collisionShape.boundingRadius(atScale: second.scale)
+        guard let secondPolygons = polygonCache[second.symbolId] else { continue }
+
+        if overlaps(
+          first: first,
+          firstPolygons: firstPolygons,
+          firstRadius: firstBoundingRadius,
+          second: second,
+          secondPolygons: secondPolygons,
+          secondRadius: secondBoundingRadius,
+          offset: .zero,
+        ) {
+          localCount += 1
+          continue
+        }
+
+        if seamOffsets.contains(where: { offset in
+          overlaps(
+            first: first,
+            firstPolygons: firstPolygons,
+            firstRadius: firstBoundingRadius,
+            second: second,
+            secondPolygons: secondPolygons,
+            secondRadius: secondBoundingRadius,
+            offset: offset,
+          )
+        }) {
+          seamCount += 1
+        }
+      }
+    }
+
+    return CollisionOverlapCounts(local: localCount, seam: seamCount)
+  }
+
+  private static func overlaps(
+    first: ShapePlacementEngine.PlacedSymbolDescriptor,
+    firstPolygons: [CollisionPolygon],
+    firstRadius: CGFloat,
+    second: ShapePlacementEngine.PlacedSymbolDescriptor,
+    secondPolygons: [CollisionPolygon],
+    secondRadius: CGFloat,
+    offset: CGPoint,
+  ) -> Bool {
+    let shiftedPosition = CGPoint(
+      x: second.position.x + offset.x,
+      y: second.position.y + offset.y,
+    )
+    let deltaX = first.position.x - shiftedPosition.x
+    let deltaY = first.position.y - shiftedPosition.y
+    let combinedRadius = firstRadius + secondRadius
+    guard deltaX * deltaX + deltaY * deltaY <= combinedRadius * combinedRadius else { return false }
+
+    let shiftedTransform = CollisionTransform(
+      position: shiftedPosition,
+      rotation: CGFloat(second.rotationRadians),
+      scale: second.scale,
+    )
+
+    return CollisionMath.polygonsIntersect(
+      firstPolygons,
+      transformA: first.collisionTransform,
+      secondPolygons,
+      transformB: shiftedTransform,
+    )
   }
 }
