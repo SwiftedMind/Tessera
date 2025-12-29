@@ -205,6 +205,115 @@ enum CollisionMath {
     return false
   }
 
+  /// Slower edge-based intersection test used as a safety net for missed overlaps.
+  ///
+  /// This ignores the spacing buffer and only detects actual polygon overlap.
+  static func polygonsIntersectStrict(
+    _ polygonsA: [CollisionPolygon],
+    transformA: CollisionTransform,
+    _ polygonsB: [CollisionPolygon],
+    transformB: CollisionTransform,
+  ) -> Bool {
+    guard !polygonsA.isEmpty, !polygonsB.isEmpty else { return false }
+
+    for polygonA in polygonsA {
+      let transformedA = polygonA.points.map { applyTransform($0, using: transformA) }
+      for polygonB in polygonsB {
+        let transformedB = polygonB.points.map { applyTransform($0, using: transformB) }
+        if polygonsIntersectByEdges(transformedA, transformedB) {
+          return true
+        }
+      }
+    }
+
+    return false
+  }
+
+  private static func polygonsIntersectByEdges(
+    _ polygonA: [CGPoint],
+    _ polygonB: [CGPoint],
+  ) -> Bool {
+    guard polygonA.count >= 3, polygonB.count >= 3 else { return false }
+
+    let edgesA = edgeSegments(for: polygonA)
+    let edgesB = edgeSegments(for: polygonB)
+
+    for (aStart, aEnd) in edgesA {
+      for (bStart, bEnd) in edgesB {
+        if segmentsIntersect(aStart, aEnd, bStart, bEnd) {
+          return true
+        }
+      }
+    }
+
+    if pointInPolygon(polygonA[0], polygonB) || pointInPolygon(polygonB[0], polygonA) {
+      return true
+    }
+
+    return false
+  }
+
+  private static func edgeSegments(for polygon: [CGPoint]) -> [(CGPoint, CGPoint)] {
+    var segments: [(CGPoint, CGPoint)] = []
+    segments.reserveCapacity(polygon.count)
+    for index in polygon.indices {
+      let start = polygon[index]
+      let end = polygon[(index + 1) % polygon.count]
+      segments.append((start, end))
+    }
+    return segments
+  }
+
+  private static func segmentsIntersect(
+    _ p1: CGPoint,
+    _ p2: CGPoint,
+    _ q1: CGPoint,
+    _ q2: CGPoint,
+  ) -> Bool {
+    let d1 = direction(q1, q2, p1)
+    let d2 = direction(q1, q2, p2)
+    let d3 = direction(p1, p2, q1)
+    let d4 = direction(p1, p2, q2)
+
+    if d1 == 0, onSegment(q1, q2, p1) { return true }
+    if d2 == 0, onSegment(q1, q2, p2) { return true }
+    if d3 == 0, onSegment(p1, p2, q1) { return true }
+    if d4 == 0, onSegment(p1, p2, q2) { return true }
+
+    return (d1 > 0) != (d2 > 0) && (d3 > 0) != (d4 > 0)
+  }
+
+  private static func direction(_ a: CGPoint, _ b: CGPoint, _ c: CGPoint) -> CGFloat {
+    let value = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
+    if abs(value) <= polygonEpsilon {
+      return 0
+    }
+    return value
+  }
+
+  private static func onSegment(_ a: CGPoint, _ b: CGPoint, _ c: CGPoint) -> Bool {
+    min(a.x, b.x) - polygonEpsilon <= c.x &&
+      c.x <= max(a.x, b.x) + polygonEpsilon &&
+      min(a.y, b.y) - polygonEpsilon <= c.y &&
+      c.y <= max(a.y, b.y) + polygonEpsilon
+  }
+
+  private static func pointInPolygon(_ point: CGPoint, _ polygon: [CGPoint]) -> Bool {
+    var isInside = false
+    var j = polygon.count - 1
+    for i in polygon.indices {
+      let pointA = polygon[i]
+      let pointB = polygon[j]
+      let intersects = (pointA.y > point.y) != (pointB.y > point.y) &&
+        point.x < (pointB.x - pointA.x) * (point.y - pointA.y) / (pointB.y - pointA.y + polygonEpsilon) + pointA.x
+      if intersects {
+        isInside.toggle()
+      }
+      j = i
+    }
+    return isInside
+  }
+
   static func polygonPointSets(
     for shape: CollisionShape,
     circleSubdivisionCount: Int = 12,

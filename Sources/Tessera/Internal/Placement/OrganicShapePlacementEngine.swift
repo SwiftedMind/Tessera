@@ -272,6 +272,15 @@ enum OrganicShapePlacementEngine {
         ) {
           return false
         }
+
+        if CollisionMath.polygonsIntersectStrict(
+          candidatePolygons,
+          transformA: candidate.collisionTransform,
+          collider.polygons,
+          transformB: shiftedTransform,
+        ) {
+          return false
+        }
       }
     }
 
