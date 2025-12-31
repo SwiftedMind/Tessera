@@ -12,7 +12,7 @@ import Testing
   let fileName = UUID().uuidString
 
   let exportedURL = try tile.renderPNG(to: temporaryDirectory, fileName: fileName)
-  defer { try? FileManager.default.removeSymbol(at: exportedURL) }
+  defer { try? FileManager.default.removeItem(at: exportedURL) }
 
   let cgImage = try cgImageFromPNGFile(at: exportedURL)
   #expect(imageContainsVisiblePixels(cgImage))
@@ -24,7 +24,7 @@ import Testing
   let fileName = UUID().uuidString
 
   let exportedURL = try tile.renderPDF(to: temporaryDirectory, fileName: fileName)
-  defer { try? FileManager.default.removeSymbol(at: exportedURL) }
+  defer { try? FileManager.default.removeItem(at: exportedURL) }
 
   let cgImage = try cgImageFromPDFFile(at: exportedURL)
   #expect(imageContainsVisiblePixels(cgImage))
@@ -37,7 +37,7 @@ import Testing
   let fileName = UUID().uuidString
 
   let exportedURL = try canvas.renderPNG(to: temporaryDirectory, fileName: fileName, canvasSize: canvasSize)
-  defer { try? FileManager.default.removeSymbol(at: exportedURL) }
+  defer { try? FileManager.default.removeItem(at: exportedURL) }
 
   let cgImage = try cgImageFromPNGFile(at: exportedURL)
   let cornerPixel = try pixelComponents(in: cgImage, x: 0, y: 0)
@@ -56,7 +56,7 @@ import Testing
     canvasSize: canvasSize,
     backgroundColor: .green,
   )
-  defer { try? FileManager.default.removeSymbol(at: greenBackgroundURL) }
+  defer { try? FileManager.default.removeItem(at: greenBackgroundURL) }
 
   let blueBackgroundURL = try canvas.renderPNG(
     to: temporaryDirectory,
@@ -64,7 +64,7 @@ import Testing
     canvasSize: canvasSize,
     backgroundColor: .blue,
   )
-  defer { try? FileManager.default.removeSymbol(at: blueBackgroundURL) }
+  defer { try? FileManager.default.removeItem(at: blueBackgroundURL) }
 
   let greenImage = try cgImageFromPNGFile(at: greenBackgroundURL)
   let greenCornerPixel = try pixelComponents(in: greenImage, x: 0, y: 0)
@@ -93,7 +93,7 @@ import Testing
     canvasSize: canvasSize,
     pageSize: pageSize,
   )
-  defer { try? FileManager.default.removeSymbol(at: exportedURL) }
+  defer { try? FileManager.default.removeItem(at: exportedURL) }
 
   let cgImage = try cgImageFromPDFFile(at: exportedURL)
   let cornerPixel = try pixelComponents(in: cgImage, x: 0, y: 0)
@@ -114,7 +114,7 @@ import Testing
     backgroundColor: .green,
     pageSize: pageSize,
   )
-  defer { try? FileManager.default.removeSymbol(at: greenBackgroundURL) }
+  defer { try? FileManager.default.removeItem(at: greenBackgroundURL) }
 
   let blueBackgroundURL = try canvas.renderPDF(
     to: temporaryDirectory,
@@ -123,7 +123,7 @@ import Testing
     backgroundColor: .blue,
     pageSize: pageSize,
   )
-  defer { try? FileManager.default.removeSymbol(at: blueBackgroundURL) }
+  defer { try? FileManager.default.removeItem(at: blueBackgroundURL) }
 
   let greenImage = try cgImageFromPDFFile(at: greenBackgroundURL)
   let greenCornerPixel = try pixelComponents(in: greenImage, x: 0, y: 0)

@@ -1,6 +1,7 @@
 // By Dennis Müller
 
 import CoreGraphics
+import Foundation
 
 /// Describes the configuration used to generate a tessera layout.
 ///
@@ -12,6 +13,14 @@ public struct TesseraConfiguration {
   public var placement: TesseraPlacement
   /// Offsets applied to all generated symbols before optional wrapping.
   public var patternOffset: CGSize
+  /// Optional render invalidation token.
+  ///
+  /// Tessera caches expensive placement results and may not recompute them when only the *rendered content* of symbols
+  /// changes (for example, when a symbol's SwiftUI view output changes but its collision shape and size remain stable).
+  ///
+  /// Set this to a value that changes whenever you need the canvas to redraw existing placements with updated symbol
+  /// content.
+  public var renderID: UUID?
 
   /// Creates a tessera configuration.
   /// - Parameters:
@@ -22,10 +31,12 @@ public struct TesseraConfiguration {
     symbols: [TesseraSymbol],
     placement: TesseraPlacement,
     patternOffset: CGSize = .zero,
+    renderID: UUID? = nil,
   ) {
     self.symbols = symbols
     self.placement = placement
     self.patternOffset = patternOffset
+    self.renderID = renderID
   }
 
   /// Generates a new random seed.

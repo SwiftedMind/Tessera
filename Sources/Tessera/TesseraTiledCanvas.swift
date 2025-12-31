@@ -8,6 +8,7 @@ public struct TesseraTiledCanvas: View {
   public var tileSize: CGSize
   public var seed: UInt64
   public var onComputationStateChange: ((Bool) -> Void)?
+  @State private var renderTick: UInt64 = 0
 
   /// Creates a tiled tessera canvas view.
   /// - Parameters:
@@ -27,7 +28,10 @@ public struct TesseraTiledCanvas: View {
   }
 
   public var body: some View {
+    let renderTickValue = renderTick
+
     Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: true) { context, size in
+      _ = renderTickValue
       guard let tile = context.resolveSymbol(id: 0) else { return }
 
       let columns = Int(ceil(size.width / tileSize.width))
@@ -49,6 +53,11 @@ public struct TesseraTiledCanvas: View {
       )
       .frame(width: tileSize.width, height: tileSize.height)
       .tag(0)
+    }
+    .task(id: configuration.renderID) {
+      await MainActor.run {
+        renderTick &+= 1
+      }
     }
   }
 }

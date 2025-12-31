@@ -10,6 +10,7 @@ struct TesseraCanvasTile: View {
   var onComputationStateChange: ((Bool) -> Void)?
 
   @State private var cachedPlacedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor] = []
+  @State private var renderTick: UInt64 = 0
 
   init(
     configuration: TesseraConfiguration,
@@ -28,6 +29,7 @@ struct TesseraCanvasTile: View {
     let tileSize = tileSize
     let placedSymbolDescriptors = cachedPlacedSymbolDescriptors
     let onComputationStateChange = onComputationStateChange
+    let renderTickValue = renderTick
     let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
     let overlayShapesBySymbolId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
       ? configuration.symbols.reduce(into: [:]) { cache, symbol in
@@ -36,6 +38,8 @@ struct TesseraCanvasTile: View {
       : [:]
 
     Canvas(rendersAsynchronously: true) { context, size in
+      _ = renderTickValue
+
       let wrappedOffset = CGSize(
         width: configuration.patternOffset.width.truncatingRemainder(dividingBy: size.width),
         height: configuration.patternOffset.height.truncatingRemainder(dividingBy: size.height),
@@ -91,6 +95,11 @@ struct TesseraCanvasTile: View {
 
       let snapshot = makeComputationSnapshot()
       await computePlacements(using: snapshot)
+    }
+    .task(id: configuration.renderID) {
+      await MainActor.run {
+        renderTick &+= 1
+      }
     }
   }
 }
