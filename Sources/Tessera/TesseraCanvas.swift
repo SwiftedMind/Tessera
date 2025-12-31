@@ -6,6 +6,11 @@ import ImageIO
 import SwiftUI
 import UniformTypeIdentifiers
 
+private struct TesseraSymbolResolutionID: Hashable, Sendable {
+  var symbolID: UUID
+  var renderID: UUID?
+}
+
 /// Defines how a tessera canvas treats its edges.
 public enum TesseraEdgeBehavior: Sendable {
   /// No wrapping. Symbols are clipped at the canvas bounds.
@@ -209,7 +214,8 @@ public struct TesseraCanvas: View {
       }
 
       for pinnedSymbol in pinnedSymbols {
-        guard let symbol = context.resolveSymbol(id: pinnedSymbol.id) else { continue }
+        let resolvedSymbolID = TesseraSymbolResolutionID(symbolID: pinnedSymbol.id, renderID: configuration.renderID)
+        guard let symbol = context.resolveSymbol(id: resolvedSymbolID) else { continue }
 
         let resolvedPosition = pinnedSymbol.resolvedPosition(in: size)
 
@@ -229,7 +235,11 @@ public struct TesseraCanvas: View {
       }
 
       for placedSymbol in placedSymbolDescriptors {
-        guard let symbol = context.resolveSymbol(id: placedSymbol.symbolId) else { continue }
+        let resolvedSymbolID = TesseraSymbolResolutionID(
+          symbolID: placedSymbol.symbolId,
+          renderID: configuration.renderID,
+        )
+        guard let symbol = context.resolveSymbol(id: resolvedSymbolID) else { continue }
 
         for offset in offsets {
           var symbolContext = context
@@ -247,10 +257,13 @@ public struct TesseraCanvas: View {
       }
     } symbols: {
       ForEach(configuration.symbols) { symbol in
-        symbol.makeView().tag(symbol.id)
+        symbol.makeView().tag(TesseraSymbolResolutionID(symbolID: symbol.id, renderID: configuration.renderID))
       }
       ForEach(pinnedSymbols) { pinnedSymbol in
-        pinnedSymbol.makeView().tag(pinnedSymbol.id)
+        pinnedSymbol.makeView().tag(TesseraSymbolResolutionID(
+          symbolID: pinnedSymbol.id,
+          renderID: configuration.renderID,
+        ))
       }
     }
     .clipped()
@@ -745,7 +758,8 @@ private struct TesseraCanvasStaticRenderView: View {
       }
 
       for pinnedSymbol in pinnedSymbols {
-        guard let symbol = context.resolveSymbol(id: pinnedSymbol.id) else { continue }
+        let resolvedSymbolID = TesseraSymbolResolutionID(symbolID: pinnedSymbol.id, renderID: configuration.renderID)
+        guard let symbol = context.resolveSymbol(id: resolvedSymbolID) else { continue }
 
         let resolvedPosition = pinnedSymbol.resolvedPosition(in: size)
 
@@ -765,7 +779,11 @@ private struct TesseraCanvasStaticRenderView: View {
       }
 
       for placedSymbol in placedSymbolDescriptors {
-        guard let symbol = context.resolveSymbol(id: placedSymbol.symbolId) else { continue }
+        let resolvedSymbolID = TesseraSymbolResolutionID(
+          symbolID: placedSymbol.symbolId,
+          renderID: configuration.renderID,
+        )
+        guard let symbol = context.resolveSymbol(id: resolvedSymbolID) else { continue }
 
         for offset in offsets {
           var symbolContext = context
@@ -783,10 +801,13 @@ private struct TesseraCanvasStaticRenderView: View {
       }
     } symbols: {
       ForEach(configuration.symbols) { symbol in
-        symbol.makeView().tag(symbol.id)
+        symbol.makeView().tag(TesseraSymbolResolutionID(symbolID: symbol.id, renderID: configuration.renderID))
       }
       ForEach(pinnedSymbols) { pinnedSymbol in
-        pinnedSymbol.makeView().tag(pinnedSymbol.id)
+        pinnedSymbol.makeView().tag(TesseraSymbolResolutionID(
+          symbolID: pinnedSymbol.id,
+          renderID: configuration.renderID,
+        ))
       }
     }
     .frame(width: canvasSize.width, height: canvasSize.height)

@@ -1,9 +1,15 @@
 // By Dennis Müller
 
+import Foundation
 import SwiftUI
 
 /// Renders a single tessera tile into a cached symbol.
 struct TesseraCanvasTile: View {
+  private struct SymbolResolutionID: Hashable, Sendable {
+    var symbolID: UUID
+    var renderID: UUID?
+  }
+
   var configuration: TesseraConfiguration
   var tileSize: CGSize
   var seed: UInt64
@@ -58,7 +64,11 @@ struct TesseraCanvasTile: View {
       ]
 
       for placedSymbol in placedSymbolDescriptors {
-        guard let symbol = context.resolveSymbol(id: placedSymbol.symbolId) else { continue }
+        let resolvedSymbolID = SymbolResolutionID(
+          symbolID: placedSymbol.symbolId,
+          renderID: configuration.renderID,
+        )
+        guard let symbol = context.resolveSymbol(id: resolvedSymbolID) else { continue }
 
         for offset in offsets {
           var symbolContext = context
@@ -76,7 +86,7 @@ struct TesseraCanvasTile: View {
       }
     } symbols: {
       ForEach(configuration.symbols) { symbol in
-        symbol.makeView().tag(symbol.id)
+        symbol.makeView().tag(SymbolResolutionID(symbolID: symbol.id, renderID: configuration.renderID))
       }
     }
     .frame(width: tileSize.width, height: tileSize.height)

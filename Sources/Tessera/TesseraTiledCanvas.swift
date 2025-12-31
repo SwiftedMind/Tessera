@@ -1,9 +1,14 @@
 // By Dennis Müller
 
+import Foundation
 import SwiftUI
 
 /// A view that repeats a tessera tile to fill the available space by tiling a single generated tile.
 public struct TesseraTiledCanvas: View {
+  private struct TileResolutionID: Hashable, Sendable {
+    var renderID: UUID?
+  }
+
   public var configuration: TesseraConfiguration
   public var tileSize: CGSize
   public var seed: UInt64
@@ -29,10 +34,11 @@ public struct TesseraTiledCanvas: View {
 
   public var body: some View {
     let renderTickValue = renderTick
+    let tileID = TileResolutionID(renderID: configuration.renderID)
 
     Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: true) { context, size in
       _ = renderTickValue
-      guard let tile = context.resolveSymbol(id: 0) else { return }
+      guard let tile = context.resolveSymbol(id: tileID) else { return }
 
       let columns = Int(ceil(size.width / tileSize.width))
       let rows = Int(ceil(size.height / tileSize.height))
@@ -52,7 +58,7 @@ public struct TesseraTiledCanvas: View {
         onComputationStateChange: onComputationStateChange,
       )
       .frame(width: tileSize.width, height: tileSize.height)
-      .tag(0)
+      .tag(tileID)
     }
     .task(id: configuration.renderID) {
       await MainActor.run {
