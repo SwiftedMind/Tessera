@@ -86,7 +86,10 @@ struct TesseraCanvasTile: View {
       }
     } symbols: {
       ForEach(configuration.symbols) { symbol in
-        symbol.makeView().tag(SymbolResolutionID(symbolID: symbol.id, renderID: configuration.renderID))
+        let resolutionID = SymbolResolutionID(symbolID: symbol.id, renderID: configuration.renderID)
+        symbol.makeView()
+          .tag(resolutionID)
+          .id(resolutionID)
       }
     }
     .frame(width: tileSize.width, height: tileSize.height)

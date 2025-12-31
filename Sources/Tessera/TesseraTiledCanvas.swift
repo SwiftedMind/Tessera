@@ -59,6 +59,7 @@ public struct TesseraTiledCanvas: View {
       )
       .frame(width: tileSize.width, height: tileSize.height)
       .tag(tileID)
+      .id(tileID)
     }
     .task(id: configuration.renderID) {
       await MainActor.run {

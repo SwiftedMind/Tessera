@@ -257,13 +257,16 @@ public struct TesseraCanvas: View {
       }
     } symbols: {
       ForEach(configuration.symbols) { symbol in
-        symbol.makeView().tag(TesseraSymbolResolutionID(symbolID: symbol.id, renderID: configuration.renderID))
+        let resolutionID = TesseraSymbolResolutionID(symbolID: symbol.id, renderID: configuration.renderID)
+        symbol.makeView()
+          .tag(resolutionID)
+          .id(resolutionID)
       }
       ForEach(pinnedSymbols) { pinnedSymbol in
-        pinnedSymbol.makeView().tag(TesseraSymbolResolutionID(
-          symbolID: pinnedSymbol.id,
-          renderID: configuration.renderID,
-        ))
+        let resolutionID = TesseraSymbolResolutionID(symbolID: pinnedSymbol.id, renderID: configuration.renderID)
+        pinnedSymbol.makeView()
+          .tag(resolutionID)
+          .id(resolutionID)
       }
     }
     .clipped()
