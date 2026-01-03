@@ -138,7 +138,6 @@ public struct TesseraCanvas: View {
   public var onComputationStateChange: ((Bool) -> Void)?
 
   @State private var cachedPlacedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor] = []
-  @State private var resolvedCanvasSize: CGSize = .zero
 
   /// Creates a finite tessera canvas.
   /// - Parameters:
@@ -164,6 +163,16 @@ public struct TesseraCanvas: View {
   }
 
   public var body: some View {
+    GeometryReader { proxy in
+      canvasBody(canvasSize: proxy.size)
+    }
+  }
+
+  /// Renders the canvas content while driving placement computation from the resolved layout size.
+  ///
+  /// This avoids relying on preference propagation for initial size resolution, which can otherwise result in a
+  /// missed first placement computation during view creation and window restoration.
+  private func canvasBody(canvasSize: CGSize) -> some View {
     let configuration = configuration
     let pinnedSymbols = pinnedSymbols
     let edgeBehavior = edgeBehavior
@@ -181,7 +190,11 @@ public struct TesseraCanvas: View {
       }
       : [:]
 
-    Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: true) { context, size in
+    let computationKey = makeComputationKey(for: canvasSize)
+
+    return Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: true) { context, size in
+      guard size.width > 0, size.height > 0 else { return }
+
       let wrappedOffset = CGSize(
         width: configuration.patternOffset.width.truncatingRemainder(dividingBy: size.width),
         height: configuration.patternOffset.height.truncatingRemainder(dividingBy: size.height),
@@ -249,19 +262,9 @@ public struct TesseraCanvas: View {
         pinnedSymbol.makeView().tag(pinnedSymbol.id)
       }
     }
+    .frame(width: canvasSize.width, height: canvasSize.height)
     .clipped()
-    .background(
-      GeometryReader { proxy in
-        Color.clear
-          .preference(key: TesseraCanvasSizePreferenceKey.self, value: proxy.size)
-      },
-    )
-    .onPreferenceChange(TesseraCanvasSizePreferenceKey.self) { newSize in
-      if resolvedCanvasSize != newSize {
-        resolvedCanvasSize = newSize
-      }
-    }
-    .task(id: currentComputationKey) {
+    .task(id: computationKey) {
       await MainActor.run {
         onComputationStateChange?(true)
       }
@@ -273,9 +276,7 @@ public struct TesseraCanvas: View {
         }
       }
 
-      let canvasSize = resolvedCanvasSize
       guard canvasSize.width > 0, canvasSize.height > 0 else {
-        cachedPlacedSymbolDescriptors = []
         return
       }
 
@@ -452,14 +453,6 @@ private struct TesseraCanvasExportRenderView<Content: View>: View {
   }
 }
 
-private struct TesseraCanvasSizePreferenceKey: PreferenceKey {
-  static let defaultValue: CGSize = .zero
-
-  static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
-    value = nextValue()
-  }
-}
-
 private extension TesseraCanvas {
   struct ComputationKey: Hashable, Sendable {
     var canvasSize: CGSize
@@ -513,10 +506,6 @@ private extension TesseraCanvas {
     }
   }
 
-  var currentComputationKey: ComputationKey {
-    makeComputationKey(for: resolvedCanvasSize)
-  }
-
   func makeComputationSnapshot(for canvasSize: CGSize) -> ComputationSnapshot {
     let key = makeComputationKey(for: canvasSize)
     return ComputationSnapshot(
@@ -547,7 +536,7 @@ private extension TesseraCanvas {
     }
 
     await MainActor.run {
-      guard snapshot.key == currentComputationKey else { return }
+      guard Task.isCancelled == false else { return }
 
       cachedPlacedSymbolDescriptors = placedSymbolDescriptors
     }
