@@ -324,9 +324,13 @@ public struct TesseraCanvas: View {
       content: renderView,
     )
     let rendererContent = if let colorScheme {
-      AnyView(exportView.environment(\.colorScheme, colorScheme))
+      AnyView(
+        exportView
+          .environment(\.colorScheme, colorScheme)
+          .tesseraRenderTarget(.exportPNG),
+      )
     } else {
-      AnyView(exportView)
+      AnyView(exportView.tesseraRenderTarget(.exportPNG))
     }
     let renderer = ImageRenderer(content: rendererContent)
     renderer.proposedSize = ProposedViewSize(canvasSize)
@@ -407,9 +411,13 @@ public struct TesseraCanvas: View {
       content: renderView,
     )
     let rendererContent = if let colorScheme {
-      AnyView(exportView.environment(\.colorScheme, colorScheme))
+      AnyView(
+        exportView
+          .environment(\.colorScheme, colorScheme)
+          .tesseraRenderTarget(.exportPDF),
+      )
     } else {
-      AnyView(exportView)
+      AnyView(exportView.tesseraRenderTarget(.exportPDF))
     }
     let renderer = ImageRenderer(content: rendererContent)
     renderer.proposedSize = ProposedViewSize(renderSize)
