@@ -217,6 +217,25 @@ public struct TesseraCanvas: View {
         ]
       }
 
+      for placedSymbol in placedSymbolDescriptors {
+        guard let symbol = context.resolveSymbol(id: placedSymbol.symbolId) else { continue }
+
+        for offset in offsets {
+          var symbolContext = context
+          symbolContext.translateBy(x: offset.width + wrappedOffset.width, y: offset.height + wrappedOffset.height)
+          symbolContext.translateBy(x: placedSymbol.position.x, y: placedSymbol.position.y)
+          symbolContext.rotate(by: .radians(placedSymbol.rotationRadians))
+          symbolContext.scaleBy(x: placedSymbol.scale, y: placedSymbol.scale)
+          symbolContext.draw(symbol, at: .zero, anchor: .center)
+
+          if isCollisionOverlayEnabled,
+             let overlayShape = overlayShapesBySymbolId[placedSymbol.symbolId] {
+            CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
+          }
+        }
+      }
+
+      // Render pinned symbols last so they appear above the generated symbols.
       for pinnedSymbol in pinnedSymbols {
         guard let symbol = context.resolveSymbol(id: pinnedSymbol.id) else { continue }
 
@@ -232,24 +251,6 @@ public struct TesseraCanvas: View {
 
           if isCollisionOverlayEnabled,
              let overlayShape = overlayShapesByPinnedSymbolId[pinnedSymbol.id] {
-            CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
-          }
-        }
-      }
-
-      for placedSymbol in placedSymbolDescriptors {
-        guard let symbol = context.resolveSymbol(id: placedSymbol.symbolId) else { continue }
-
-        for offset in offsets {
-          var symbolContext = context
-          symbolContext.translateBy(x: offset.width + wrappedOffset.width, y: offset.height + wrappedOffset.height)
-          symbolContext.translateBy(x: placedSymbol.position.x, y: placedSymbol.position.y)
-          symbolContext.rotate(by: .radians(placedSymbol.rotationRadians))
-          symbolContext.scaleBy(x: placedSymbol.scale, y: placedSymbol.scale)
-          symbolContext.draw(symbol, at: .zero, anchor: .center)
-
-          if isCollisionOverlayEnabled,
-             let overlayShape = overlayShapesBySymbolId[placedSymbol.symbolId] {
             CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
           }
         }
@@ -724,6 +725,25 @@ private struct TesseraCanvasStaticRenderView: View {
         ]
       }
 
+      for placedSymbol in placedSymbolDescriptors {
+        guard let symbol = context.resolveSymbol(id: placedSymbol.symbolId) else { continue }
+
+        for offset in offsets {
+          var symbolContext = context
+          symbolContext.translateBy(x: offset.width + wrappedOffset.width, y: offset.height + wrappedOffset.height)
+          symbolContext.translateBy(x: placedSymbol.position.x, y: placedSymbol.position.y)
+          symbolContext.rotate(by: .radians(placedSymbol.rotationRadians))
+          symbolContext.scaleBy(x: placedSymbol.scale, y: placedSymbol.scale)
+          symbolContext.draw(symbol, at: .zero, anchor: .center)
+
+          if isCollisionOverlayEnabled,
+             let overlayShape = overlayShapesBySymbolId[placedSymbol.symbolId] {
+            CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
+          }
+        }
+      }
+
+      // Render pinned symbols last so they appear above the generated symbols.
       for pinnedSymbol in pinnedSymbols {
         guard let symbol = context.resolveSymbol(id: pinnedSymbol.id) else { continue }
 
@@ -739,24 +759,6 @@ private struct TesseraCanvasStaticRenderView: View {
 
           if isCollisionOverlayEnabled,
              let overlayShape = overlayShapesByPinnedSymbolId[pinnedSymbol.id] {
-            CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
-          }
-        }
-      }
-
-      for placedSymbol in placedSymbolDescriptors {
-        guard let symbol = context.resolveSymbol(id: placedSymbol.symbolId) else { continue }
-
-        for offset in offsets {
-          var symbolContext = context
-          symbolContext.translateBy(x: offset.width + wrappedOffset.width, y: offset.height + wrappedOffset.height)
-          symbolContext.translateBy(x: placedSymbol.position.x, y: placedSymbol.position.y)
-          symbolContext.rotate(by: .radians(placedSymbol.rotationRadians))
-          symbolContext.scaleBy(x: placedSymbol.scale, y: placedSymbol.scale)
-          symbolContext.draw(symbol, at: .zero, anchor: .center)
-
-          if isCollisionOverlayEnabled,
-             let overlayShape = overlayShapesBySymbolId[placedSymbol.symbolId] {
             CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
           }
         }
