@@ -147,7 +147,8 @@ struct Poster: View {
 
 Use grid placement when you want orderly, repeatable patterns with optional row/column offsets. Symbols are assigned in
 row-major order, and the grid derives cell size from the configured row and column counts. When seamless wrapping with
-offset strategies requires even counts, the engine rounds up to the nearest even value.
+non-zero offset strategies requires even counts, the engine rounds up to the nearest even value. Offset fractions are
+expressed in cell units, so values greater than 1 shift by whole cells (for example `2.5` shifts by 2½ cells).
 
 ```swift
 var configuration = TesseraConfiguration(

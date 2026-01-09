@@ -35,7 +35,7 @@ enum GridShapePlacementEngine {
       configuration: configuration,
       edgeBehavior: edgeBehavior,
     )
-    let normalizedFraction = normalizedOffsetFraction(from: configuration.offsetStrategy)
+    let normalizedOffset = normalizedOffsetAmount(from: configuration.offsetStrategy)
     let wrapOffsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: edgeBehavior)
 
     let pinnedColliders: [PlacedCollider] = pinnedSymbolDescriptors.map { pinnedSymbol in
@@ -81,7 +81,7 @@ enum GridShapePlacementEngine {
         )
         let offset = gridOffset(
           for: configuration.offsetStrategy,
-          normalizedFraction: normalizedFraction,
+          normalizedOffset: normalizedOffset,
           columnIndex: columnIndex,
           rowIndex: rowIndex,
           cellSize: resolvedGrid.cellSize,
@@ -142,12 +142,14 @@ enum GridShapePlacementEngine {
   ) -> ResolvedGrid {
     let baseColumnCount = max(1, configuration.columnCount)
     let baseRowCount = max(1, configuration.rowCount)
-    let rowNeedsEven = edgeBehavior == .seamlessWrapping && rowShiftRequiresEvenRowCount(
+    let normalizedOffset = normalizedOffsetAmount(from: configuration.offsetStrategy)
+    let rowNeedsEven = edgeBehavior == .seamlessWrapping && normalizedOffset > 0 && rowShiftRequiresEvenRowCount(
       for: configuration.offsetStrategy,
     )
-    let columnNeedsEven = edgeBehavior == .seamlessWrapping && columnShiftRequiresEvenColumnCount(
-      for: configuration.offsetStrategy,
-    )
+    let columnNeedsEven = edgeBehavior == .seamlessWrapping && normalizedOffset > 0 &&
+      columnShiftRequiresEvenColumnCount(
+        for: configuration.offsetStrategy,
+      )
     let columnCount = adjustedCountForOffsetRequirement(
       baseCount: baseColumnCount,
       requiresEven: columnNeedsEven,
@@ -174,6 +176,7 @@ enum GridShapePlacementEngine {
     guard requiresEven, baseCount.isMultiple(of: 2) == false else {
       return max(1, baseCount)
     }
+
     // Round up to the next even count to preserve seamless offsets.
     return max(2, baseCount + 1)
   }
@@ -200,18 +203,19 @@ enum GridShapePlacementEngine {
     }
   }
 
-  private static func normalizedOffsetFraction(from strategy: TesseraPlacement.GridOffsetStrategy) -> Double {
-    let fraction: Double = switch strategy {
+  private static func normalizedOffsetAmount(from strategy: TesseraPlacement.GridOffsetStrategy) -> Double {
+    let offset: Double = switch strategy {
     case .none:
       0
-    case let .rowShift(value),
-         let .columnShift(value),
-         let .checkerShift(value):
-      value
+    case let .rowShift(fraction),
+         let .columnShift(fraction),
+         let .checkerShift(fraction):
+      fraction
     }
 
-    let remainder = fraction.truncatingRemainder(dividingBy: 1)
-    return remainder >= 0 ? remainder : remainder + 1
+    guard offset.isFinite else { return 0 }
+
+    return max(0, offset)
   }
 
   private static func gridCellCenter(
@@ -227,15 +231,15 @@ enum GridShapePlacementEngine {
 
   private static func gridOffset(
     for strategy: TesseraPlacement.GridOffsetStrategy,
-    normalizedFraction: Double,
+    normalizedOffset: Double,
     columnIndex: Int,
     rowIndex: Int,
     cellSize: CGSize,
   ) -> CGSize {
-    guard normalizedFraction > 0 else { return .zero }
+    guard normalizedOffset > 0 else { return .zero }
 
-    let offsetX = CGFloat(normalizedFraction) * cellSize.width
-    let offsetY = CGFloat(normalizedFraction) * cellSize.height
+    let offsetX = CGFloat(normalizedOffset) * cellSize.width
+    let offsetY = CGFloat(normalizedOffset) * cellSize.height
 
     return switch strategy {
     case .none:

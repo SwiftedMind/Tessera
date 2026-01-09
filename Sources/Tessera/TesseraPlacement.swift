@@ -53,11 +53,11 @@ public enum TesseraPlacement: Hashable, Sendable {
   public struct Grid: Hashable, Sendable {
     /// The number of columns in the grid.
     ///
-    /// The engine may round up to an even value when seamless wrapping and offset strategies require it.
+    /// The engine may round up to an even value when seamless wrapping and non-zero offset strategies require it.
     public var columnCount: Int
     /// The number of rows in the grid.
     ///
-    /// The engine may round up to an even value when seamless wrapping and offset strategies require it.
+    /// The engine may round up to an even value when seamless wrapping and non-zero offset strategies require it.
     public var rowCount: Int
     /// Offset strategy applied to grid rows or columns.
     public var offsetStrategy: GridOffsetStrategy
@@ -89,15 +89,21 @@ public enum TesseraPlacement: Hashable, Sendable {
     case none
     /// Offsets every other row horizontally by a fraction of the cell width.
     ///
-    /// Use values between 0 and 1 for predictable results.
+    /// Values greater than 1 shift by whole cell widths (e.g. `2.5` shifts by 2½ cells).
+    ///
+    /// For predictable results, use finite values greater than or equal to 0.
     case rowShift(fraction: Double)
     /// Offsets every other column vertically by a fraction of the cell height.
     ///
-    /// Use values between 0 and 1 for predictable results.
+    /// Values greater than 1 shift by whole cell heights (e.g. `2.5` shifts by 2½ cells).
+    ///
+    /// For predictable results, use finite values greater than or equal to 0.
     case columnShift(fraction: Double)
     /// Offsets alternating cells diagonally by a fraction of the cell size.
     ///
-    /// Use values between 0 and 1 for predictable results.
+    /// Values greater than 1 shift by whole cell sizes (e.g. `2.5` shifts by 2½ cells).
+    ///
+    /// For predictable results, use finite values greater than or equal to 0.
     case checkerShift(fraction: Double)
   }
 
