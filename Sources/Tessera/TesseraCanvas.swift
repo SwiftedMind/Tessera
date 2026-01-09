@@ -192,7 +192,7 @@ public struct TesseraCanvas: View {
 
     let computationKey = makeComputationKey(for: canvasSize)
 
-    return Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: true) { context, size in
+    let baseCanvas = Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: true) { context, size in
       guard size.width > 0, size.height > 0 else { return }
 
       let wrappedOffset = CGSize(
@@ -200,29 +200,14 @@ public struct TesseraCanvas: View {
         height: configuration.patternOffset.height.truncatingRemainder(dividingBy: size.height),
       )
 
-      let offsets: [CGSize] = switch edgeBehavior {
-      case .finite:
-        [.zero]
-      case .seamlessWrapping:
-        [
-          .zero,
-          CGSize(width: size.width, height: 0),
-          CGSize(width: -size.width, height: 0),
-          CGSize(width: 0, height: size.height),
-          CGSize(width: 0, height: -size.height),
-          CGSize(width: size.width, height: size.height),
-          CGSize(width: size.width, height: -size.height),
-          CGSize(width: -size.width, height: size.height),
-          CGSize(width: -size.width, height: -size.height),
-        ]
-      }
+      let offsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: edgeBehavior)
 
       for placedSymbol in placedSymbolDescriptors {
         guard let symbol = context.resolveSymbol(id: placedSymbol.symbolId) else { continue }
 
         for offset in offsets {
           var symbolContext = context
-          symbolContext.translateBy(x: offset.width + wrappedOffset.width, y: offset.height + wrappedOffset.height)
+          symbolContext.translateBy(x: offset.x + wrappedOffset.width, y: offset.y + wrappedOffset.height)
           symbolContext.translateBy(x: placedSymbol.position.x, y: placedSymbol.position.y)
           symbolContext.rotate(by: .radians(placedSymbol.rotationRadians))
           symbolContext.scaleBy(x: placedSymbol.scale, y: placedSymbol.scale)
@@ -234,56 +219,67 @@ public struct TesseraCanvas: View {
           }
         }
       }
-
-      // Render pinned symbols last so they appear above the generated symbols.
-      for pinnedSymbol in pinnedSymbols {
-        guard let symbol = context.resolveSymbol(id: pinnedSymbol.id) else { continue }
-
-        let resolvedPosition = pinnedSymbol.resolvedPosition(in: size)
-
-        for offset in offsets {
-          var symbolContext = context
-          symbolContext.translateBy(x: offset.width, y: offset.height)
-          symbolContext.translateBy(x: resolvedPosition.x, y: resolvedPosition.y)
-          symbolContext.rotate(by: pinnedSymbol.rotation)
-          symbolContext.scaleBy(x: pinnedSymbol.scale, y: pinnedSymbol.scale)
-          symbolContext.draw(symbol, at: .zero, anchor: .center)
-
-          if isCollisionOverlayEnabled,
-             let overlayShape = overlayShapesByPinnedSymbolId[pinnedSymbol.id] {
-            CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
-          }
-        }
-      }
     } symbols: {
       ForEach(configuration.symbols) { symbol in
         symbol.makeView().tag(symbol.id)
       }
-      ForEach(pinnedSymbols) { pinnedSymbol in
-        pinnedSymbol.makeView().tag(pinnedSymbol.id)
-      }
     }
-    .frame(width: canvasSize.width, height: canvasSize.height)
-    .clipped()
-    .task(id: computationKey) {
-      await MainActor.run {
-        onComputationStateChange?(true)
-      }
-      defer {
-        if Task.isCancelled == false {
-          Task { @MainActor in
-            onComputationStateChange?(false)
+
+    return baseCanvas
+      .overlay {
+        if pinnedSymbols.isEmpty == false {
+          Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: true) { context, size in
+            guard size.width > 0, size.height > 0 else { return }
+
+            let offsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: edgeBehavior)
+
+            for pinnedSymbol in pinnedSymbols {
+              guard let symbol = context.resolveSymbol(id: pinnedSymbol.id) else { continue }
+
+              let resolvedPosition = pinnedSymbol.resolvedPosition(in: size)
+
+              for offset in offsets {
+                var symbolContext = context
+                symbolContext.translateBy(x: offset.x, y: offset.y)
+                symbolContext.translateBy(x: resolvedPosition.x, y: resolvedPosition.y)
+                symbolContext.rotate(by: pinnedSymbol.rotation)
+                symbolContext.scaleBy(x: pinnedSymbol.scale, y: pinnedSymbol.scale)
+                symbolContext.draw(symbol, at: .zero, anchor: .center)
+
+                if isCollisionOverlayEnabled,
+                   let overlayShape = overlayShapesByPinnedSymbolId[pinnedSymbol.id] {
+                  CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
+                }
+              }
+            }
+          } symbols: {
+            ForEach(pinnedSymbols) { pinnedSymbol in
+              pinnedSymbol.makeView().tag(pinnedSymbol.id)
+            }
           }
         }
       }
+      .frame(width: canvasSize.width, height: canvasSize.height)
+      .clipped()
+      .task(id: computationKey) {
+        await MainActor.run {
+          onComputationStateChange?(true)
+        }
+        defer {
+          if Task.isCancelled == false {
+            Task { @MainActor in
+              onComputationStateChange?(false)
+            }
+          }
+        }
 
-      guard canvasSize.width > 0, canvasSize.height > 0 else {
-        return
+        guard canvasSize.width > 0, canvasSize.height > 0 else {
+          return
+        }
+
+        let snapshot = makeComputationSnapshot(for: canvasSize)
+        await computePlacements(using: snapshot)
       }
-
-      let snapshot = makeComputationSnapshot(for: canvasSize)
-      await computePlacements(using: snapshot)
-    }
   }
 
   /// Renders the tessera canvas to a PNG file.
@@ -702,35 +698,22 @@ private struct TesseraCanvasStaticRenderView: View {
       }
       : [:]
 
-    Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: false) { context, size in
+    let baseCanvas = Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: false) { context, size in
+      guard size.width > 0, size.height > 0 else { return }
+
       let wrappedOffset = CGSize(
         width: configuration.patternOffset.width.truncatingRemainder(dividingBy: size.width),
         height: configuration.patternOffset.height.truncatingRemainder(dividingBy: size.height),
       )
 
-      let offsets: [CGSize] = switch edgeBehavior {
-      case .finite:
-        [.zero]
-      case .seamlessWrapping:
-        [
-          .zero,
-          CGSize(width: size.width, height: 0),
-          CGSize(width: -size.width, height: 0),
-          CGSize(width: 0, height: size.height),
-          CGSize(width: 0, height: -size.height),
-          CGSize(width: size.width, height: size.height),
-          CGSize(width: size.width, height: -size.height),
-          CGSize(width: -size.width, height: size.height),
-          CGSize(width: -size.width, height: -size.height),
-        ]
-      }
+      let offsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: edgeBehavior)
 
       for placedSymbol in placedSymbolDescriptors {
         guard let symbol = context.resolveSymbol(id: placedSymbol.symbolId) else { continue }
 
         for offset in offsets {
           var symbolContext = context
-          symbolContext.translateBy(x: offset.width + wrappedOffset.width, y: offset.height + wrappedOffset.height)
+          symbolContext.translateBy(x: offset.x + wrappedOffset.width, y: offset.y + wrappedOffset.height)
           symbolContext.translateBy(x: placedSymbol.position.x, y: placedSymbol.position.y)
           symbolContext.rotate(by: .radians(placedSymbol.rotationRadians))
           symbolContext.scaleBy(x: placedSymbol.scale, y: placedSymbol.scale)
@@ -742,36 +725,47 @@ private struct TesseraCanvasStaticRenderView: View {
           }
         }
       }
-
-      // Render pinned symbols last so they appear above the generated symbols.
-      for pinnedSymbol in pinnedSymbols {
-        guard let symbol = context.resolveSymbol(id: pinnedSymbol.id) else { continue }
-
-        let resolvedPosition = pinnedSymbol.resolvedPosition(in: size)
-
-        for offset in offsets {
-          var symbolContext = context
-          symbolContext.translateBy(x: offset.width, y: offset.height)
-          symbolContext.translateBy(x: resolvedPosition.x, y: resolvedPosition.y)
-          symbolContext.rotate(by: pinnedSymbol.rotation)
-          symbolContext.scaleBy(x: pinnedSymbol.scale, y: pinnedSymbol.scale)
-          symbolContext.draw(symbol, at: .zero, anchor: .center)
-
-          if isCollisionOverlayEnabled,
-             let overlayShape = overlayShapesByPinnedSymbolId[pinnedSymbol.id] {
-            CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
-          }
-        }
-      }
     } symbols: {
       ForEach(configuration.symbols) { symbol in
         symbol.makeView().tag(symbol.id)
       }
-      ForEach(pinnedSymbols) { pinnedSymbol in
-        pinnedSymbol.makeView().tag(pinnedSymbol.id)
-      }
     }
-    .frame(width: canvasSize.width, height: canvasSize.height)
-    .clipped()
+
+    return baseCanvas
+      .overlay {
+        if pinnedSymbols.isEmpty == false {
+          Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: false) { context, size in
+            guard size.width > 0, size.height > 0 else { return }
+
+            let offsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: edgeBehavior)
+
+            for pinnedSymbol in pinnedSymbols {
+              guard let symbol = context.resolveSymbol(id: pinnedSymbol.id) else { continue }
+
+              let resolvedPosition = pinnedSymbol.resolvedPosition(in: size)
+
+              for offset in offsets {
+                var symbolContext = context
+                symbolContext.translateBy(x: offset.x, y: offset.y)
+                symbolContext.translateBy(x: resolvedPosition.x, y: resolvedPosition.y)
+                symbolContext.rotate(by: pinnedSymbol.rotation)
+                symbolContext.scaleBy(x: pinnedSymbol.scale, y: pinnedSymbol.scale)
+                symbolContext.draw(symbol, at: .zero, anchor: .center)
+
+                if isCollisionOverlayEnabled,
+                   let overlayShape = overlayShapesByPinnedSymbolId[pinnedSymbol.id] {
+                  CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
+                }
+              }
+            }
+          } symbols: {
+            ForEach(pinnedSymbols) { pinnedSymbol in
+              pinnedSymbol.makeView().tag(pinnedSymbol.id)
+            }
+          }
+        }
+      }
+      .frame(width: canvasSize.width, height: canvasSize.height)
+      .clipped()
   }
 }

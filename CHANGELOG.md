@@ -6,6 +6,7 @@
 ### Enhanced
 
 ### Fixed
+- **Pinned Symbol Render Order**: Pinned symbols now always render above generated symbols in `TesseraCanvas` (including exports).
 
 ### Breaking Changes
 - **Placement Configuration Refactor**: `TesseraConfiguration` now takes a `TesseraPlacement` with per-mode settings

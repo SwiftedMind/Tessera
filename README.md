@@ -164,7 +164,7 @@ var configuration = TesseraConfiguration(
 
 ## Pinned Symbols
 
-Pinned symbols let you place specific content (like a logo or headline) on a fixed-sized canvas while Tessera fills the space around it with repeating Tessera symbols. Fixed symbols participate in collision checks, so generated symbols keep their distance.
+Pinned symbols let you place specific content (like a logo or headline) on a fixed-sized canvas while Tessera fills the space around it with repeating Tessera symbols. Pinned symbols are rendered above generated symbols. Fixed symbols participate in collision checks, so generated symbols keep their distance.
 
 ```swift
 import SwiftUI
