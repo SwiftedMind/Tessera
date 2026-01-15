@@ -1,8 +1,3 @@
-## [Unreleased]
-
-### Fixed
-- **Grid Rotation Range**: Grid placement now respects each symbol’s allowed rotation range with deterministic variation per cell.
-
 ## [3.0.0]
 
 ### Added
@@ -13,6 +8,7 @@
   (for example `2.5` shifts by 2½ cells), and `1.0` no longer aliases `0.0`.
 
 ### Fixed
+- **Grid Rotation Range**: Grid placement now respects each symbol’s allowed rotation range with deterministic variation per cell.
 - **Canvas Placement Computation**: `TesseraCanvas` now computes placements reliably on first render (avoids missing the
   initial layout size during view creation / restoration).
 - **Pinned Symbol Render Order**: Pinned symbols now always render above generated symbols in `TesseraCanvas` (including exports).
