@@ -13,7 +13,7 @@ public struct TesseraTiledCanvas: View {
   /// - Parameters:
   ///   - configuration: The tessera configuration to render.
   ///   - tileSize: Size of the tile that will be repeated.
-  ///   - seed: Optional seed overriding the configuration's seed for this view instance.
+  ///   - seed: Optional seed override for organic placement.
   public init(
     _ configuration: TesseraConfiguration,
     tileSize: CGSize,
@@ -22,7 +22,7 @@ public struct TesseraTiledCanvas: View {
   ) {
     self.configuration = configuration
     self.tileSize = tileSize
-    self.seed = seed ?? configuration.seed
+    self.seed = seed ?? configuration.organicPlacement?.seed ?? TesseraConfiguration.randomSeed()
     self.onComputationStateChange = onComputationStateChange
   }
 

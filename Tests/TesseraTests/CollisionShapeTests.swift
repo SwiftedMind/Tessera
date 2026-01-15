@@ -45,7 +45,7 @@ func multiPolygonCollisionsCheckEachPolygon() {
     size: CGSize(width: 1, height: 1),
   )
 
-  let multiPolygonShape = CollisionShape.polygons(points: [leftPolygonPoints, rightPolygonPoints])
+  let multiPolygonShape = CollisionShape.polygons(pointSets: [leftPolygonPoints, rightPolygonPoints])
   let multiPolygons = CollisionMath.polygons(for: multiPolygonShape)
 
   let testShape = CollisionShape.rectangle(center: .zero, size: CGSize(width: 1, height: 1))
@@ -103,7 +103,7 @@ func viewSpacePolygonAnchorTranslationCentersCorrectly() {
     CGPoint(x: 0, y: 2),
   ]
   let shape = CollisionShape.anchoredPolygon(
-    viewPoints: viewSpacePoints,
+    points: viewSpacePoints,
     anchor: .topLeading,
     size: CGSize(width: 4, height: 2),
   )

@@ -11,8 +11,9 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 ## Features
 
 - Compose repeatable patterns from regular SwiftUI views.
-- Declarative configuration: describe symbols, spacing, density, and scale; provide a size at render time.
+- Declarative configuration: describe symbols and placement; provide a size at render time.
 - Even spacing: shape-aware placement that avoids clustering.
+- Grid placement: place symbols on a regular grid with configurable offsets.
 - Seamless wrapping: tile edges wrap toroidally so patterns repeat without seams.
 - Deterministic output: provide a seed for reproducible layouts; omit to randomize.
 - Export: render to PNG or vector-friendly PDF.
@@ -20,6 +21,7 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 ## Table of Contents
 
 - [Get Started](#get-started)
+- [Migration Guide (2.0.0 → 3.0.0)](MIGRATION.md)
 - [Pinned Symbols](#pinned-symbols)
 - [Exporting](#exporting)
 - [Collision Shape Previews](#collision-shape-previews)
@@ -68,9 +70,13 @@ struct PatternBackground: View {
   var configuration: TesseraConfiguration {
     TesseraConfiguration(
       symbols: symbols,
-      minimumSpacing: 10,
-      density: 0.6,
-      baseScaleRange: 0.9...1.15
+      placement: .organic(
+        TesseraPlacement.Organic(
+          minimumSpacing: 10,
+          density: 0.6,
+          baseScaleRange: 0.9...1.15
+        )
+      )
     )
   }
 
@@ -115,7 +121,15 @@ struct Poster: View {
   }
 
   var configuration: TesseraConfiguration {
-    TesseraConfiguration(symbols: symbols, minimumSpacing: 10, density: 0.65)
+    TesseraConfiguration(
+      symbols: symbols,
+      placement: .organic(
+        TesseraPlacement.Organic(
+          minimumSpacing: 10,
+          density: 0.65
+        )
+      )
+    )
   }
 
   var symbols: [TesseraSymbol] {
@@ -130,9 +144,29 @@ struct Poster: View {
 }
 ```
 
+## Grid Placement
+
+Use grid placement when you want orderly, repeatable patterns with optional row/column offsets. Symbols are assigned in
+row-major order, and the grid derives cell size from the configured row and column counts. When seamless wrapping with
+non-zero offset strategies requires even counts, the engine rounds up to the nearest even value. Offset fractions are
+expressed in cell units, so values greater than 1 shift by whole cells (for example `2.5` shifts by 2½ cells).
+
+```swift
+var configuration = TesseraConfiguration(
+  symbols: symbols,
+  placement: .grid(
+    TesseraPlacement.Grid(
+      columnCount: 8,
+      rowCount: 6,
+      offsetStrategy: .rowShift(fraction: 0.5)
+    )
+  )
+)
+```
+
 ## Pinned Symbols
 
-Pinned symbols let you place specific content (like a logo or headline) on a fixed-sized canvas while Tessera fills the space around it with repeating Tessera symbols. Fixed symbols participate in collision checks, so generated symbols keep their distance.
+Pinned symbols let you place specific content (like a logo or headline) on a fixed-sized canvas while Tessera fills the space around it with repeating Tessera symbols. Pinned symbols are rendered above generated symbols. Fixed symbols participate in collision checks, so generated symbols keep their distance.
 
 ```swift
 import SwiftUI
@@ -150,7 +184,15 @@ struct HeroCard: View {
   }
 
   var configuration: TesseraConfiguration {
-    TesseraConfiguration(symbols: symbols, minimumSpacing: 10, density: 0.7)
+    TesseraConfiguration(
+      symbols: symbols,
+      placement: .organic(
+        TesseraPlacement.Organic(
+          minimumSpacing: 10,
+          density: 0.7
+        )
+      )
+    )
   }
 
   var symbols: [TesseraSymbol] {
@@ -202,10 +244,14 @@ let symbols: [TesseraSymbol] = [
 
 let configuration = TesseraConfiguration(
   symbols: symbols,
-  seed: 0,
-  minimumSpacing: 10,
-  density: 0.8,
-  baseScaleRange: 0.5...1.2
+  placement: .organic(
+    TesseraPlacement.Organic(
+      seed: 0,
+      minimumSpacing: 10,
+      density: 0.8,
+      baseScaleRange: 0.5...1.2
+    )
+  )
 )
 
 let tile = TesseraTile(configuration, tileSize: CGSize(width: 256, height: 256))
@@ -256,6 +302,7 @@ Use `TesseraSymbol.collisionShapeEditor()` to get a SwiftUI view containing a fu
 ## Terminology
 
 - `TesseraConfiguration` - Describes how symbols are generated.
+- `TesseraPlacement` - Defines organic or grid placement behavior.
 - `TesseraSymbol` - A drawable symbol used to fill a repeatable tile or a finite canvas
 - `CollisionShape` - Approximate local-space geometry used for collision checks of symbols.
 - `TesseraTile` - A single drawable tile that can be seamlessly repeated.
@@ -265,7 +312,7 @@ Use `TesseraSymbol.collisionShapeEditor()` to get a SwiftUI view containing a fu
 
 ## Determinism
 
-Tessera is deterministic when you provide a seed. You can set `seed` on `TesseraConfiguration`, or override it per-view:
+Tessera is deterministic when you provide a seed. Set it on `TesseraPlacement.Organic`, or override it per-view:
 
 ```swift
 TesseraTiledCanvas(configuration, tileSize: CGSize(width: 256, height: 256), seed: 123)
@@ -274,7 +321,15 @@ TesseraTiledCanvas(configuration, tileSize: CGSize(width: 256, height: 256), see
 To "move" a pattern without changing the layout, modify `patternOffset`:
 
 ```swift
-var configuration = TesseraConfiguration(symbols: symbols, minimumSpacing: 44, density: 0.6)
+var configuration = TesseraConfiguration(
+  symbols: symbols,
+  placement: .organic(
+    TesseraPlacement.Organic(
+      minimumSpacing: 44,
+      density: 0.6
+    )
+  )
+)
 configuration.patternOffset = CGSize(width: 40, height: 0)
 ```
 
@@ -283,7 +338,7 @@ configuration.patternOffset = CGSize(width: 40, height: 0)
 - Tessera uses `Canvas` symbols for performance; keep symbol views lightweight.
 - Collision geometry is intentionally approximate; use `collisionShape` when an symbol needs a more accurate footprint.
   Complex polygons and multi-polygon shapes can dramatically reduce placement performance.
-- `maximumSymbolCount` is a safety cap. If you crank up `density` on large canvases, you may want to raise it.
+- `TesseraPlacement.Organic.maximumSymbolCount` is a safety cap. If you crank up `density` on large canvases, you may want to raise it.
 
 ## License
 

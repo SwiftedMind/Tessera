@@ -1,3 +1,30 @@
+## [Unreleased]
+
+### Fixed
+- **Grid Rotation Range**: Grid placement now respects each symbol’s allowed rotation range with deterministic variation per cell.
+
+## [3.0.0]
+
+### Added
+- **Grid Placement Mode**: Added `TesseraPlacement.grid` with offset strategies for seamless grid-based patterns.
+
+### Enhanced
+- **Grid Offset Strategies**: Grid offset fractions now represent cell units, so values greater than 1 shift by whole cells
+  (for example `2.5` shifts by 2½ cells), and `1.0` no longer aliases `0.0`.
+
+### Fixed
+- **Canvas Placement Computation**: `TesseraCanvas` now computes placements reliably on first render (avoids missing the
+  initial layout size during view creation / restoration).
+- **Pinned Symbol Render Order**: Pinned symbols now always render above generated symbols in `TesseraCanvas` (including exports).
+- **Grid Count Rounding**: Seamless wrapping no longer forces even row/column counts when a grid offset strategy's fraction is zero.
+
+### Breaking Changes
+- **Migration Guide**: See [MIGRATION.md](MIGRATION.md) for 2.0.0 → 3.0.0 upgrade steps.
+- **Placement Configuration Refactor**: `TesseraConfiguration` now takes a `TesseraPlacement` with per-mode settings
+  (for example `TesseraPlacement.Organic`), moving organic-only properties out of the top-level configuration.
+- **Grid Placement Counts**: `TesseraPlacement.Grid` now uses `columnCount` and `rowCount`, and the grid cell size is
+  derived from the tile size instead of being configured directly.
+
 ## [2.0.0]
 
 ### Added

@@ -1,111 +1,45 @@
 // By Dennis Müller
 
 import CoreGraphics
-import SwiftUI
+import Foundation
 
-/// Places tessera symbols while respecting their approximate collision shapes.
-enum ShapePlacementEngine {
-  /// Generates placed symbols for a single tile using rejection sampling with wrap-aware collisions.
-  static func placeSymbols(
-    in size: CGSize,
-    configuration: TesseraConfiguration,
-    pinnedSymbols: [TesseraPinnedSymbol] = [],
-    edgeBehavior: TesseraEdgeBehavior = .seamlessWrapping,
-    randomGenerator: inout some RandomNumberGenerator,
-  ) -> [PlacedSymbol] {
-    guard !configuration.symbols.isEmpty else { return [] }
+/// Places symbols using organic rejection sampling with spatial hashing.
+enum OrganicShapePlacementEngine {
+  typealias PlacementSymbolDescriptor = ShapePlacementEngine.PlacementSymbolDescriptor
+  typealias PinnedSymbolDescriptor = ShapePlacementEngine.PinnedSymbolDescriptor
+  typealias PlacedSymbolDescriptor = ShapePlacementEngine.PlacedSymbolDescriptor
+  typealias PlacedCollider = ShapePlacementEngine.PlacedCollider
+  typealias CellCoordinate = ShapePlacementEngine.CellCoordinate
 
-    let symbolDescriptors = configuration.symbols.map { symbol in
-      let scaleRange = symbol.scaleRange ?? configuration.baseScaleRange
-      return PlacementSymbolDescriptor(
-        id: symbol.id,
-        weight: symbol.weight,
-        allowedRotationRangeDegrees: symbol.allowedRotationRange.lowerBound.degrees...symbol.allowedRotationRange.upperBound
-          .degrees,
-        resolvedScaleRange: scaleRange,
-        collisionShape: symbol.collisionShape,
-      )
-    }
-
-    let pinnedSymbolDescriptors = pinnedSymbols.map { pinnedSymbol in
-      PinnedSymbolDescriptor(
-        id: pinnedSymbol.id,
-        position: pinnedSymbol.resolvedPosition(in: size),
-        rotationRadians: pinnedSymbol.rotation.radians,
-        scale: pinnedSymbol.scale,
-        collisionShape: pinnedSymbol.collisionShape,
-      )
-    }
-
-    let placedDescriptors = placeSymbolDescriptors(
-      in: size,
-      symbolDescriptors: symbolDescriptors,
-      pinnedSymbolDescriptors: pinnedSymbolDescriptors,
-      edgeBehavior: edgeBehavior,
-      minimumSpacing: configuration.minimumSpacing,
-      density: configuration.density,
-      maximumSymbolCount: configuration.maximumSymbolCount,
-      randomGenerator: &randomGenerator,
-    )
-
-    let symbolLookup: [UUID: TesseraSymbol] = configuration.symbols.reduce(into: [:]) { cache, symbol in
-      cache[symbol.id] = symbol
-    }
-
-    return placedDescriptors.compactMap { descriptor in
-      guard let symbol = symbolLookup[descriptor.symbolId] else { return nil }
-
-      return PlacedSymbol(
-        symbol: symbol,
-        position: descriptor.position,
-        rotation: .radians(descriptor.rotationRadians),
-        scale: descriptor.scale,
-      )
-    }
-  }
-
-  /// Generates placed symbol descriptors without capturing SwiftUI view builders.
+  /// Generates placed symbol descriptors using the organic placement configuration.
   ///
-  /// This is safe to run on a background task and is used by `TesseraCanvas` caching.
+  /// - Parameters:
+  ///   - size: The size of the tile to populate with symbols.
+  ///   - symbolDescriptors: The available symbols with resolved collision metadata.
+  ///   - pinnedSymbolDescriptors: Symbols that must be placed at fixed positions before sampling.
+  ///   - edgeBehavior: The edge behavior to apply when testing collisions.
+  ///   - configuration: The organic placement configuration.
+  ///   - randomGenerator: The random number generator that drives placement.
+  /// - Returns: The placed symbol descriptors for the tile.
   static func placeSymbolDescriptors(
     in size: CGSize,
     symbolDescriptors: [PlacementSymbolDescriptor],
-    pinnedSymbolDescriptors: [PinnedSymbolDescriptor] = [],
-    edgeBehavior: TesseraEdgeBehavior = .seamlessWrapping,
-    minimumSpacing: Double,
-    density: Double,
-    maximumSymbolCount: Int,
+    pinnedSymbolDescriptors: [PinnedSymbolDescriptor],
+    edgeBehavior: TesseraEdgeBehavior,
+    configuration: TesseraPlacement.Organic,
     randomGenerator: inout some RandomNumberGenerator,
   ) -> [PlacedSymbolDescriptor] {
-    guard !symbolDescriptors.isEmpty else { return [] }
-
-    let minimumSpacing = CGFloat(minimumSpacing)
+    let minimumSpacing = CGFloat(configuration.minimumSpacing)
+    let clampedDensity = max(0, min(1, configuration.density))
+    let maximumCount = max(0, configuration.maximumSymbolCount)
 
     let tileArea = Double(size.width * size.height)
     let approximateSymbolArea = max(Double(minimumSpacing * minimumSpacing), 1)
-    let clampedDensity = max(0, min(1, density))
     let estimatedCount = Int(tileArea / approximateSymbolArea * clampedDensity)
-    let maximumCount = max(0, maximumSymbolCount)
     let targetCount = min(max(0, estimatedCount), maximumCount)
     let remainingTargetCount = min(max(0, targetCount - pinnedSymbolDescriptors.count), maximumCount)
 
-    // Wrap offsets cover the 3×3 lattice to maintain seamless wrapping collisions.
-    let wrapOffsets: [CGPoint] = switch edgeBehavior {
-    case .finite:
-      [.init(x: 0, y: 0)]
-    case .seamlessWrapping:
-      [
-        .init(x: 0, y: 0),
-        .init(x: size.width, y: 0),
-        .init(x: -size.width, y: 0),
-        .init(x: 0, y: size.height),
-        .init(x: 0, y: -size.height),
-        .init(x: size.width, y: size.height),
-        .init(x: size.width, y: -size.height),
-        .init(x: -size.width, y: size.height),
-        .init(x: -size.width, y: -size.height),
-      ]
-    }
+    let wrapOffsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: edgeBehavior)
 
     let fixedColliders: [PlacedCollider] = pinnedSymbolDescriptors.map { pinnedSymbol in
       let collisionTransform = CollisionTransform(
@@ -210,7 +144,7 @@ enum ShapePlacementEngine {
           }
         }
 
-        guard isPlacementValid(
+        guard ShapePlacementCollision.isPlacementValid(
           candidate: candidate,
           candidatePolygons: selectedPolygons,
           existingColliderIndices: neighboringColliderIndices,
@@ -245,50 +179,6 @@ enum ShapePlacementEngine {
     return placedDescriptors
   }
 
-  struct PlacementSymbolDescriptor: Sendable {
-    var id: UUID
-    var weight: Double
-    var allowedRotationRangeDegrees: ClosedRange<Double>
-    var resolvedScaleRange: ClosedRange<Double>
-    var collisionShape: CollisionShape
-  }
-
-  struct PinnedSymbolDescriptor: Sendable {
-    var id: UUID
-    var position: CGPoint
-    var rotationRadians: Double
-    var scale: CGFloat
-    var collisionShape: CollisionShape
-  }
-
-  struct PlacedSymbolDescriptor: Sendable {
-    var symbolId: UUID
-    var position: CGPoint
-    var rotationRadians: Double
-    var scale: CGFloat
-    var collisionShape: CollisionShape
-
-    var collisionTransform: CollisionTransform {
-      CollisionTransform(
-        position: position,
-        rotation: CGFloat(rotationRadians),
-        scale: scale,
-      )
-    }
-  }
-
-  private struct PlacedCollider: Sendable {
-    var collisionShape: CollisionShape
-    var collisionTransform: CollisionTransform
-    var polygons: [CollisionPolygon]
-    var boundingRadius: CGFloat
-  }
-
-  private struct CellCoordinate: Hashable, Sendable {
-    var column: Int
-    var row: Int
-  }
-
   private static func maximumBoundingRadius(
     for symbols: [PlacementSymbolDescriptor],
   ) -> CGFloat {
@@ -318,8 +208,8 @@ enum ShapePlacementEngine {
       column = max(0, min(gridColumnCount - 1, rawColumn))
       row = max(0, min(gridRowCount - 1, rawRow))
     case .seamlessWrapping:
-      column = wrappedIndex(rawColumn, modulus: gridColumnCount)
-      row = wrappedIndex(rawRow, modulus: gridRowCount)
+      column = ShapePlacementWrapping.wrappedIndex(rawColumn, modulus: gridColumnCount)
+      row = ShapePlacementWrapping.wrappedIndex(rawRow, modulus: gridRowCount)
     }
 
     return CellCoordinate(column: column, row: row)
@@ -365,8 +255,8 @@ enum ShapePlacementEngine {
           }
         case .seamlessWrapping:
           CellCoordinate(
-            column: wrappedIndex(neighborColumn, modulus: gridColumnCount),
-            row: wrappedIndex(neighborRow, modulus: gridRowCount),
+            column: ShapePlacementWrapping.wrappedIndex(neighborColumn, modulus: gridColumnCount),
+            row: ShapePlacementWrapping.wrappedIndex(neighborRow, modulus: gridRowCount),
           )
         }
 
@@ -378,13 +268,6 @@ enum ShapePlacementEngine {
     }
 
     return coordinates
-  }
-
-  private static func wrappedIndex(_ index: Int, modulus: Int) -> Int {
-    guard modulus > 0 else { return 0 }
-
-    let remainder = index % modulus
-    return remainder >= 0 ? remainder : remainder + modulus
   }
 
   private static func pickSymbol(
@@ -416,19 +299,6 @@ enum ShapePlacementEngine {
     )
   }
 
-  private static func randomAngle(
-    in range: ClosedRange<Angle>,
-    using randomGenerator: inout some RandomNumberGenerator,
-  ) -> Angle {
-    let lower = range.lowerBound.degrees
-    let upper = range.upperBound.degrees
-    guard upper > lower else {
-      return .degrees(lower)
-    }
-
-    return .degrees(Double.random(in: lower...upper, using: &randomGenerator))
-  }
-
   private static func randomAngleRadians(
     in rangeDegrees: ClosedRange<Double>,
     using randomGenerator: inout some RandomNumberGenerator,
@@ -441,119 +311,5 @@ enum ShapePlacementEngine {
 
     let degrees = Double.random(in: lower...upper, using: &randomGenerator)
     return degrees * Double.pi / 180
-  }
-
-  private static func isPlacementValid(
-    candidate: PlacedSymbolDescriptor,
-    candidatePolygons: [CollisionPolygon],
-    existingColliderIndices: [Int],
-    allColliders: [PlacedCollider],
-    tileSize: CGSize,
-    edgeBehavior: TesseraEdgeBehavior,
-    wrapOffsets: [CGPoint],
-    minimumSpacing: CGFloat,
-  ) -> Bool {
-    let candidateBoundingRadius = candidate.collisionShape.boundingRadius(atScale: candidate.collisionTransform.scale)
-    let candidatePosition = candidate.collisionTransform.position
-    let minimumTileHalfDimension = min(tileSize.width, tileSize.height) / 2
-
-    // Check candidate against every already-placed symbol, accounting for wrap offsets.
-    for colliderIndex in existingColliderIndices {
-      let collider = allColliders[colliderIndex]
-      let colliderBoundingRadius = collider.boundingRadius
-      let combinedRadius = candidateBoundingRadius + colliderBoundingRadius
-      let bufferedDistance = combinedRadius + minimumSpacing
-      let bufferedDistanceSquared = bufferedDistance * bufferedDistance
-
-      let shouldUseNearestPeriodicImage = switch edgeBehavior {
-      case .finite:
-        true
-      case .seamlessWrapping:
-        bufferedDistance < minimumTileHalfDimension
-      }
-
-      if shouldUseNearestPeriodicImage {
-        let offset = nearestPeriodicOffset(
-          from: collider.collisionTransform.position,
-          to: candidatePosition,
-          tileSize: tileSize,
-          edgeBehavior: edgeBehavior,
-        )
-
-        let shiftedPosition = CGPoint(
-          x: collider.collisionTransform.position.x + offset.x,
-          y: collider.collisionTransform.position.y + offset.y,
-        )
-        let deltaX = candidatePosition.x - shiftedPosition.x
-        let deltaY = candidatePosition.y - shiftedPosition.y
-        let centerDistanceSquared = deltaX * deltaX + deltaY * deltaY
-
-        // If centers are farther apart than the buffered radii, spacing is satisfied.
-        guard centerDistanceSquared < bufferedDistanceSquared else { continue }
-
-        let shiftedTransform = CollisionTransform(
-          position: shiftedPosition,
-          rotation: collider.collisionTransform.rotation,
-          scale: collider.collisionTransform.scale,
-        )
-
-        // Within the buffered range, run the narrow-phase polygon test with spacing buffer.
-        if CollisionMath.polygonsIntersect(
-          candidatePolygons,
-          transformA: candidate.collisionTransform,
-          collider.polygons,
-          transformB: shiftedTransform,
-          buffer: minimumSpacing,
-        ) { return false }
-      } else {
-        for offset in wrapOffsets {
-          let shiftedPosition = CGPoint(
-            x: collider.collisionTransform.position.x + offset.x,
-            y: collider.collisionTransform.position.y + offset.y,
-          )
-          let deltaX = candidatePosition.x - shiftedPosition.x
-          let deltaY = candidatePosition.y - shiftedPosition.y
-          let centerDistanceSquared = deltaX * deltaX + deltaY * deltaY
-
-          // If centers are farther apart than the buffered radii, spacing is satisfied.
-          guard centerDistanceSquared < bufferedDistanceSquared else { continue }
-
-          let shiftedTransform = CollisionTransform(
-            position: shiftedPosition,
-            rotation: collider.collisionTransform.rotation,
-            scale: collider.collisionTransform.scale,
-          )
-
-          // Within the buffered range, run the narrow-phase polygon test with spacing buffer.
-          if CollisionMath.polygonsIntersect(
-            candidatePolygons,
-            transformA: candidate.collisionTransform,
-            collider.polygons,
-            transformB: shiftedTransform,
-            buffer: minimumSpacing,
-          ) { return false }
-        }
-      }
-    }
-
-    return true
-  }
-
-  private static func nearestPeriodicOffset(
-    from colliderPosition: CGPoint,
-    to candidatePosition: CGPoint,
-    tileSize: CGSize,
-    edgeBehavior: TesseraEdgeBehavior,
-  ) -> CGPoint {
-    guard edgeBehavior == .seamlessWrapping else { return .zero }
-    guard tileSize.width > 0, tileSize.height > 0 else { return .zero }
-
-    let deltaX = candidatePosition.x - colliderPosition.x
-    let deltaY = candidatePosition.y - colliderPosition.y
-
-    let offsetX = (deltaX / tileSize.width).rounded() * tileSize.width
-    let offsetY = (deltaY / tileSize.height).rounded() * tileSize.height
-
-    return CGPoint(x: offsetX, y: offsetY)
   }
 }

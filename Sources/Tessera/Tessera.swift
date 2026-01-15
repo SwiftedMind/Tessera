@@ -15,7 +15,7 @@ public struct TesseraTile: View {
   /// - Parameters:
   ///   - configuration: The tessera configuration to render.
   ///   - tileSize: Size of the tile.
-  ///   - seed: Optional seed overriding the configuration's seed for this view instance.
+  ///   - seed: Optional seed override for organic placement.
   public init(
     _ configuration: TesseraConfiguration,
     tileSize: CGSize,
@@ -24,7 +24,7 @@ public struct TesseraTile: View {
   ) {
     self.configuration = configuration
     self.tileSize = tileSize
-    self.seed = seed ?? configuration.seed
+    self.seed = seed ?? configuration.organicPlacement?.seed ?? TesseraConfiguration.randomSeed()
     self.onComputationStateChange = onComputationStateChange
   }
 
@@ -119,7 +119,7 @@ public struct TesseraRenderOptions {
   public var scale: CGFloat?
   /// Whether to draw collision overlays while exporting.
   ///
-  /// When set, this overrides `TesseraConfiguration.showsCollisionOverlay` for the export pipeline.
+  /// When set, this overrides `TesseraPlacement.Organic.showsCollisionOverlay` for the export pipeline.
   public var showsCollisionOverlay: Bool
   public var isOpaque: Bool
   public var colorMode: ColorRenderingMode
@@ -130,7 +130,7 @@ public struct TesseraRenderOptions {
   ///   - scale: Rasterization scale applied to the renderer; defaults to 2 for Retina-quality PNGs when
   /// `targetPixelSize` is nil.
   ///   - showsCollisionOverlay: Whether to draw collision overlays while exporting. This overrides
-  ///     `TesseraConfiguration.showsCollisionOverlay` for the export pipeline.
+  ///     `TesseraPlacement.Organic.showsCollisionOverlay` for the export pipeline.
   ///   - isOpaque: Whether the exported image should omit an alpha channel when possible.
   ///   - colorMode: Working color mode used during rendering.
   public init(
