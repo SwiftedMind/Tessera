@@ -21,6 +21,7 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 ## Table of Contents
 
 - [Get Started](#get-started)
+- [Migration Guide (2.0.0 → 3.0.0)](MIGRATION.md)
 - [Pinned Symbols](#pinned-symbols)
 - [Exporting](#exporting)
 - [Collision Shape Previews](#collision-shape-previews)
