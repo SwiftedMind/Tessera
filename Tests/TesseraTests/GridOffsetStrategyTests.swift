@@ -95,6 +95,26 @@ import Testing
   #expect(placed.count == 9)
 }
 
+@Test func columnShiftZeroDoesNotForceEvenColumnCountUnderWrapping() async throws {
+  let size = CGSize(width: 300, height: 300)
+
+  let configuration = TesseraPlacement.Grid(
+    columnCount: 3,
+    rowCount: 3,
+    offsetStrategy: .columnShift(fraction: 0),
+  )
+
+  let placed = GridShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: [makeTestSymbolDescriptor()],
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .seamlessWrapping,
+    configuration: configuration,
+  )
+
+  #expect(placed.count == 9)
+}
+
 @Test func checkerShiftZeroDoesNotForceEvenCountsUnderWrapping() async throws {
   let size = CGSize(width: 300, height: 300)
 
@@ -113,6 +133,137 @@ import Testing
   )
 
   #expect(placed.count == 9)
+}
+
+@Test func rowShiftNonZeroForcesEvenRowCountUnderWrapping() async throws {
+  let size = CGSize(width: 300, height: 300)
+
+  let configuration = TesseraPlacement.Grid(
+    columnCount: 3,
+    rowCount: 3,
+    offsetStrategy: .rowShift(fraction: 0.25),
+  )
+
+  let placed = GridShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: [makeTestSymbolDescriptor()],
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .seamlessWrapping,
+    configuration: configuration,
+  )
+
+  #expect(placed.count == 12)
+}
+
+@Test func columnShiftNonZeroForcesEvenColumnCountUnderWrapping() async throws {
+  let size = CGSize(width: 300, height: 300)
+
+  let configuration = TesseraPlacement.Grid(
+    columnCount: 3,
+    rowCount: 3,
+    offsetStrategy: .columnShift(fraction: 0.25),
+  )
+
+  let placed = GridShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: [makeTestSymbolDescriptor()],
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .seamlessWrapping,
+    configuration: configuration,
+  )
+
+  #expect(placed.count == 12)
+}
+
+@Test func checkerShiftNonZeroForcesEvenCountsUnderWrapping() async throws {
+  let size = CGSize(width: 300, height: 300)
+
+  let configuration = TesseraPlacement.Grid(
+    columnCount: 3,
+    rowCount: 3,
+    offsetStrategy: .checkerShift(fraction: 0.25),
+  )
+
+  let placed = GridShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: [makeTestSymbolDescriptor()],
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .seamlessWrapping,
+    configuration: configuration,
+  )
+
+  #expect(placed.count == 16)
+}
+
+@Test func rowShiftNegativeActsAsZero() async throws {
+  let size = CGSize(width: 300, height: 300)
+
+  let configuration = TesseraPlacement.Grid(
+    columnCount: 3,
+    rowCount: 3,
+    offsetStrategy: .rowShift(fraction: -1),
+  )
+
+  let placed = GridShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: [makeTestSymbolDescriptor()],
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .seamlessWrapping,
+    configuration: configuration,
+  )
+
+  #expect(placed.count == 9)
+  #expect(placed[3].position == CGPoint(x: 50, y: 150))
+}
+
+@Test func rowShiftNaNActsAsZero() async throws {
+  let size = CGSize(width: 300, height: 300)
+
+  let configuration = TesseraPlacement.Grid(
+    columnCount: 3,
+    rowCount: 3,
+    offsetStrategy: .rowShift(fraction: Double.nan),
+  )
+
+  let placed = GridShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: [makeTestSymbolDescriptor()],
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .seamlessWrapping,
+    configuration: configuration,
+  )
+
+  #expect(placed.count == 9)
+  #expect(placed[3].position == CGPoint(x: 50, y: 150))
+}
+
+@Test func largeRowShiftCullsInFiniteButNotInWrapping() async throws {
+  let size = CGSize(width: 200, height: 200)
+
+  let configuration = TesseraPlacement.Grid(
+    columnCount: 4,
+    rowCount: 4,
+    offsetStrategy: .rowShift(fraction: 2),
+  )
+
+  let placedFinite = GridShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: [makeTestSymbolDescriptor()],
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .finite,
+    configuration: configuration,
+  )
+
+  let placedWrapped = GridShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: [makeTestSymbolDescriptor()],
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .seamlessWrapping,
+    configuration: configuration,
+  )
+
+  #expect(placedFinite.count == 12)
+  #expect(placedWrapped.count == 16)
 }
 
 private func makeTestSymbolDescriptor() -> ShapePlacementEngine.PlacementSymbolDescriptor {

@@ -138,6 +138,7 @@ public struct TesseraCanvas: View {
   public var onComputationStateChange: ((Bool) -> Void)?
 
   @State private var cachedPlacedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor] = []
+  @State private var activeComputationKey: ComputationKey?
 
   /// Creates a finite tessera canvas.
   /// - Parameters:
@@ -263,6 +264,7 @@ public struct TesseraCanvas: View {
       .clipped()
       .task(id: computationKey) {
         await MainActor.run {
+          activeComputationKey = computationKey
           onComputationStateChange?(true)
         }
         defer {
@@ -533,7 +535,7 @@ private extension TesseraCanvas {
     }
 
     await MainActor.run {
-      guard Task.isCancelled == false else { return }
+      guard activeComputationKey == snapshot.key else { return }
 
       cachedPlacedSymbolDescriptors = placedSymbolDescriptors
     }

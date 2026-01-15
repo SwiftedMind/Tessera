@@ -134,6 +134,65 @@ import Testing
   #expect(Int(centerPixel.red) - Int(centerPixel.blue) > 100)
 }
 
+@Test @MainActor func canvasPDFExportRendersPinnedSymbolsAboveGeneratedSymbols() async throws {
+  let canvasSize = CGSize(width: 128, height: 128)
+
+  let generatedSymbol = TesseraSymbol(
+    weight: 1,
+    allowedRotationRange: .degrees(0)...(.degrees(0)),
+    scaleRange: 1...1,
+    collisionShape: .rectangle(center: .zero, size: CGSize(width: 120, height: 120)),
+  ) {
+    Rectangle()
+      .fill(Color.blue)
+      .frame(width: 120, height: 120)
+  }
+
+  let configuration = TesseraConfiguration(
+    symbols: [generatedSymbol],
+    placement: .grid(
+      TesseraPlacement.Grid(
+        columnCount: 1,
+        rowCount: 1,
+      ),
+    ),
+  )
+
+  let pinnedSymbol = TesseraPinnedSymbol(
+    position: .centered(),
+    collisionShape: .rectangle(center: .zero, size: CGSize(width: 60, height: 60)),
+  ) {
+    Rectangle()
+      .fill(Color.red)
+      .frame(width: 60, height: 60)
+  }
+
+  let canvas = TesseraCanvas(
+    configuration,
+    pinnedSymbols: [pinnedSymbol],
+    seed: 1,
+    edgeBehavior: .finite,
+  )
+  let temporaryDirectory = FileManager.default.temporaryDirectory
+  let fileName = UUID().uuidString
+
+  let exportedURL = try canvas.renderPDF(
+    to: temporaryDirectory,
+    fileName: fileName,
+    canvasSize: canvasSize,
+    pageSize: canvasSize,
+  )
+  defer { try? FileManager.default.removeItem(at: exportedURL) }
+
+  let cgImage = try cgImageFromPDFFile(at: exportedURL)
+  let centerPixel = try pixelComponents(in: cgImage, x: cgImage.width / 2, y: cgImage.height / 2)
+
+  #expect(centerPixel.alpha > 200)
+  #expect(centerPixel.red > 200)
+  #expect(Int(centerPixel.red) - Int(centerPixel.green) > 100)
+  #expect(Int(centerPixel.red) - Int(centerPixel.blue) > 100)
+}
+
 @Test @MainActor func canvasPDFExportUsesTransparentBackgroundByDefault() async throws {
   let canvasSize = CGSize(width: 128, height: 128)
   let pageSize = CGSize(width: 256, height: 256)

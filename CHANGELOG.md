@@ -1,4 +1,4 @@
-## [Upcoming]
+## [3.0.0] (Upcoming)
 
 ### Added
 - **Grid Placement Mode**: Added `TesseraPlacement.grid` with offset strategies for seamless grid-based patterns.
@@ -8,6 +8,8 @@
   (for example `2.5` shifts by 2½ cells), and `1.0` no longer aliases `0.0`.
 
 ### Fixed
+- **Canvas Placement Computation**: `TesseraCanvas` now computes placements reliably on first render (avoids missing the
+  initial layout size during view creation / restoration).
 - **Pinned Symbol Render Order**: Pinned symbols now always render above generated symbols in `TesseraCanvas` (including exports).
 - **Grid Count Rounding**: Seamless wrapping no longer forces even row/column counts when a grid offset strategy's fraction is zero.
 
