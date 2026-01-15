@@ -70,7 +70,12 @@ enum GridShapePlacementEngine {
         let selectedSymbol = symbolDescriptors[resolvedSymbolIndex % symbolCount]
 
         let scale = selectedSymbol.resolvedScaleRange.lowerBound
-        let rotationRadians = rotationRadiansForGrid(rangeDegrees: selectedSymbol.allowedRotationRangeDegrees)
+        let rotationRadians = rotationRadiansForGrid(
+          rangeDegrees: selectedSymbol.allowedRotationRangeDegrees,
+          rowIndex: rowIndex,
+          columnIndex: columnIndex,
+          symbolIndex: resolvedSymbolIndex,
+        )
 
         guard let selectedPolygons = polygonCache[selectedSymbol.id] else { continue }
 
@@ -131,8 +136,36 @@ enum GridShapePlacementEngine {
 
   private static func rotationRadiansForGrid(
     rangeDegrees: ClosedRange<Double>,
+    rowIndex: Int,
+    columnIndex: Int,
+    symbolIndex: Int,
   ) -> Double {
-    rangeDegrees.lowerBound * Double.pi / 180
+    let lower = rangeDegrees.lowerBound
+    let upper = rangeDegrees.upperBound
+    guard upper > lower else {
+      return lower * Double.pi / 180
+    }
+
+    let seed = gridRotationSeed(
+      rowIndex: rowIndex,
+      columnIndex: columnIndex,
+      symbolIndex: symbolIndex,
+    )
+    var randomGenerator = SeededGenerator(seed: seed)
+    let degrees = Double.random(in: lower...upper, using: &randomGenerator)
+    return degrees * Double.pi / 180
+  }
+
+  private static func gridRotationSeed(
+    rowIndex: Int,
+    columnIndex: Int,
+    symbolIndex: Int,
+  ) -> UInt64 {
+    var seed = UInt64(truncatingIfNeeded: rowIndex) &* 0x9E37_79B9_7F4A_7C15
+    seed ^= UInt64(truncatingIfNeeded: columnIndex) &* 0xBF58_476D_1CE4_E5B9
+    seed ^= UInt64(truncatingIfNeeded: symbolIndex) &* 0x94D0_49BB_1331_11EB
+    seed ^= seed >> 29
+    return seed
   }
 
   private static func resolveGrid(

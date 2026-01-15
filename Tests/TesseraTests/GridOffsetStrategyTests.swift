@@ -266,6 +266,41 @@ import Testing
   #expect(placedWrapped.count == 16)
 }
 
+@Test func gridPlacementRespectsRotationRange() async throws {
+  let size = CGSize(width: 200, height: 100)
+
+  let configuration = TesseraPlacement.Grid(
+    columnCount: 2,
+    rowCount: 1,
+    offsetStrategy: .none,
+  )
+
+  let placed = GridShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: [makeRotationRangeSymbolDescriptor()],
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .finite,
+    configuration: configuration,
+  )
+
+  #expect(placed.count == 2)
+  let expectedFirst = expectedRotationRadians(
+    rangeDegrees: 0...180,
+    rowIndex: 0,
+    columnIndex: 0,
+    symbolIndex: 0,
+  )
+  let expectedSecond = expectedRotationRadians(
+    rangeDegrees: 0...180,
+    rowIndex: 0,
+    columnIndex: 1,
+    symbolIndex: 1,
+  )
+
+  #expect(abs(placed[0].rotationRadians - expectedFirst) < 0.000001)
+  #expect(abs(placed[1].rotationRadians - expectedSecond) < 0.000001)
+}
+
 private func makeTestSymbolDescriptor() -> ShapePlacementEngine.PlacementSymbolDescriptor {
   ShapePlacementEngine.PlacementSymbolDescriptor(
     id: UUID(),
@@ -274,4 +309,48 @@ private func makeTestSymbolDescriptor() -> ShapePlacementEngine.PlacementSymbolD
     resolvedScaleRange: 1...1,
     collisionShape: .circle(center: .zero, radius: 1),
   )
+}
+
+private func makeRotationRangeSymbolDescriptor() -> ShapePlacementEngine.PlacementSymbolDescriptor {
+  ShapePlacementEngine.PlacementSymbolDescriptor(
+    id: UUID(),
+    weight: 1,
+    allowedRotationRangeDegrees: 0...180,
+    resolvedScaleRange: 1...1,
+    collisionShape: .circle(center: .zero, radius: 1),
+  )
+}
+
+private func expectedRotationRadians(
+  rangeDegrees: ClosedRange<Double>,
+  rowIndex: Int,
+  columnIndex: Int,
+  symbolIndex: Int,
+) -> Double {
+  let lower = rangeDegrees.lowerBound
+  let upper = rangeDegrees.upperBound
+  guard upper > lower else {
+    return lower * Double.pi / 180
+  }
+
+  let seed = gridRotationSeed(
+    rowIndex: rowIndex,
+    columnIndex: columnIndex,
+    symbolIndex: symbolIndex,
+  )
+  var generator = SeededGenerator(seed: seed)
+  let degrees = Double.random(in: lower...upper, using: &generator)
+  return degrees * Double.pi / 180
+}
+
+private func gridRotationSeed(
+  rowIndex: Int,
+  columnIndex: Int,
+  symbolIndex: Int,
+) -> UInt64 {
+  var seed = UInt64(truncatingIfNeeded: rowIndex) &* 0x9E37_79B9_7F4A_7C15
+  seed ^= UInt64(truncatingIfNeeded: columnIndex) &* 0xBF58_476D_1CE4_E5B9
+  seed ^= UInt64(truncatingIfNeeded: symbolIndex) &* 0x94D0_49BB_1331_11EB
+  seed ^= seed >> 29
+  return seed
 }
