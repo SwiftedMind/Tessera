@@ -1,4 +1,4 @@
-## [3.0.0] (Upcoming)
+## [3.0.0]
 
 ### Added
 - **Grid Placement Mode**: Added `TesseraPlacement.grid` with offset strategies for seamless grid-based patterns.
