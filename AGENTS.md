@@ -1,4 +1,4 @@
-# AGENTS.md — Architecture & Contribution Guide
+# AGENTS.md
 
 Tessera is a Swift package that turns a single generated tile composed of arbitrary SwiftUI views into an endlessly repeating, seamlessly wrapping pattern.
 
@@ -6,45 +6,52 @@ This document gives a high-level view of how the project is structured and how i
 
 ---
 
-## General Instructions
+## How to work in this repo
 
-Pay attention to these general instructions and closely follow them!
+These are the defaults and conventions that keep changes consistent and easy to review.
 
-- Whenever you make changes to the code, build the project afterwards to ensure everything still compiles.
-- Whenever you make changes to unit tests, run the test suite to verify the changes.
-- Always prefer readability over conciseness/compactness.
-- Never commit unless instructed to do so.
+### Expectations
 
-### **IMPORTANT**: Before you start
+- **After code changes:** build the app to make sure it still compiles.
+- **After test changes:** run the relevant unit/UI tests (and the suite when appropriate).
+- **Text & localization:** use the repo’s SwiftUI localization approach (String Catalog with plain `Text` / `LocalizedStringKey`).
+- **Style bias:** readability beats cleverness; keep types and files small where possible.
+- **Commits:** only commit when you’re explicitly asked to.
 
-- Always scan the Internal and External Resources lists for anything that applies to the work you are doing (features, providers, database, AI tools, tests, docstrings, changelog, commits, etc.) and read those guidelines before making changes.
-- When asked to commit changes to the repository, always read and understand the commit guidelines before doing anything!
-- If you touch anything inside `TesseraApp/`, read `TesseraApp/AGENTS.md` first; its rules apply alongside this file.
+### Before you wrap up
 
-### When you are done
-
-- Always build the project to check for compilation errors.
-- When you have added or modified Swift files, always run `swiftformat --config ".swiftformat" {files}`.
-
-## Internal Resources
-
-Use these documents proactively whenever you work on the corresponding area; they define the constraints and patterns you must follow.
-
-- agents/guidelines/commit.md - Guidelines for committing changes to the repository
-- agents/swift/docc.md - Guidelines on writing docstrings in Swift
+- Always build the project for all supported platforms (and run tests if your changes touch them or could reasonably affect them).
+- If you changed Swift files, always run: `swiftformat --config ".swiftformat" {files}`
 
 ---
 
-## Build Instructions
+## Project guidelines
 
-- Build from the repository root with `swift build`.
+### Documentation
+
+- If you touch it, give it solid doc strings.
+- For anything non-trivial, leave a comment explaining the "what" and “why”.
+
+### Swift & file conventions
+
+- Prefer descriptive, English-like names (skip abbreviations unless they’re truly standard).
+- If a file is getting large or multi-purpose, feel free to split it into reusable components when that improves clarity.
+
+### SwiftUI view organization
+
+- In view types, declare properties as `var` (not `let`).
+- Use `#Preview` for previews.
+- For state-driven animation, prefer `.animation(.default, value: ...)` over scattered `withAnimation`.
+  - Put `.animation` as high in the hierarchy as you can so containers/scroll views animate naturally.
+- Prefer `$`-derived bindings (`$state`, `$binding`, `@Bindable` projections).
+  - Avoid manual `Binding(get:set:)` unless it genuinely simplifies an adaptation (optional defaults, type bridging, etc.). If you do use it, leave a short note explaining why.
+- Prefer `.onChange(of: value) { ... }` with no closure arguments; read `value` inside the closure.
+- Push `@State` as deep as possible, but keep it as high as necessary. Don’t default to hoisting everything to the root.
+
+---
+
+## Build & test commands (copy/paste)
+
+- Build from the repository root with `swift build --quiet`.
+- Test from the repository root with `swift test --quiet`.
 - Prefer `swift build --quiet` to reduce noise; only drop `--quiet` when debugging a failure.
-
-## Architectural Structural Overview
-
-- **Public Surface**: `Sources/Tessera` exposes the SwiftUI-facing API. `Tessera` defines the tile configuration (size, symbols, spacing, density, seed). `TesseraSymbol` wraps individual SwiftUI content with weighting, rotation and scaling rules. `TesseraTiledCanvas` is the primary repeating view; it tiles a single tessera tile across a `Canvas`.
-- **Rendering Pipeline**: `TesseraTiledCanvas` constructs a single cached symbol (`TesseraCanvasTile`) and draws it in a grid that covers the available space. The tile itself runs deterministic randomness via `SeededGenerator` so the same seed reproduces the same layout.
-- **Point Generation**: `Internal/PoissonDiskGenerator` produces evenly spaced candidate points with toroidal wrap-around using Poisson-disc sampling. It clamps fill probability, computes a cell grid, and iteratively accepts candidates that satisfy the minimum spacing.
-- **Symbol Placement**: `Internal/SymbolAssigner` walks the generated points in shuffled order, discourages identical neighbors through a wrapped grid lookup, and chooses symbols by weight when necessary fallback to the full set.
-- **Seamless Wrapping**: `TesseraCanvasTile` draws each symbol with a 3×3 offset lattice so symbols that touch edges wrap cleanly when tiles repeat, preserving seamless continuity in both axes.
-- **Determinism and Reuse**: Seeds propagate from `Tessera` into `TesseraTiledCanvas` and internal generators, ensuring repeatable outputs while keeping symbol resolution cached for performance during canvas redraws.

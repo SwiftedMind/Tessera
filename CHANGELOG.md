@@ -1,3 +1,8 @@
+## [Unreleased]
+
+### Fixed
+- **Grid Rotation Range**: Grid placement now respects each symbol’s allowed rotation range with deterministic variation per cell.
+
 ## [3.0.0]
 
 ### Added
