@@ -27,7 +27,8 @@ public struct TesseraTiledCanvas: View {
   }
 
   public var body: some View {
-    Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: true) { context, size in
+    // Render synchronously to avoid stale-frame flashes when a parent view applies interactive transforms.
+    Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: false) { context, size in
       guard let tile = context.resolveSymbol(id: 0) else { return }
 
       let columns = Int(ceil(size.width / tileSize.width))

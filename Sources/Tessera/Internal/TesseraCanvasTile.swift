@@ -35,7 +35,8 @@ struct TesseraCanvasTile: View {
       }
       : [:]
 
-    Canvas(rendersAsynchronously: true) { context, size in
+    // Render synchronously to avoid stale-frame flashes when a parent view applies interactive transforms.
+    Canvas(rendersAsynchronously: false) { context, size in
       let wrappedOffset = CGSize(
         width: configuration.patternOffset.width.truncatingRemainder(dividingBy: size.width),
         height: configuration.patternOffset.height.truncatingRemainder(dividingBy: size.height),

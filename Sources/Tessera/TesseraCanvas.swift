@@ -193,7 +193,8 @@ public struct TesseraCanvas: View {
 
     let computationKey = makeComputationKey(for: canvasSize)
 
-    let baseCanvas = Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: true) { context, size in
+    // Render synchronously to avoid stale-frame flashes when a parent view applies interactive transforms.
+    let baseCanvas = Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: false) { context, size in
       guard size.width > 0, size.height > 0 else { return }
 
       let wrappedOffset = CGSize(
@@ -229,7 +230,8 @@ public struct TesseraCanvas: View {
     return baseCanvas
       .overlay {
         if pinnedSymbols.isEmpty == false {
-          Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: true) { context, size in
+          // Keep the overlay in lockstep with the base canvas during interactive transforms.
+          Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: false) { context, size in
             guard size.width > 0, size.height > 0 else { return }
 
             let offsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: edgeBehavior)
