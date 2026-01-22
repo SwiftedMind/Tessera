@@ -132,6 +132,7 @@ private struct PolygonRegionExampleView: View {
       DemoConfigurations.polygon,
       edgeBehavior: .finite,
       region: DemoRegions.mosaic,
+      regionRendering: .unclipped
     )
     .background(.black)
     .ignoresSafeArea()

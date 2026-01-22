@@ -27,6 +27,23 @@ public extension TesseraCanvasRegion {
   ) -> TesseraCanvasRegion {
     .polygon(points: points, mapping: mapping)
   }
+
+  /// Creates a polygon region by flattening a `CGPath` into line segments.
+  ///
+  /// Curved segments are approximated by inserting additional points until the curve deviation is below `flatness`.
+  ///
+  /// - Parameters:
+  ///   - path: The path to flatten. If the path contains multiple closed subpaths, the largest one is used.
+  ///   - flatness: Maximum deviation in the path's coordinate space when approximating curves.
+  ///   - mapping: Mapping strategy that fits the polygon into the resolved canvas size.
+  static func polygon(
+    _ path: CGPath,
+    flatness: CGFloat = 1,
+    mapping: TesseraPolygonMapping = .fit(mode: .aspectFit, alignment: .center),
+  ) -> TesseraCanvasRegion {
+    let points = TesseraPathFlattening.largestClosedPolygonPoints(from: path, flatness: flatness)
+    return .polygon(points: points, mapping: mapping)
+  }
 }
 
 /// Describes how polygon points map into the canvas coordinate space.

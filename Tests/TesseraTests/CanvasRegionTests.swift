@@ -82,6 +82,18 @@ import Testing
   }
 }
 
+@Test func polygonRegionFromCGPathFlattensCurves() async throws {
+  let canvasSize = CGSize(width: 220, height: 220)
+  let ellipsePath = CGPath(ellipseIn: CGRect(x: 0, y: 0, width: 120, height: 80), transform: nil)
+
+  let region = TesseraCanvasRegion.polygon(ellipsePath, flatness: 2)
+  let resolvedRegion = region.resolvedPolygon(in: canvasSize)
+
+  #expect(resolvedRegion != nil)
+  #expect(resolvedRegion?.points.count ?? 0 > 12)
+  #expect((resolvedRegion?.area ?? 0) > 0)
+}
+
 @Test @MainActor func canvasPNGExportClipsToPolygonRegion() async throws {
   let canvasSize = CGSize(width: 120, height: 120)
   let region = TesseraCanvasRegion.polygon(
@@ -138,6 +150,66 @@ import Testing
   let interiorPixel = try pixelComponents(in: cgImage, x: 10, y: 10)
 
   #expect(cornerPixel.alpha == 0)
+  #expect(interiorPixel.alpha > 0)
+}
+
+@Test @MainActor func canvasPNGExportUnclippedPolygonRegionDoesNotClip() async throws {
+  let canvasSize = CGSize(width: 120, height: 120)
+  let region = TesseraCanvasRegion.polygon(
+    [
+      CGPoint(x: 0, y: 0),
+      CGPoint(x: canvasSize.width, y: 0),
+      CGPoint(x: 0, y: canvasSize.height),
+    ],
+    mapping: .canvasCoordinates,
+  )
+
+  let configuration = TesseraConfiguration(
+    symbols: [],
+    placement: .organic(
+      TesseraPlacement.Organic(
+        seed: 1,
+        minimumSpacing: 10,
+        density: 0,
+        baseScaleRange: 1...1,
+        maximumSymbolCount: 0,
+      ),
+    ),
+  )
+
+  let pinnedSymbol = TesseraPinnedSymbol(
+    position: .centered(),
+    collisionShape: .rectangle(center: .zero, size: canvasSize),
+  ) {
+    Rectangle()
+      .fill(Color.red)
+      .frame(width: canvasSize.width, height: canvasSize.height)
+  }
+
+  let canvas = TesseraCanvas(
+    configuration,
+    pinnedSymbols: [pinnedSymbol],
+    seed: 1,
+    edgeBehavior: .finite,
+    region: region,
+    regionRendering: .unclipped,
+  )
+
+  let temporaryDirectory = FileManager.default.temporaryDirectory
+  let fileName = UUID().uuidString
+
+  let exportedURL = try canvas.renderPNG(
+    to: temporaryDirectory,
+    fileName: fileName,
+    canvasSize: canvasSize,
+  )
+  defer { try? FileManager.default.removeItem(at: exportedURL) }
+
+  let cgImage = try cgImageFromPNGFile(at: exportedURL)
+  let cornerPixel = try pixelComponents(in: cgImage, x: cgImage.width - 1, y: cgImage.height - 1)
+  let interiorPixel = try pixelComponents(in: cgImage, x: 10, y: 10)
+
+  #expect(cornerPixel.alpha > 0)
   #expect(interiorPixel.alpha > 0)
 }
 

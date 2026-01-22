@@ -152,6 +152,9 @@ struct Poster: View {
 the polygon into the resolved canvas size using aspect-fit and centered alignment by default. Use
 `.canvasCoordinates` when your points are already in canvas space. Polygon regions always use finite edges.
 
+By default, drawing is clipped to the region. Use `regionRendering: .unclipped` to allow symbols to extend beyond the
+outline (while still placing symbols inside the polygon).
+
 ```swift
 let outlinePoints: [CGPoint] = [
   CGPoint(x: 0, y: 0),
@@ -164,6 +167,14 @@ let region = TesseraCanvasRegion.polygon(outlinePoints)
 
 TesseraCanvas(configuration, region: region)
   .frame(width: 400, height: 400)
+```
+
+If you already have a `CGPath` (for example from a vector editor or by building it in code), Tessera can flatten it into
+polygon points:
+
+```swift
+let path = CGPath(ellipseIn: CGRect(x: 0, y: 0, width: 200, height: 120), transform: nil)
+let region = TesseraCanvasRegion.polygon(path, flatness: 2)
 ```
 
 ### Mapping Modes

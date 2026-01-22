@@ -14,6 +14,14 @@ public enum TesseraEdgeBehavior: Sendable {
   case seamlessWrapping
 }
 
+/// Defines how a tessera canvas renders a polygon region.
+public enum TesseraRegionRendering: Sendable, Hashable {
+  /// Clips drawing to the polygon region.
+  case clipped
+  /// Draws symbols without clipping, while still constraining placement to the region.
+  case unclipped
+}
+
 /// A fixed view placed once into a finite tessera canvas.
 ///
 /// Fixed symbols participate in collision checks so generated symbols fill around them.
@@ -137,6 +145,8 @@ public struct TesseraCanvas: View {
   public var edgeBehavior: TesseraEdgeBehavior
   /// Region used to clip rendering and constrain placement.
   public var region: TesseraCanvasRegion
+  /// Defines how polygon regions are rendered.
+  public var regionRendering: TesseraRegionRendering
   public var onComputationStateChange: ((Bool) -> Void)?
 
   @State private var cachedPlacedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor] = []
@@ -149,6 +159,7 @@ public struct TesseraCanvas: View {
   ///   - seed: Optional seed override for organic placement.
   ///   - edgeBehavior: Whether to wrap edges toroidally or not.
   ///   - region: Region used to clip rendering and constrain placement. Polygon regions always use finite edges.
+  ///   - regionRendering: Defines whether drawing is clipped to the region.
   ///
   /// The canvas fills the space provided by layout. Set an explicit `.frame(...)` on this view when you need a fixed
   /// on-screen size.
@@ -158,6 +169,7 @@ public struct TesseraCanvas: View {
     seed: UInt64? = nil,
     edgeBehavior: TesseraEdgeBehavior = .finite,
     region: TesseraCanvasRegion = .rectangle,
+    regionRendering: TesseraRegionRendering = .clipped,
     onComputationStateChange: ((Bool) -> Void)? = nil,
   ) {
     self.configuration = configuration
@@ -165,6 +177,7 @@ public struct TesseraCanvas: View {
     self.seed = seed ?? configuration.organicPlacement?.seed ?? TesseraConfiguration.randomSeed()
     self.edgeBehavior = edgeBehavior
     self.region = region
+    self.regionRendering = regionRendering
     self.onComputationStateChange = onComputationStateChange
   }
 
@@ -183,7 +196,7 @@ public struct TesseraCanvas: View {
     let pinnedSymbols = pinnedSymbols
     let edgeBehavior = effectiveEdgeBehavior
     let region = region
-    let clipPath = region.clipPath(in: canvasSize)
+    let clipPath = shouldClipRegion ? region.clipPath(in: canvasSize) : nil
     let placedSymbolDescriptors = cachedPlacedSymbolDescriptors
     let onComputationStateChange = onComputationStateChange
     let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
@@ -331,6 +344,7 @@ public struct TesseraCanvas: View {
       configuration: renderConfiguration,
       canvasSize: canvasSize,
       region: region,
+      regionRendering: regionRendering,
       pinnedSymbols: pinnedSymbols,
       placedSymbolDescriptors: placedSymbolDescriptors,
       edgeBehavior: effectiveEdgeBehavior,
@@ -415,6 +429,7 @@ public struct TesseraCanvas: View {
       configuration: renderConfiguration,
       canvasSize: canvasSize,
       region: region,
+      regionRendering: regionRendering,
       pinnedSymbols: pinnedSymbols,
       placedSymbolDescriptors: placedSymbolDescriptors,
       edgeBehavior: effectiveEdgeBehavior,
@@ -472,6 +487,10 @@ private struct TesseraCanvasExportRenderView<Content: View>: View {
 }
 
 private extension TesseraCanvas {
+  var shouldClipRegion: Bool {
+    region.isPolygon && regionRendering == .clipped
+  }
+
   var effectiveEdgeBehavior: TesseraEdgeBehavior {
     switch region {
     case .rectangle:
@@ -732,13 +751,14 @@ private struct TesseraCanvasStaticRenderView: View {
   var configuration: TesseraConfiguration
   var canvasSize: CGSize
   var region: TesseraCanvasRegion
+  var regionRendering: TesseraRegionRendering
   var pinnedSymbols: [TesseraPinnedSymbol]
   var placedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor]
   var edgeBehavior: TesseraEdgeBehavior
 
   var body: some View {
     let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
-    let clipPath = region.clipPath(in: canvasSize)
+    let clipPath = region.isPolygon && regionRendering == .clipped ? region.clipPath(in: canvasSize) : nil
     let overlayShapesBySymbolId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
       ? configuration.symbols.reduce(into: [:]) { cache, symbol in
         cache[symbol.id] = CollisionOverlayShape(collisionShape: symbol.collisionShape)
