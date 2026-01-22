@@ -13,6 +13,7 @@ enum ShapePlacementEngine {
   ///   - pinnedSymbols: Symbols that must be placed at fixed positions before sampling.
   ///   - edgeBehavior: The edge behavior to apply when testing collisions.
   ///   - region: Optional polygon region in tile space used to constrain placement.
+  ///   - alphaMask: Optional alpha mask used to constrain placement.
   ///   - randomGenerator: The random number generator that drives placement.
   /// - Returns: The placed symbols for the tile.
   static func placeSymbols(
@@ -21,6 +22,7 @@ enum ShapePlacementEngine {
     pinnedSymbols: [TesseraPinnedSymbol] = [],
     edgeBehavior: TesseraEdgeBehavior = .seamlessWrapping,
     region: TesseraResolvedPolygonRegion? = nil,
+    alphaMask: TesseraAlphaMask? = nil,
     randomGenerator: inout some RandomNumberGenerator,
   ) -> [PlacedSymbol] {
     guard !configuration.symbols.isEmpty else { return [] }
@@ -55,6 +57,7 @@ enum ShapePlacementEngine {
       edgeBehavior: edgeBehavior,
       placement: configuration.placement,
       region: region,
+      alphaMask: alphaMask,
       randomGenerator: &randomGenerator,
     )
 
@@ -85,6 +88,7 @@ enum ShapePlacementEngine {
   ///   - edgeBehavior: The edge behavior to apply when testing collisions.
   ///   - placement: The placement mode configuration to use.
   ///   - region: Optional polygon region in tile space used to constrain placement.
+  ///   - alphaMask: Optional alpha mask used to constrain placement.
   ///   - randomGenerator: The random number generator that drives placement.
   /// - Returns: The placed symbol descriptors for the tile.
   static func placeSymbolDescriptors(
@@ -94,6 +98,7 @@ enum ShapePlacementEngine {
     edgeBehavior: TesseraEdgeBehavior = .seamlessWrapping,
     placement: TesseraPlacement,
     region: TesseraResolvedPolygonRegion? = nil,
+    alphaMask: TesseraAlphaMask? = nil,
     randomGenerator: inout some RandomNumberGenerator,
   ) -> [PlacedSymbolDescriptor] {
     guard !symbolDescriptors.isEmpty else { return [] }
@@ -107,6 +112,7 @@ enum ShapePlacementEngine {
         edgeBehavior: edgeBehavior,
         configuration: organicConfiguration,
         region: region,
+        alphaMask: alphaMask,
         randomGenerator: &randomGenerator,
       )
     case let .grid(gridConfiguration):
@@ -117,6 +123,7 @@ enum ShapePlacementEngine {
         edgeBehavior: edgeBehavior,
         configuration: gridConfiguration,
         region: region,
+        alphaMask: alphaMask,
       )
     }
   }

@@ -17,6 +17,7 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 - Seamless wrapping: tile edges wrap toroidally so patterns repeat without seams.
 - Deterministic output: provide a seed for reproducible layouts; omit to randomize.
 - Polygon regions: fill an arbitrary polygon, not just a rectangle.
+- Alpha mask regions: fill the shape of any view or image.
 - Export: render to PNG or vector-friendly PDF.
 
 ## Table of Contents
@@ -25,6 +26,7 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 - [Migration Guide (2.0.0 → 3.0.0)](MIGRATION.md)
 - [Pinned Symbols](#pinned-symbols)
 - [Polygon Regions](#polygon-regions)
+- [Alpha Mask Regions](#alpha-mask-regions)
 - [Exporting](#exporting)
 - [Collision Shape Previews](#collision-shape-previews)
 - [Terminology](#terminology)
@@ -185,6 +187,38 @@ let region = TesseraCanvasRegion.polygon(path, flatness: 2)
 | `.fit(mode: .aspectFill, alignment: .center)` | Fills the canvas while preserving aspect ratio, cropping overflow. |
 | `.fit(mode: .stretch, alignment: .center)` | Stretches independently on each axis to fill the canvas. |
 | `.canvasCoordinates` | Treats points as canvas coordinates with no additional mapping. |
+
+## Alpha Mask Regions
+
+Alpha mask regions constrain placement using the alpha channel of a SwiftUI view or image. Tessera rasterizes the mask
+at the provided `pixelScale` and treats pixels with alpha ≥ `alphaThreshold` as inside the region. Use
+`regionRendering: .unclipped` to allow symbols to extend past the mask while still placing them inside it.
+
+```swift
+let region = TesseraCanvasRegion.alphaMask(id: "logo-mask") {
+  Image("Logo")
+    .resizable()
+    .aspectRatio(contentMode: .fit)
+}
+
+TesseraCanvas(configuration, region: region)
+  .frame(width: 400, height: 400)
+```
+
+If you already have a `CGImage`, pass it directly:
+
+```swift
+let region = TesseraCanvasRegion.alphaMask(
+  id: "mask",
+  image: cgImage,
+  pixelScale: 2,
+  alphaThreshold: 0.4,
+  sampling: .bilinear
+)
+```
+
+> Note: For view-based masks, the view is sized by the mapping; use view modifiers such as `.aspectRatio` to preserve
+> the shape’s proportions. Increase `pixelScale` when you need sharper edges at the cost of extra placement work.
 
 ## Grid Placement
 

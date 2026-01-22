@@ -3,9 +3,14 @@
 ### Added
 - **Polygon Canvas Regions**: `TesseraCanvas` can now clip and place symbols inside polygonal regions mapped into the
   resolved canvas size (polygon regions always use finite edges).
+- **Alpha Mask Regions**: `TesseraCanvas` can now place symbols inside alpha masks derived from views or images, with
+  optional clipping and thresholded sampling.
 
 ### Fixed
 - **Grid Rotation Range**: Grid placement now respects each symbol’s allowed rotation range with deterministic variation per cell.
+
+### Breaking Changes
+- **TesseraCanvasRegion**: Added `.alphaMask`, so exhaustive `switch` statements must handle the new case.
 
 ## [3.0.0]
 

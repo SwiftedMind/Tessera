@@ -14,9 +14,9 @@ public enum TesseraEdgeBehavior: Sendable {
   case seamlessWrapping
 }
 
-/// Defines how a tessera canvas renders a polygon region.
+/// Defines how a tessera canvas renders a region.
 public enum TesseraRegionRendering: Sendable, Hashable {
-  /// Clips drawing to the polygon region.
+  /// Clips drawing to the region.
   case clipped
   /// Draws symbols without clipping, while still constraining placement to the region.
   case unclipped
@@ -145,11 +145,12 @@ public struct TesseraCanvas: View {
   public var edgeBehavior: TesseraEdgeBehavior
   /// Region used to clip rendering and constrain placement.
   public var region: TesseraCanvasRegion
-  /// Defines how polygon regions are rendered.
+  /// Defines how regions are rendered.
   public var regionRendering: TesseraRegionRendering
   public var onComputationStateChange: ((Bool) -> Void)?
 
   @State private var cachedPlacedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor] = []
+  @State private var cachedAlphaMask: TesseraAlphaMask?
   @State private var activeComputationKey: ComputationKey?
 
   /// Creates a finite tessera canvas.
@@ -158,7 +159,8 @@ public struct TesseraCanvas: View {
   ///   - pinnedSymbols: Views placed once; treated as obstacles.
   ///   - seed: Optional seed override for organic placement.
   ///   - edgeBehavior: Whether to wrap edges toroidally or not.
-  ///   - region: Region used to clip rendering and constrain placement. Polygon regions always use finite edges.
+  ///   - region: Region used to clip rendering and constrain placement. Polygon and alpha mask regions always use
+  ///     finite edges.
   ///   - regionRendering: Defines whether drawing is clipped to the region.
   ///
   /// The canvas fills the space provided by layout. Set an explicit `.frame(...)` on this view when you need a fixed
@@ -196,7 +198,8 @@ public struct TesseraCanvas: View {
     let pinnedSymbols = pinnedSymbols
     let edgeBehavior = effectiveEdgeBehavior
     let region = region
-    let clipPath = shouldClipRegion ? region.clipPath(in: canvasSize) : nil
+    let clipPath = shouldClipPolygon ? region.clipPath(in: canvasSize) : nil
+    let alphaMaskView = shouldClipAlphaMask ? cachedAlphaMask?.maskView() : nil
     let placedSymbolDescriptors = cachedPlacedSymbolDescriptors
     let onComputationStateChange = onComputationStateChange
     let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
@@ -251,7 +254,7 @@ public struct TesseraCanvas: View {
       }
     }
 
-    return baseCanvas
+    let compositeCanvas = baseCanvas
       .overlay {
         if pinnedSymbols.isEmpty == false {
           // Keep the overlay in lockstep with the base canvas during interactive transforms.
@@ -290,6 +293,18 @@ public struct TesseraCanvas: View {
           }
         }
       }
+
+    let clippedCanvas = Group {
+      if let alphaMaskView {
+        compositeCanvas.mask {
+          alphaMaskView
+        }
+      } else {
+        compositeCanvas
+      }
+    }
+
+    return clippedCanvas
       .frame(width: canvasSize.width, height: canvasSize.height)
       .clipped()
       .task(id: computationKey) {
@@ -309,7 +324,18 @@ public struct TesseraCanvas: View {
           return
         }
 
-        let snapshot = makeComputationSnapshot(for: canvasSize)
+        let resolvedAlphaMask = await MainActor.run {
+          region.resolvedAlphaMask(in: canvasSize)
+        }
+        let snapshot = makeComputationSnapshot(
+          for: canvasSize,
+          resolvedAlphaMask: resolvedAlphaMask,
+        )
+        await MainActor.run {
+          guard activeComputationKey == snapshot.key else { return }
+
+          cachedAlphaMask = resolvedAlphaMask
+        }
         await computePlacements(using: snapshot)
       }
   }
@@ -325,7 +351,7 @@ public struct TesseraCanvas: View {
   /// colors such as `Color.primary`.
   ///   - options: Rendering configuration such as output pixel size and scale.
   /// - Returns: The resolved file URL that was written.
-  @discardableResult public func renderPNG(
+  @MainActor @discardableResult public func renderPNG(
     to directory: URL,
     fileName: String = "tessera-canvas",
     canvasSize: CGSize,
@@ -339,7 +365,11 @@ public struct TesseraCanvas: View {
       renderConfiguration.placement = .organic(organicPlacement)
     }
     let destinationURL = resolvedOutputURL(directory: directory, fileName: fileName, fileExtension: "png")
-    let placedSymbolDescriptors = makeSynchronousPlacedDescriptors(for: canvasSize)
+    let resolvedAlphaMask = region.resolvedAlphaMask(in: canvasSize)
+    let placedSymbolDescriptors = makeSynchronousPlacedDescriptors(
+      for: canvasSize,
+      resolvedAlphaMask: resolvedAlphaMask,
+    )
     let renderView = TesseraCanvasStaticRenderView(
       configuration: renderConfiguration,
       canvasSize: canvasSize,
@@ -347,6 +377,7 @@ public struct TesseraCanvas: View {
       regionRendering: regionRendering,
       pinnedSymbols: pinnedSymbols,
       placedSymbolDescriptors: placedSymbolDescriptors,
+      resolvedAlphaMask: resolvedAlphaMask,
       edgeBehavior: effectiveEdgeBehavior,
     )
     let exportView = TesseraCanvasExportRenderView(
@@ -399,7 +430,7 @@ public struct TesseraCanvas: View {
   ///   - options: Rendering configuration such as output pixel size and scale, applied while drawing into the PDF
   /// context.
   /// - Returns: The resolved file URL that was written.
-  @discardableResult public func renderPDF(
+  @MainActor @discardableResult public func renderPDF(
     to directory: URL,
     fileName: String = "tessera-canvas",
     canvasSize: CGSize,
@@ -424,7 +455,11 @@ public struct TesseraCanvas: View {
       throw TesseraRenderError.failedToCreateDestination
     }
 
-    let placedSymbolDescriptors = makeSynchronousPlacedDescriptors(for: canvasSize)
+    let resolvedAlphaMask = region.resolvedAlphaMask(in: canvasSize)
+    let placedSymbolDescriptors = makeSynchronousPlacedDescriptors(
+      for: canvasSize,
+      resolvedAlphaMask: resolvedAlphaMask,
+    )
     let renderView = TesseraCanvasStaticRenderView(
       configuration: renderConfiguration,
       canvasSize: canvasSize,
@@ -432,6 +467,7 @@ public struct TesseraCanvas: View {
       regionRendering: regionRendering,
       pinnedSymbols: pinnedSymbols,
       placedSymbolDescriptors: placedSymbolDescriptors,
+      resolvedAlphaMask: resolvedAlphaMask,
       edgeBehavior: effectiveEdgeBehavior,
     )
     let exportView = TesseraCanvasExportRenderView(
@@ -487,8 +523,12 @@ private struct TesseraCanvasExportRenderView<Content: View>: View {
 }
 
 private extension TesseraCanvas {
-  var shouldClipRegion: Bool {
+  var shouldClipPolygon: Bool {
     region.isPolygon && regionRendering == .clipped
+  }
+
+  var shouldClipAlphaMask: Bool {
+    region.isAlphaMask && regionRendering == .clipped
   }
 
   var effectiveEdgeBehavior: TesseraEdgeBehavior {
@@ -496,6 +536,8 @@ private extension TesseraCanvas {
     case .rectangle:
       edgeBehavior
     case .polygon:
+      .finite
+    case .alphaMask:
       .finite
     }
   }
@@ -542,6 +584,7 @@ private extension TesseraCanvas {
     var symbolDescriptors: [ShapePlacementEngine.PlacementSymbolDescriptor]
     var pinnedSymbolDescriptors: [ShapePlacementEngine.PinnedSymbolDescriptor]
     var resolvedRegion: TesseraResolvedPolygonRegion?
+    var resolvedAlphaMask: TesseraAlphaMask?
   }
 
   var resolvedPlacement: TesseraPlacement {
@@ -554,14 +597,22 @@ private extension TesseraCanvas {
     }
   }
 
-  func makeComputationSnapshot(for canvasSize: CGSize) -> ComputationSnapshot {
+  func makeComputationSnapshot(
+    for canvasSize: CGSize,
+    resolvedAlphaMask: TesseraAlphaMask?,
+  ) -> ComputationSnapshot {
     let key = makeComputationKey(for: canvasSize)
     let resolvedRegion = region.resolvedPolygon(in: canvasSize)
     return ComputationSnapshot(
       key: key,
       symbolDescriptors: makeSymbolDescriptors(using: key.placement),
-      pinnedSymbolDescriptors: makePinnedSymbolDescriptors(for: canvasSize, region: resolvedRegion),
+      pinnedSymbolDescriptors: makePinnedSymbolDescriptors(
+        for: canvasSize,
+        region: resolvedRegion,
+        alphaMask: resolvedAlphaMask,
+      ),
       resolvedRegion: resolvedRegion,
+      resolvedAlphaMask: resolvedAlphaMask,
     )
   }
 
@@ -576,6 +627,7 @@ private extension TesseraCanvas {
         edgeBehavior: snapshot.key.edgeBehavior,
         placement: snapshot.key.placement,
         region: snapshot.resolvedRegion,
+        alphaMask: snapshot.resolvedAlphaMask,
         randomGenerator: &randomGenerator,
       )
     }
@@ -593,11 +645,19 @@ private extension TesseraCanvas {
     }
   }
 
-  func makeSynchronousPlacedDescriptors(for canvasSize: CGSize) -> [ShapePlacementEngine.PlacedSymbolDescriptor] {
+  @MainActor func makeSynchronousPlacedDescriptors(
+    for canvasSize: CGSize,
+    resolvedAlphaMask: TesseraAlphaMask? = nil,
+  ) -> [ShapePlacementEngine.PlacedSymbolDescriptor] {
     let placement = resolvedPlacement
     let symbolDescriptors = makeSymbolDescriptors(using: placement)
     let resolvedRegion = region.resolvedPolygon(in: canvasSize)
-    let pinnedSymbolDescriptors = makePinnedSymbolDescriptors(for: canvasSize, region: resolvedRegion)
+    let resolvedAlphaMask = resolvedAlphaMask ?? region.resolvedAlphaMask(in: canvasSize)
+    let pinnedSymbolDescriptors = makePinnedSymbolDescriptors(
+      for: canvasSize,
+      region: resolvedRegion,
+      alphaMask: resolvedAlphaMask,
+    )
     var randomGenerator = SeededGenerator(seed: seed(for: placement))
     return ShapePlacementEngine.placeSymbolDescriptors(
       in: canvasSize,
@@ -606,6 +666,7 @@ private extension TesseraCanvas {
       edgeBehavior: effectiveEdgeBehavior,
       placement: placement,
       region: resolvedRegion,
+      alphaMask: resolvedAlphaMask,
       randomGenerator: &randomGenerator,
     )
   }
@@ -628,6 +689,7 @@ private extension TesseraCanvas {
   func makePinnedSymbolDescriptors(
     for canvasSize: CGSize,
     region: TesseraResolvedPolygonRegion?,
+    alphaMask: TesseraAlphaMask?,
   ) -> [ShapePlacementEngine.PinnedSymbolDescriptor] {
     pinnedSymbols.compactMap { pinnedSymbol in
       let position = pinnedSymbol.resolvedPosition(in: canvasSize)
@@ -637,6 +699,10 @@ private extension TesseraCanvas {
         if expandedBounds.contains(position) == false {
           return nil
         }
+      }
+
+      if let alphaMask, alphaMask.contains(position) == false {
+        return nil
       }
 
       return ShapePlacementEngine.PinnedSymbolDescriptor(
@@ -754,11 +820,15 @@ private struct TesseraCanvasStaticRenderView: View {
   var regionRendering: TesseraRegionRendering
   var pinnedSymbols: [TesseraPinnedSymbol]
   var placedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor]
+  var resolvedAlphaMask: TesseraAlphaMask?
   var edgeBehavior: TesseraEdgeBehavior
 
   var body: some View {
     let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
     let clipPath = region.isPolygon && regionRendering == .clipped ? region.clipPath(in: canvasSize) : nil
+    let alphaMaskView = region.isAlphaMask && regionRendering == .clipped
+      ? resolvedAlphaMask?.maskView()
+      : nil
     let overlayShapesBySymbolId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
       ? configuration.symbols.reduce(into: [:]) { cache, symbol in
         cache[symbol.id] = CollisionOverlayShape(collisionShape: symbol.collisionShape)
@@ -807,7 +877,7 @@ private struct TesseraCanvasStaticRenderView: View {
       }
     }
 
-    return baseCanvas
+    let compositeCanvas = baseCanvas
       .overlay {
         if pinnedSymbols.isEmpty == false {
           Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: false) { context, size in
@@ -845,6 +915,18 @@ private struct TesseraCanvasStaticRenderView: View {
           }
         }
       }
+
+    let clippedCanvas = Group {
+      if let alphaMaskView {
+        compositeCanvas.mask {
+          alphaMaskView
+        }
+      } else {
+        compositeCanvas
+      }
+    }
+
+    return clippedCanvas
       .frame(width: canvasSize.width, height: canvasSize.height)
       .clipped()
   }

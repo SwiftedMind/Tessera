@@ -20,6 +20,7 @@ enum OrganicShapePlacementEngine {
   ///   - edgeBehavior: The edge behavior to apply when testing collisions.
   ///   - configuration: The organic placement configuration.
   ///   - region: Optional polygon region in tile space used to constrain placement.
+  ///   - alphaMask: Optional alpha mask used to constrain placement.
   ///   - randomGenerator: The random number generator that drives placement.
   /// - Returns: The placed symbol descriptors for the tile.
   static func placeSymbolDescriptors(
@@ -29,6 +30,7 @@ enum OrganicShapePlacementEngine {
     edgeBehavior: TesseraEdgeBehavior,
     configuration: TesseraPlacement.Organic,
     region: TesseraResolvedPolygonRegion? = nil,
+    alphaMask: TesseraAlphaMask? = nil,
     randomGenerator: inout some RandomNumberGenerator,
   ) -> [PlacedSymbolDescriptor] {
     let minimumSpacing = CGFloat(configuration.minimumSpacing)
@@ -37,8 +39,10 @@ enum OrganicShapePlacementEngine {
 
     let tileArea = Double(size.width * size.height)
     let regionArea = region.map { Double($0.area) } ?? tileArea
+    let maskArea = alphaMask.map { Double($0.filledFraction) * tileArea } ?? tileArea
+    let constrainedArea = min(regionArea, maskArea)
     let approximateSymbolArea = max(Double(minimumSpacing * minimumSpacing), 1)
-    let estimatedCount = Int(regionArea / approximateSymbolArea * clampedDensity)
+    let estimatedCount = Int(constrainedArea / approximateSymbolArea * clampedDensity)
     let targetCount = min(max(0, estimatedCount), maximumCount)
     let remainingTargetCount = min(max(0, targetCount - pinnedSymbolDescriptors.count), maximumCount)
 
@@ -117,6 +121,10 @@ enum OrganicShapePlacementEngine {
 
         // Rejection-sample a position and reuse if it clears all collisions.
         guard let position = randomPoint(in: size, region: region, using: &randomGenerator) else { continue }
+
+        if let alphaMask, alphaMask.contains(position) == false {
+          continue
+        }
 
         let candidate = PlacedSymbolDescriptor(
           symbolId: selectedSymbol.id,

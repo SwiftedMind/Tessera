@@ -20,6 +20,7 @@ enum GridShapePlacementEngine {
   ///   - edgeBehavior: The edge behavior to apply when testing collisions.
   ///   - configuration: The grid placement configuration.
   ///   - region: Optional polygon region in tile space used to constrain placement.
+  ///   - alphaMask: Optional alpha mask used to constrain placement.
   /// - Returns: The placed symbol descriptors for the tile.
   static func placeSymbolDescriptors(
     in size: CGSize,
@@ -28,6 +29,7 @@ enum GridShapePlacementEngine {
     edgeBehavior: TesseraEdgeBehavior,
     configuration: TesseraPlacement.Grid,
     region: TesseraResolvedPolygonRegion? = nil,
+    alphaMask: TesseraAlphaMask? = nil,
   ) -> [PlacedSymbolDescriptor] {
     guard size.width > 0, size.height > 0 else { return [] }
 
@@ -106,6 +108,10 @@ enum GridShapePlacementEngine {
         }
 
         if let region, region.contains(position) == false {
+          continue
+        }
+
+        if let alphaMask, alphaMask.contains(position) == false {
           continue
         }
 

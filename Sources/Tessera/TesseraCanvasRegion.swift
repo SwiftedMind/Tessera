@@ -16,6 +16,8 @@ public enum TesseraCanvasRegion: Sendable, Hashable {
   ///   - mapping: Mapping strategy that fits the polygon into the resolved canvas size.
   ///   - padding: Inset applied to the canvas bounds before mapping.
   case polygon(points: [CGPoint], mapping: TesseraPolygonMapping, padding: CGFloat)
+  /// An alpha mask that defines the allowed placement region.
+  case alphaMask(TesseraAlphaMaskRegion)
 }
 
 public extension TesseraCanvasRegion {
@@ -71,6 +73,8 @@ public enum TesseraPolygonFitMode: Sendable, Hashable {
   /// Stretches independently on each axis to fill the canvas.
   case stretch
 }
+
+// Defines a rasterized alpha mask used for placement.
 
 public extension TesseraPolygonMapping {
   static func == (lhs: TesseraPolygonMapping, rhs: TesseraPolygonMapping) -> Bool {
@@ -135,6 +139,17 @@ extension TesseraCanvasRegion {
       false
     case .polygon:
       true
+    case .alphaMask:
+      false
+    }
+  }
+
+  var isAlphaMask: Bool {
+    switch self {
+    case .alphaMask:
+      true
+    case .rectangle, .polygon:
+      false
     }
   }
 
@@ -163,6 +178,8 @@ extension TesseraCanvasRegion {
         samplingBounds: samplingBounds,
         area: area,
       )
+    case .alphaMask:
+      return nil
     }
   }
 
