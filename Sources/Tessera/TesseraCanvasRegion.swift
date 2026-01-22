@@ -11,7 +11,11 @@ public enum TesseraCanvasRegion: Sendable, Hashable {
   /// A full rectangular region that matches the canvas bounds.
   case rectangle
   /// A polygonal region defined by points in an arbitrary source space.
-  case polygon(points: [CGPoint], mapping: TesseraPolygonMapping)
+  /// - Parameters:
+  ///   - points: Polygon points in a source space.
+  ///   - mapping: Mapping strategy that fits the polygon into the resolved canvas size.
+  ///   - padding: Inset applied to the canvas bounds before mapping.
+  case polygon(points: [CGPoint], mapping: TesseraPolygonMapping, padding: CGFloat)
 }
 
 public extension TesseraCanvasRegion {
@@ -21,11 +25,13 @@ public extension TesseraCanvasRegion {
   ///   - points: Polygon points in a source space. Points are expected to form a simple (non-self-intersecting)
   ///     polygon with at least three points. Polygons with fewer points are treated as empty regions.
   ///   - mapping: Mapping strategy that fits the polygon into the resolved canvas size.
+  ///   - padding: Inset applied to the canvas bounds before mapping.
   static func polygon(
     _ points: [CGPoint],
     mapping: TesseraPolygonMapping = .fit(mode: .aspectFit, alignment: .center),
+    padding: CGFloat = 0,
   ) -> TesseraCanvasRegion {
-    .polygon(points: points, mapping: mapping)
+    .polygon(points: points, mapping: mapping, padding: padding)
   }
 
   /// Creates a polygon region by flattening a `CGPath` into line segments.
@@ -36,13 +42,15 @@ public extension TesseraCanvasRegion {
   ///   - path: The path to flatten. If the path contains multiple closed subpaths, the largest one is used.
   ///   - flatness: Maximum deviation in the path's coordinate space when approximating curves.
   ///   - mapping: Mapping strategy that fits the polygon into the resolved canvas size.
+  ///   - padding: Inset applied to the canvas bounds before mapping.
   static func polygon(
     _ path: CGPath,
     flatness: CGFloat = 1,
     mapping: TesseraPolygonMapping = .fit(mode: .aspectFit, alignment: .center),
+    padding: CGFloat = 0,
   ) -> TesseraCanvasRegion {
     let points = TesseraPathFlattening.largestClosedPolygonPoints(from: path, flatness: flatness)
-    return .polygon(points: points, mapping: mapping)
+    return .polygon(points: points, mapping: mapping, padding: padding)
   }
 }
 
@@ -136,8 +144,8 @@ extension TesseraCanvasRegion {
     switch self {
     case .rectangle:
       return nil
-    case let .polygon(points, mapping):
-      let resolvedPoints = resolvePoints(points, mapping: mapping, canvasSize: canvasSize)
+    case let .polygon(points, mapping, padding):
+      let resolvedPoints = resolvePoints(points, mapping: mapping, canvasSize: canvasSize, padding: padding)
       guard resolvedPoints.count >= 3, let bounds = bounds(for: resolvedPoints) else {
         return TesseraResolvedPolygonRegion(
           points: [],
@@ -176,12 +184,18 @@ extension TesseraCanvasRegion {
     _ points: [CGPoint],
     mapping: TesseraPolygonMapping,
     canvasSize: CGSize,
+    padding: CGFloat,
   ) -> [CGPoint] {
+    let clampedPadding = max(padding, 0)
     switch mapping {
     case .canvasCoordinates:
-      points
+      guard clampedPadding > 0 else { return points }
+
+      return points.map { point in
+        CGPoint(x: point.x + clampedPadding, y: point.y + clampedPadding)
+      }
     case let .fit(mode, alignment):
-      fitPoints(points, mode: mode, alignment: alignment, canvasSize: canvasSize)
+      return fitPoints(points, mode: mode, alignment: alignment, canvasSize: canvasSize, padding: clampedPadding)
     }
   }
 
@@ -190,11 +204,16 @@ extension TesseraCanvasRegion {
     mode: TesseraPolygonFitMode,
     alignment: UnitPoint,
     canvasSize: CGSize,
+    padding: CGFloat,
   ) -> [CGPoint] {
+    let availableWidth = max(canvasSize.width - padding * 2, 0)
+    let availableHeight = max(canvasSize.height - padding * 2, 0)
+    let availableSize = CGSize(width: availableWidth, height: availableHeight)
+    guard availableSize.width > 0, availableSize.height > 0 else { return [] }
     guard let bounds = bounds(for: points), bounds.width > 0, bounds.height > 0 else { return [] }
 
-    let scaleX = canvasSize.width / bounds.width
-    let scaleY = canvasSize.height / bounds.height
+    let scaleX = availableSize.width / bounds.width
+    let scaleY = availableSize.height / bounds.height
 
     let resolvedScaleX: CGFloat
     let resolvedScaleY: CGFloat
@@ -219,8 +238,8 @@ extension TesseraCanvasRegion {
     )
 
     let origin = CGPoint(
-      x: (canvasSize.width - scaledSize.width) * alignment.x,
-      y: (canvasSize.height - scaledSize.height) * alignment.y,
+      x: padding + (availableSize.width - scaledSize.width) * alignment.x,
+      y: padding + (availableSize.height - scaledSize.height) * alignment.y,
     )
 
     return points.map { point in
