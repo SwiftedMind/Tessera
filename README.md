@@ -195,7 +195,7 @@ at the provided `pixelScale` and treats pixels with alpha ≥ `alphaThreshold` a
 `regionRendering: .unclipped` to allow symbols to extend past the mask while still placing them inside it.
 
 ```swift
-let region = TesseraCanvasRegion.alphaMask(id: "logo-mask") {
+let region = TesseraCanvasRegion.alphaMask(cacheKey: "logo-mask") {
   Image("Logo")
     .resizable()
     .aspectRatio(contentMode: .fit)
@@ -209,7 +209,7 @@ If you already have a `CGImage`, pass it directly:
 
 ```swift
 let region = TesseraCanvasRegion.alphaMask(
-  id: "mask",
+  cacheKey: "mask",
   image: cgImage,
   pixelScale: 2,
   alphaThreshold: 0.4,

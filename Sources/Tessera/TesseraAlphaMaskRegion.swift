@@ -7,7 +7,8 @@ public extension TesseraCanvasRegion {
   /// Creates an alpha mask region from a SwiftUI view.
   ///
   /// - Parameters:
-  ///   - id: Stable identifier for caching the rendered alpha mask. Update this value when the mask content changes.
+  ///   - cacheKey: Stable identifier for caching the rendered alpha mask. Update this value when the mask content
+  ///     changes.
   ///   - pixelScale: Rasterization scale for the alpha mask.
   ///   - alphaThreshold: Alpha threshold (0...1) used to determine inclusion.
   ///   - sampling: Sampling strategy used when querying the mask.
@@ -16,7 +17,7 @@ public extension TesseraCanvasRegion {
   ///   - padding: Inset applied to the canvas bounds before mapping.
   ///   - content: View builder producing the alpha mask.
   static func alphaMask(
-    id: AnyHashable,
+    cacheKey: TesseraRegionID,
     pixelScale: CGFloat = 2,
     alphaThreshold: CGFloat = 0.5,
     sampling: TesseraAlphaMaskRegion.Sampling = .nearest,
@@ -27,7 +28,7 @@ public extension TesseraCanvasRegion {
   ) -> TesseraCanvasRegion {
     .alphaMask(
       TesseraAlphaMaskRegion(
-        id: id,
+        cacheKey: cacheKey,
         source: .view { AnyView(content()) },
         mapping: mapping,
         padding: padding,
@@ -42,7 +43,8 @@ public extension TesseraCanvasRegion {
   /// Creates an alpha mask region from a `CGImage`.
   ///
   /// - Parameters:
-  ///   - id: Stable identifier for caching the rendered alpha mask. Update this value when the mask content changes.
+  ///   - cacheKey: Stable identifier for caching the rendered alpha mask. Update this value when the mask content
+  ///     changes.
   ///   - image: Source image used as alpha mask.
   ///   - pixelScale: Rasterization scale for the alpha mask.
   ///   - alphaThreshold: Alpha threshold (0...1) used to determine inclusion.
@@ -51,7 +53,7 @@ public extension TesseraCanvasRegion {
   ///   - mapping: Mapping strategy that fits the mask into the resolved canvas size.
   ///   - padding: Inset applied to the canvas bounds before mapping.
   static func alphaMask(
-    id: AnyHashable,
+    cacheKey: TesseraRegionID,
     image: CGImage,
     pixelScale: CGFloat = 2,
     alphaThreshold: CGFloat = 0.5,
@@ -62,7 +64,7 @@ public extension TesseraCanvasRegion {
   ) -> TesseraCanvasRegion {
     .alphaMask(
       TesseraAlphaMaskRegion(
-        id: id,
+        cacheKey: cacheKey,
         source: .cgImage(image),
         mapping: mapping,
         padding: padding,
@@ -73,12 +75,88 @@ public extension TesseraCanvasRegion {
       ),
     )
   }
+
+  /// Creates an alpha mask region from a SwiftUI view.
+  ///
+  /// - Parameters:
+  ///   - id: Stable identifier for caching the rendered alpha mask. Update this value when the mask content changes.
+  ///   - pixelScale: Rasterization scale for the alpha mask.
+  ///   - alphaThreshold: Alpha threshold (0...1) used to determine inclusion.
+  ///   - sampling: Sampling strategy used when querying the mask.
+  ///   - invert: When true, inverts the mask (alpha below threshold is treated as inside).
+  ///   - mapping: Mapping strategy that fits the mask into the resolved canvas size.
+  ///   - padding: Inset applied to the canvas bounds before mapping.
+  ///   - content: View builder producing the alpha mask.
+  @available(
+    *,
+    deprecated,
+    renamed: "alphaMask(cacheKey:pixelScale:alphaThreshold:sampling:invert:mapping:padding:content:)"
+  )
+  static func alphaMask(
+    id: TesseraRegionID,
+    pixelScale: CGFloat = 2,
+    alphaThreshold: CGFloat = 0.5,
+    sampling: TesseraAlphaMaskRegion.Sampling = .nearest,
+    invert: Bool = false,
+    mapping: TesseraPolygonMapping = .fit(mode: .aspectFit, alignment: .center),
+    padding: CGFloat = 0,
+    @ViewBuilder content: @escaping () -> some View,
+  ) -> TesseraCanvasRegion {
+    alphaMask(
+      cacheKey: id,
+      pixelScale: pixelScale,
+      alphaThreshold: alphaThreshold,
+      sampling: sampling,
+      invert: invert,
+      mapping: mapping,
+      padding: padding,
+      content: content,
+    )
+  }
+
+  /// Creates an alpha mask region from a `CGImage`.
+  ///
+  /// - Parameters:
+  ///   - id: Stable identifier for caching the rendered alpha mask. Update this value when the mask content changes.
+  ///   - image: Source image used as alpha mask.
+  ///   - pixelScale: Rasterization scale for the alpha mask.
+  ///   - alphaThreshold: Alpha threshold (0...1) used to determine inclusion.
+  ///   - sampling: Sampling strategy used when querying the mask.
+  ///   - invert: When true, inverts the mask (alpha below threshold is treated as inside).
+  ///   - mapping: Mapping strategy that fits the mask into the resolved canvas size.
+  ///   - padding: Inset applied to the canvas bounds before mapping.
+  @available(
+    *,
+    deprecated,
+    renamed: "alphaMask(cacheKey:image:pixelScale:alphaThreshold:sampling:invert:mapping:padding:)"
+  )
+  static func alphaMask(
+    id: TesseraRegionID,
+    image: CGImage,
+    pixelScale: CGFloat = 2,
+    alphaThreshold: CGFloat = 0.5,
+    sampling: TesseraAlphaMaskRegion.Sampling = .nearest,
+    invert: Bool = false,
+    mapping: TesseraPolygonMapping = .fit(mode: .aspectFit, alignment: .center),
+    padding: CGFloat = 0,
+  ) -> TesseraCanvasRegion {
+    alphaMask(
+      cacheKey: id,
+      image: image,
+      pixelScale: pixelScale,
+      alphaThreshold: alphaThreshold,
+      sampling: sampling,
+      invert: invert,
+      mapping: mapping,
+      padding: padding,
+    )
+  }
 }
 
 /// A rasterized alpha mask used to constrain symbol placement.
 ///
 /// The mask is mapped into the resolved canvas size using `mapping` and `padding`, mirroring polygon mapping.
-public struct TesseraAlphaMaskRegion: Hashable, @unchecked Sendable {
+public struct TesseraAlphaMaskRegion: Hashable, Sendable {
   /// Sampling strategy used when querying the mask.
   public enum Sampling: Sendable, Hashable {
     /// Samples the nearest mask pixel.
@@ -92,6 +170,8 @@ public struct TesseraAlphaMaskRegion: Hashable, @unchecked Sendable {
     /// Uses the alpha channel of a `CGImage`.
     case cgImage(CGImage)
     /// Uses the alpha channel of a SwiftUI view.
+    ///
+    /// The view builder is not considered for equality; update `cacheKey` to invalidate cached masks.
     case view(() -> AnyView)
 
     public static func == (lhs: Source, rhs: Source) -> Bool {
@@ -116,7 +196,7 @@ public struct TesseraAlphaMaskRegion: Hashable, @unchecked Sendable {
   }
 
   /// Stable identifier for caching the rendered alpha mask.
-  public var id: AnyHashable
+  public var cacheKey: TesseraRegionID
   /// Source content used to build the alpha mask.
   public var source: Source
   /// Mapping strategy that fits the mask into the resolved canvas size.
@@ -135,7 +215,8 @@ public struct TesseraAlphaMaskRegion: Hashable, @unchecked Sendable {
   /// Creates an alpha mask region from a view or image source.
   ///
   /// - Parameters:
-  ///   - id: Stable identifier for caching the rendered alpha mask. Update this value when the mask content changes.
+  ///   - cacheKey: Stable identifier for caching the rendered alpha mask. Update this value when the mask content
+  ///     changes.
   ///   - source: The view or image used as the alpha mask.
   ///   - mapping: Mapping strategy that fits the mask into the resolved canvas size.
   ///   - padding: Inset applied to the canvas bounds before mapping.
@@ -144,7 +225,7 @@ public struct TesseraAlphaMaskRegion: Hashable, @unchecked Sendable {
   ///   - sampling: Sampling strategy used when querying the mask.
   ///   - invert: When true, inverts the mask (alpha below threshold is treated as inside).
   public init(
-    id: AnyHashable,
+    cacheKey: TesseraRegionID,
     source: Source,
     mapping: TesseraPolygonMapping = .fit(mode: .aspectFit, alignment: .center),
     padding: CGFloat = 0,
@@ -153,7 +234,7 @@ public struct TesseraAlphaMaskRegion: Hashable, @unchecked Sendable {
     sampling: Sampling = .nearest,
     invert: Bool = false,
   ) {
-    self.id = id
+    self.cacheKey = cacheKey
     self.source = source
     self.mapping = mapping
     self.padding = padding
@@ -161,6 +242,40 @@ public struct TesseraAlphaMaskRegion: Hashable, @unchecked Sendable {
     self.alphaThreshold = alphaThreshold
     self.sampling = sampling
     self.invert = invert
+  }
+
+  /// Creates an alpha mask region from a view or image source.
+  ///
+  /// - Parameters:
+  ///   - id: Stable identifier for caching the rendered alpha mask. Update this value when the mask content changes.
+  ///   - source: The view or image used as the alpha mask.
+  ///   - mapping: Mapping strategy that fits the mask into the resolved canvas size.
+  ///   - padding: Inset applied to the canvas bounds before mapping.
+  ///   - pixelScale: Rasterization scale for the alpha mask.
+  ///   - alphaThreshold: Alpha threshold (0...1) used to determine inclusion.
+  ///   - sampling: Sampling strategy used when querying the mask.
+  ///   - invert: When true, inverts the mask (alpha below threshold is treated as inside).
+  @available(*, deprecated, renamed: "init(cacheKey:source:mapping:padding:pixelScale:alphaThreshold:sampling:invert:)")
+  public init(
+    id: TesseraRegionID,
+    source: Source,
+    mapping: TesseraPolygonMapping = .fit(mode: .aspectFit, alignment: .center),
+    padding: CGFloat = 0,
+    pixelScale: CGFloat = 2,
+    alphaThreshold: CGFloat = 0.5,
+    sampling: Sampling = .nearest,
+    invert: Bool = false,
+  ) {
+    self.init(
+      cacheKey: id,
+      source: source,
+      mapping: mapping,
+      padding: padding,
+      pixelScale: pixelScale,
+      alphaThreshold: alphaThreshold,
+      sampling: sampling,
+      invert: invert,
+    )
   }
 
   func renderView(in canvasSize: CGSize) -> AnyView {
@@ -202,14 +317,23 @@ public struct TesseraAlphaMaskRegion: Hashable, @unchecked Sendable {
       guard padding > 0 else { return AnyView(framed) }
 
       return AnyView(framed.offset(x: padding, y: padding))
-    case let .fit(_, alignment):
+    case let .fit(mode, alignment):
       let resolvedAlignment = Alignment(
         horizontal: alignment.horizontalAlignment,
         vertical: alignment.verticalAlignment,
       )
+      let mapped = switch mode {
+      case .aspectFit:
+        AnyView(content.aspectRatio(contentMode: .fit))
+      case .aspectFill:
+        AnyView(content.aspectRatio(contentMode: .fill))
+      case .stretch:
+        AnyView(content)
+      }
+      let framed = mapped.frame(width: paddedSize.width, height: paddedSize.height)
+      let clipped = mode == .aspectFill ? AnyView(framed.clipped()) : AnyView(framed)
       return AnyView(
-        content
-          .frame(width: paddedSize.width, height: paddedSize.height)
+        clipped
           .frame(width: canvasSize.width, height: canvasSize.height, alignment: resolvedAlignment),
       )
     }

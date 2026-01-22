@@ -44,6 +44,15 @@ struct TesseraDemoView: View {
               systemImage: "scribble.variable",
             )
           }
+          NavigationLink {
+            AlphaMaskRegionExampleView()
+          } label: {
+            ExampleRow(
+              title: "Alpha Mask Region",
+              subtitle: "Fill the shape of a view",
+              systemImage: "circle.hexagonpath.fill",
+            )
+          }
         }
         Section("Tools") {
           NavigationLink {
@@ -132,12 +141,46 @@ private struct PolygonRegionExampleView: View {
       DemoConfigurations.polygon,
       edgeBehavior: .finite,
       region: DemoRegions.mosaic,
-      regionRendering: .unclipped
+      regionRendering: .unclipped,
     )
     .background(.black)
     .ignoresSafeArea()
     .navigationTitle("Polygon Region")
     .navigationBarTitleDisplayMode(.inline)
+  }
+}
+
+private struct AlphaMaskRegionExampleView: View {
+  var body: some View {
+    TesseraCanvas(
+      DemoConfigurations.alphaMask,
+      edgeBehavior: .finite,
+      region: alphaMaskRegion,
+      regionRendering: .clipped,
+    )
+    .background(.black)
+    .ignoresSafeArea()
+    .navigationTitle("Alpha Mask Region")
+    .navigationBarTitleDisplayMode(.inline)
+  }
+
+  private var alphaMaskRegion: TesseraCanvasRegion {
+    TesseraCanvasRegion.alphaMask(
+      cacheKey: "alpha-mask-demo",
+      alphaThreshold: 0.2,
+      sampling: .bilinear,
+    ) {
+      AlphaMaskShape()
+    }
+  }
+}
+
+private struct AlphaMaskShape: View {
+  var body: some View {
+    Image(systemName: "sparkles")
+      .font(.system(size: 120, weight: .bold))
+      .foregroundStyle(.black.opacity(0.7))
+      .padding(20)
   }
 }
 

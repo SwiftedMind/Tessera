@@ -86,7 +86,7 @@ import Testing
   let canvasSize = CGSize(width: 200, height: 200)
   let maskImage = try makeCircularMaskImage(size: canvasSize)
   let region = TesseraCanvasRegion.alphaMask(
-    id: "mask-grid",
+    cacheKey: "mask-grid",
     image: maskImage,
     pixelScale: 1,
     alphaThreshold: 0.5,
@@ -122,7 +122,7 @@ import Testing
   let canvasSize = CGSize(width: 220, height: 220)
   let maskImage = try makeCircularMaskImage(size: canvasSize)
   let region = TesseraCanvasRegion.alphaMask(
-    id: "mask-organic",
+    cacheKey: "mask-organic",
     image: maskImage,
     pixelScale: 1,
     alphaThreshold: 0.5,
@@ -162,6 +162,21 @@ import Testing
   for descriptor in placed {
     #expect(resolvedAlphaMask?.contains(descriptor.position) == true)
   }
+}
+
+@Test @MainActor func alphaMaskThresholdRoundsToNearestByte() async throws {
+  let canvasSize = CGSize(width: 100, height: 100)
+  let maskImage = try makeCircularMaskImage(size: canvasSize)
+  let region = TesseraCanvasRegion.alphaMask(
+    cacheKey: "mask-threshold",
+    image: maskImage,
+    pixelScale: 1,
+    alphaThreshold: 0.5,
+    sampling: .nearest,
+  )
+  let resolvedAlphaMask = region.resolvedAlphaMask(in: canvasSize)
+
+  #expect(resolvedAlphaMask?.thresholdByte == 128)
 }
 
 @Test func polygonRegionFromCGPathFlattensCurves() async throws {
@@ -299,7 +314,7 @@ import Testing
   let canvasSize = CGSize(width: 120, height: 120)
   let maskImage = try makeCircularMaskImage(size: canvasSize)
   let region = TesseraCanvasRegion.alphaMask(
-    id: "mask-export",
+    cacheKey: "mask-export",
     image: maskImage,
     pixelScale: 1,
     alphaThreshold: 0.5,
@@ -358,7 +373,7 @@ import Testing
   let canvasSize = CGSize(width: 120, height: 120)
   let maskImage = try makeCircularMaskImage(size: canvasSize)
   let region = TesseraCanvasRegion.alphaMask(
-    id: "mask-unclipped",
+    cacheKey: "mask-unclipped",
     image: maskImage,
     pixelScale: 1,
     alphaThreshold: 0.5,

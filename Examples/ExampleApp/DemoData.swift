@@ -45,6 +45,21 @@ enum DemoConfigurations {
       ),
     )
   }
+
+  static var alphaMask: TesseraConfiguration {
+    TesseraConfiguration(
+      symbols: DemoSymbols.mosaic,
+      placement: .organic(
+        TesseraPlacement.Organic(
+          seed: 7,
+          minimumSpacing: 2,
+          density: 0.75,
+          baseScaleRange: 0.6...1.2,
+          maximumSymbolCount: 240,
+        ),
+      ),
+    )
+  }
 }
 
 enum DemoSymbols {

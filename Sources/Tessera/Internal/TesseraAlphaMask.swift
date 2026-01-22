@@ -152,7 +152,8 @@ enum TesseraAlphaMaskRenderer {
 
     let alphaBytes = rasterize(cgImage, into: CGSize(width: pixelWidth, height: pixelHeight))
 
-    let thresholdByte = UInt8(max(0, min(255, Int(region.alphaThreshold * 255))))
+    let clampedThreshold = max(0, min(1, Double(region.alphaThreshold)))
+    let thresholdByte = UInt8(clamping: Int((clampedThreshold * 255).rounded()))
     return TesseraAlphaMask(
       size: canvasSize,
       pixelsWide: pixelWidth,
