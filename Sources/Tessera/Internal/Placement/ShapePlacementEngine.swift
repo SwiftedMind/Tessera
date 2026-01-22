@@ -12,6 +12,7 @@ enum ShapePlacementEngine {
   ///   - configuration: The full tessera configuration, including placement mode.
   ///   - pinnedSymbols: Symbols that must be placed at fixed positions before sampling.
   ///   - edgeBehavior: The edge behavior to apply when testing collisions.
+  ///   - region: Optional polygon region in tile space used to constrain placement.
   ///   - randomGenerator: The random number generator that drives placement.
   /// - Returns: The placed symbols for the tile.
   static func placeSymbols(
@@ -19,6 +20,7 @@ enum ShapePlacementEngine {
     configuration: TesseraConfiguration,
     pinnedSymbols: [TesseraPinnedSymbol] = [],
     edgeBehavior: TesseraEdgeBehavior = .seamlessWrapping,
+    region: TesseraResolvedPolygonRegion? = nil,
     randomGenerator: inout some RandomNumberGenerator,
   ) -> [PlacedSymbol] {
     guard !configuration.symbols.isEmpty else { return [] }
@@ -52,6 +54,7 @@ enum ShapePlacementEngine {
       pinnedSymbolDescriptors: pinnedSymbolDescriptors,
       edgeBehavior: edgeBehavior,
       placement: configuration.placement,
+      region: region,
       randomGenerator: &randomGenerator,
     )
 
@@ -81,6 +84,7 @@ enum ShapePlacementEngine {
   ///   - pinnedSymbolDescriptors: Symbols that must be placed at fixed positions before sampling.
   ///   - edgeBehavior: The edge behavior to apply when testing collisions.
   ///   - placement: The placement mode configuration to use.
+  ///   - region: Optional polygon region in tile space used to constrain placement.
   ///   - randomGenerator: The random number generator that drives placement.
   /// - Returns: The placed symbol descriptors for the tile.
   static func placeSymbolDescriptors(
@@ -89,6 +93,7 @@ enum ShapePlacementEngine {
     pinnedSymbolDescriptors: [PinnedSymbolDescriptor] = [],
     edgeBehavior: TesseraEdgeBehavior = .seamlessWrapping,
     placement: TesseraPlacement,
+    region: TesseraResolvedPolygonRegion? = nil,
     randomGenerator: inout some RandomNumberGenerator,
   ) -> [PlacedSymbolDescriptor] {
     guard !symbolDescriptors.isEmpty else { return [] }
@@ -101,6 +106,7 @@ enum ShapePlacementEngine {
         pinnedSymbolDescriptors: pinnedSymbolDescriptors,
         edgeBehavior: edgeBehavior,
         configuration: organicConfiguration,
+        region: region,
         randomGenerator: &randomGenerator,
       )
     case let .grid(gridConfiguration):
@@ -110,6 +116,7 @@ enum ShapePlacementEngine {
         pinnedSymbolDescriptors: pinnedSymbolDescriptors,
         edgeBehavior: edgeBehavior,
         configuration: gridConfiguration,
+        region: region,
       )
     }
   }

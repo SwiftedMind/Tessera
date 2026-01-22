@@ -42,6 +42,7 @@ let descriptors = ShapePlacementEngine.placeSymbolDescriptors(
   pinnedSymbolDescriptors: pinnedSymbols,
   edgeBehavior: .seamlessWrapping,
   placement: .organic(configuration),
+  region: nil,
   randomGenerator: &generator
 )
 ```
@@ -62,6 +63,7 @@ let descriptors = ShapePlacementEngine.placeSymbolDescriptors(
   pinnedSymbolDescriptors: pinnedSymbols,
   edgeBehavior: .seamlessWrapping,
   placement: .grid(configuration),
+  region: nil,
   randomGenerator: &generator
 )
 ```
@@ -78,3 +80,4 @@ The grid engine:
 - All coordinates are in tile space.
 - Seamless wrapping uses a 3x3 lattice of offsets so symbols that cross edges remain
   collision-safe when the tile repeats.
+- Polygon regions can constrain placement to arbitrary outlines when provided by the caller.

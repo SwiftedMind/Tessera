@@ -1,0 +1,220 @@
+// By Dennis Müller
+
+import CoreGraphics
+import Foundation
+import ImageIO
+import SwiftUI
+@testable import Tessera
+
+@MainActor
+func makeTestTile() -> TesseraTile {
+  let symbol = TesseraSymbol(
+    weight: 1,
+    allowedRotationRange: .degrees(0)...(.degrees(0)),
+    scaleRange: 1...1,
+    collisionShape: .circle(center: .zero, radius: 10),
+  ) {
+    Circle()
+      .fill(Color.red)
+      .frame(width: 20, height: 20)
+  }
+
+  let configuration = TesseraConfiguration(
+    symbols: [symbol],
+    placement: .organic(
+      TesseraPlacement.Organic(
+        seed: 1,
+        minimumSpacing: 2,
+        density: 1,
+        baseScaleRange: 1...1,
+        maximumSymbolCount: 64,
+      ),
+    ),
+  )
+
+  return TesseraTile(configuration, tileSize: CGSize(width: 128, height: 128))
+}
+
+@MainActor
+func makeTestCanvasWithCenteredFixedCircle(canvasSize: CGSize) -> TesseraCanvas {
+  let configuration = TesseraConfiguration(
+    symbols: [],
+    placement: .organic(
+      TesseraPlacement.Organic(
+        seed: 1,
+        minimumSpacing: 10,
+        density: 0,
+        baseScaleRange: 1...1,
+        maximumSymbolCount: 0,
+      ),
+    ),
+  )
+
+  let fixedCircle = TesseraPinnedSymbol(
+    position: CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2),
+    rotation: .degrees(0),
+    scale: 1,
+    collisionShape: .circle(center: .zero, radius: 10),
+  ) {
+    Circle()
+      .fill(Color.red)
+      .frame(width: 20, height: 20)
+  }
+
+  return TesseraCanvas(configuration, pinnedSymbols: [fixedCircle], seed: 1, edgeBehavior: .finite)
+}
+
+func cgImageFromPNGFile(at url: URL) throws -> CGImage {
+  let data = try Data(contentsOf: url)
+  let options: [CFString: Any] = [
+    kCGImageSourceShouldCache: true,
+    kCGImageSourceShouldCacheImmediately: true,
+  ]
+
+  guard let source = CGImageSourceCreateWithData(data as CFData, options as CFDictionary) else {
+    throw CocoaError(.coderReadCorrupt)
+  }
+  guard let image = CGImageSourceCreateImageAtIndex(source, 0, options as CFDictionary) else {
+    throw CocoaError(.coderReadCorrupt)
+  }
+
+  return image
+}
+
+func cgImageFromPDFFile(at url: URL) throws -> CGImage {
+  guard let pdfDocument = CGPDFDocument(url as CFURL) else {
+    throw CocoaError(.coderReadCorrupt)
+  }
+  guard let firstPage = pdfDocument.page(at: 1) else {
+    throw CocoaError(.coderReadCorrupt)
+  }
+
+  let mediaBox = firstPage.getBoxRect(.mediaBox).integral
+  let width = max(Int(mediaBox.width), 1)
+  let height = max(Int(mediaBox.height), 1)
+
+  let bytesPerPixel = 4
+  let bytesPerRow = bytesPerPixel * width
+
+  var pixelBytes = [UInt8](repeating: 0, count: height * bytesPerRow)
+
+  guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else {
+    throw CocoaError(.coderReadCorrupt)
+  }
+
+  let bitmapInfo = CGBitmapInfo.byteOrder32Big
+    .union(CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue))
+  guard let context = CGContext(
+    data: &pixelBytes,
+    width: width,
+    height: height,
+    bitsPerComponent: 8,
+    bytesPerRow: bytesPerRow,
+    space: colorSpace,
+    bitmapInfo: bitmapInfo.rawValue,
+  ) else {
+    throw CocoaError(.coderReadCorrupt)
+  }
+
+  context.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 0))
+  context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+
+  context.saveGState()
+  context.translateBy(x: 0, y: CGFloat(height))
+  context.scaleBy(x: 1, y: -1)
+  context.drawPDFPage(firstPage)
+  context.restoreGState()
+
+  guard let rasterizedImage = context.makeImage() else {
+    throw CocoaError(.coderReadCorrupt)
+  }
+
+  return rasterizedImage
+}
+
+struct PixelComponents: Sendable {
+  var red: UInt8
+  var green: UInt8
+  var blue: UInt8
+  var alpha: UInt8
+}
+
+func pixelComponents(in cgImage: CGImage, x: Int, y: Int) throws -> PixelComponents {
+  let width = max(cgImage.width, 1)
+  let height = max(cgImage.height, 1)
+
+  guard (0..<width).contains(x), (0..<height).contains(y) else {
+    throw CocoaError(.coderReadCorrupt)
+  }
+
+  let bytesPerPixel = 4
+  let bytesPerRow = bytesPerPixel * width
+
+  var pixelBytes = [UInt8](repeating: 0, count: height * bytesPerRow)
+
+  guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else {
+    throw CocoaError(.coderReadCorrupt)
+  }
+
+  let bitmapInfo = CGBitmapInfo.byteOrder32Big
+    .union(CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue))
+  guard let context = CGContext(
+    data: &pixelBytes,
+    width: width,
+    height: height,
+    bitsPerComponent: 8,
+    bytesPerRow: bytesPerRow,
+    space: colorSpace,
+    bitmapInfo: bitmapInfo.rawValue,
+  ) else {
+    throw CocoaError(.coderReadCorrupt)
+  }
+
+  context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+  let byteOffset = (y * bytesPerRow) + (x * bytesPerPixel)
+  return PixelComponents(
+    red: pixelBytes[byteOffset],
+    green: pixelBytes[byteOffset + 1],
+    blue: pixelBytes[byteOffset + 2],
+    alpha: pixelBytes[byteOffset + 3],
+  )
+}
+
+func imageContainsVisiblePixels(_ cgImage: CGImage) -> Bool {
+  let width = max(cgImage.width, 1)
+  let height = max(cgImage.height, 1)
+
+  let bytesPerPixel = 4
+  let bytesPerRow = bytesPerPixel * width
+
+  var pixelBytes = [UInt8](repeating: 0, count: height * bytesPerRow)
+
+  guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else {
+    return false
+  }
+
+  let bitmapInfo = CGBitmapInfo.byteOrder32Big
+    .union(CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue))
+  guard let context = CGContext(
+    data: &pixelBytes,
+    width: width,
+    height: height,
+    bitsPerComponent: 8,
+    bytesPerRow: bytesPerRow,
+    space: colorSpace,
+    bitmapInfo: bitmapInfo.rawValue,
+  ) else {
+    return false
+  }
+
+  context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+  for alphaByteIndex in stride(from: 3, to: pixelBytes.count, by: 4) {
+    if pixelBytes[alphaByteIndex] != 0 {
+      return true
+    }
+  }
+
+  return false
+}

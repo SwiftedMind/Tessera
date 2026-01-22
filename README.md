@@ -16,6 +16,7 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 - Grid placement: place symbols on a regular grid with configurable offsets.
 - Seamless wrapping: tile edges wrap toroidally so patterns repeat without seams.
 - Deterministic output: provide a seed for reproducible layouts; omit to randomize.
+- Polygon regions: fill an arbitrary polygon, not just a rectangle.
 - Export: render to PNG or vector-friendly PDF.
 
 ## Table of Contents
@@ -23,6 +24,7 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 - [Get Started](#get-started)
 - [Migration Guide (2.0.0 → 3.0.0)](MIGRATION.md)
 - [Pinned Symbols](#pinned-symbols)
+- [Polygon Regions](#polygon-regions)
 - [Exporting](#exporting)
 - [Collision Shape Previews](#collision-shape-previews)
 - [Terminology](#terminology)
@@ -143,6 +145,35 @@ struct Poster: View {
   }
 }
 ```
+
+## Polygon Regions
+
+`TesseraCanvas` can clip and place symbols inside an arbitrary polygon. Provide points in any source space; Tessera maps
+the polygon into the resolved canvas size using aspect-fit and centered alignment by default. Use
+`.canvasCoordinates` when your points are already in canvas space. Polygon regions always use finite edges.
+
+```swift
+let outlinePoints: [CGPoint] = [
+  CGPoint(x: 0, y: 0),
+  CGPoint(x: 160, y: 20),
+  CGPoint(x: 140, y: 180),
+  CGPoint(x: 0, y: 160)
+]
+
+let region = TesseraCanvasRegion.polygon(outlinePoints)
+
+TesseraCanvas(configuration, region: region)
+  .frame(width: 400, height: 400)
+```
+
+### Mapping Modes
+
+| Mapping | Behavior |
+| --- | --- |
+| `.fit(mode: .aspectFit, alignment: .center)` | Fits the polygon inside the canvas while preserving aspect ratio. |
+| `.fit(mode: .aspectFill, alignment: .center)` | Fills the canvas while preserving aspect ratio, cropping overflow. |
+| `.fit(mode: .stretch, alignment: .center)` | Stretches independently on each axis to fill the canvas. |
+| `.canvasCoordinates` | Treats points as canvas coordinates with no additional mapping. |
 
 ## Grid Placement
 

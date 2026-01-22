@@ -19,6 +19,7 @@ enum OrganicShapePlacementEngine {
   ///   - pinnedSymbolDescriptors: Symbols that must be placed at fixed positions before sampling.
   ///   - edgeBehavior: The edge behavior to apply when testing collisions.
   ///   - configuration: The organic placement configuration.
+  ///   - region: Optional polygon region in tile space used to constrain placement.
   ///   - randomGenerator: The random number generator that drives placement.
   /// - Returns: The placed symbol descriptors for the tile.
   static func placeSymbolDescriptors(
@@ -27,6 +28,7 @@ enum OrganicShapePlacementEngine {
     pinnedSymbolDescriptors: [PinnedSymbolDescriptor],
     edgeBehavior: TesseraEdgeBehavior,
     configuration: TesseraPlacement.Organic,
+    region: TesseraResolvedPolygonRegion? = nil,
     randomGenerator: inout some RandomNumberGenerator,
   ) -> [PlacedSymbolDescriptor] {
     let minimumSpacing = CGFloat(configuration.minimumSpacing)
@@ -34,8 +36,9 @@ enum OrganicShapePlacementEngine {
     let maximumCount = max(0, configuration.maximumSymbolCount)
 
     let tileArea = Double(size.width * size.height)
+    let regionArea = region.map { Double($0.area) } ?? tileArea
     let approximateSymbolArea = max(Double(minimumSpacing * minimumSpacing), 1)
-    let estimatedCount = Int(tileArea / approximateSymbolArea * clampedDensity)
+    let estimatedCount = Int(regionArea / approximateSymbolArea * clampedDensity)
     let targetCount = min(max(0, estimatedCount), maximumCount)
     let remainingTargetCount = min(max(0, targetCount - pinnedSymbolDescriptors.count), maximumCount)
 
@@ -113,7 +116,8 @@ enum OrganicShapePlacementEngine {
         if Task.isCancelled { return placedDescriptors }
 
         // Rejection-sample a position and reuse if it clears all collisions.
-        let position = randomPoint(in: size, using: &randomGenerator)
+        guard let position = randomPoint(in: size, region: region, using: &randomGenerator) else { continue }
+
         let candidate = PlacedSymbolDescriptor(
           symbolId: selectedSymbol.id,
           position: position,
@@ -291,12 +295,34 @@ enum OrganicShapePlacementEngine {
 
   private static func randomPoint(
     in size: CGSize,
+    region: TesseraResolvedPolygonRegion?,
     using randomGenerator: inout some RandomNumberGenerator,
-  ) -> CGPoint {
-    CGPoint(
-      x: CGFloat.random(in: 0..<size.width, using: &randomGenerator),
-      y: CGFloat.random(in: 0..<size.height, using: &randomGenerator),
-    )
+  ) -> CGPoint? {
+    guard size.width > 0, size.height > 0 else { return nil }
+    guard let region else {
+      return CGPoint(
+        x: CGFloat.random(in: 0..<size.width, using: &randomGenerator),
+        y: CGFloat.random(in: 0..<size.height, using: &randomGenerator),
+      )
+    }
+
+    let bounds = region.samplingBounds
+    guard bounds.isNull == false, bounds.isEmpty == false else { return nil }
+
+    let minimumAttempts = 12
+
+    for _ in 0..<minimumAttempts {
+      let point = CGPoint(
+        x: CGFloat.random(in: bounds.minX..<bounds.maxX, using: &randomGenerator),
+        y: CGFloat.random(in: bounds.minY..<bounds.maxY, using: &randomGenerator),
+      )
+
+      if region.contains(point) {
+        return point
+      }
+    }
+
+    return nil
   }
 
   private static func randomAngleRadians(

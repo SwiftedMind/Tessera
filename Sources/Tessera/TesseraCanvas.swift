@@ -135,6 +135,8 @@ public struct TesseraCanvas: View {
   public var pinnedSymbols: [TesseraPinnedSymbol]
   public var seed: UInt64
   public var edgeBehavior: TesseraEdgeBehavior
+  /// Region used to clip rendering and constrain placement.
+  public var region: TesseraCanvasRegion
   public var onComputationStateChange: ((Bool) -> Void)?
 
   @State private var cachedPlacedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor] = []
@@ -146,6 +148,7 @@ public struct TesseraCanvas: View {
   ///   - pinnedSymbols: Views placed once; treated as obstacles.
   ///   - seed: Optional seed override for organic placement.
   ///   - edgeBehavior: Whether to wrap edges toroidally or not.
+  ///   - region: Region used to clip rendering and constrain placement. Polygon regions always use finite edges.
   ///
   /// The canvas fills the space provided by layout. Set an explicit `.frame(...)` on this view when you need a fixed
   /// on-screen size.
@@ -154,12 +157,14 @@ public struct TesseraCanvas: View {
     pinnedSymbols: [TesseraPinnedSymbol] = [],
     seed: UInt64? = nil,
     edgeBehavior: TesseraEdgeBehavior = .finite,
+    region: TesseraCanvasRegion = .rectangle,
     onComputationStateChange: ((Bool) -> Void)? = nil,
   ) {
     self.configuration = configuration
     self.pinnedSymbols = pinnedSymbols
     self.seed = seed ?? configuration.organicPlacement?.seed ?? TesseraConfiguration.randomSeed()
     self.edgeBehavior = edgeBehavior
+    self.region = region
     self.onComputationStateChange = onComputationStateChange
   }
 
@@ -176,7 +181,9 @@ public struct TesseraCanvas: View {
   private func canvasBody(canvasSize: CGSize) -> some View {
     let configuration = configuration
     let pinnedSymbols = pinnedSymbols
-    let edgeBehavior = edgeBehavior
+    let edgeBehavior = effectiveEdgeBehavior
+    let region = region
+    let clipPath = region.clipPath(in: canvasSize)
     let placedSymbolDescriptors = cachedPlacedSymbolDescriptors
     let onComputationStateChange = onComputationStateChange
     let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
@@ -196,6 +203,10 @@ public struct TesseraCanvas: View {
     // Render synchronously to avoid stale-frame flashes when a parent view applies interactive transforms.
     let baseCanvas = Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: false) { context, size in
       guard size.width > 0, size.height > 0 else { return }
+
+      if let clipPath {
+        context.clip(to: clipPath)
+      }
 
       let wrappedOffset = CGSize(
         width: configuration.patternOffset.width.truncatingRemainder(dividingBy: size.width),
@@ -233,6 +244,10 @@ public struct TesseraCanvas: View {
           // Keep the overlay in lockstep with the base canvas during interactive transforms.
           Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: false) { context, size in
             guard size.width > 0, size.height > 0 else { return }
+
+            if let clipPath {
+              context.clip(to: clipPath)
+            }
 
             let offsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: edgeBehavior)
 
@@ -315,9 +330,10 @@ public struct TesseraCanvas: View {
     let renderView = TesseraCanvasStaticRenderView(
       configuration: renderConfiguration,
       canvasSize: canvasSize,
+      region: region,
       pinnedSymbols: pinnedSymbols,
       placedSymbolDescriptors: placedSymbolDescriptors,
-      edgeBehavior: edgeBehavior,
+      edgeBehavior: effectiveEdgeBehavior,
     )
     let exportView = TesseraCanvasExportRenderView(
       pageSize: canvasSize,
@@ -398,9 +414,10 @@ public struct TesseraCanvas: View {
     let renderView = TesseraCanvasStaticRenderView(
       configuration: renderConfiguration,
       canvasSize: canvasSize,
+      region: region,
       pinnedSymbols: pinnedSymbols,
       placedSymbolDescriptors: placedSymbolDescriptors,
-      edgeBehavior: edgeBehavior,
+      edgeBehavior: effectiveEdgeBehavior,
     )
     let exportView = TesseraCanvasExportRenderView(
       pageSize: renderSize,
@@ -455,6 +472,15 @@ private struct TesseraCanvasExportRenderView<Content: View>: View {
 }
 
 private extension TesseraCanvas {
+  var effectiveEdgeBehavior: TesseraEdgeBehavior {
+    switch region {
+    case .rectangle:
+      edgeBehavior
+    case .polygon:
+      .finite
+    }
+  }
+
   struct ComputationKey: Hashable, Sendable {
     var canvasSize: CGSize
     var edgeBehavior: TesseraEdgeBehavior
@@ -462,6 +488,7 @@ private extension TesseraCanvas {
     var patternOffset: CGSize
     var symbolKeys: [SymbolKey]
     var pinnedSymbolKeys: [PinnedSymbolKey]
+    var region: TesseraCanvasRegion
 
     struct SymbolKey: Hashable, Sendable {
       var id: UUID
@@ -495,6 +522,7 @@ private extension TesseraCanvas {
     var key: ComputationKey
     var symbolDescriptors: [ShapePlacementEngine.PlacementSymbolDescriptor]
     var pinnedSymbolDescriptors: [ShapePlacementEngine.PinnedSymbolDescriptor]
+    var resolvedRegion: TesseraResolvedPolygonRegion?
   }
 
   var resolvedPlacement: TesseraPlacement {
@@ -509,10 +537,12 @@ private extension TesseraCanvas {
 
   func makeComputationSnapshot(for canvasSize: CGSize) -> ComputationSnapshot {
     let key = makeComputationKey(for: canvasSize)
+    let resolvedRegion = region.resolvedPolygon(in: canvasSize)
     return ComputationSnapshot(
       key: key,
       symbolDescriptors: makeSymbolDescriptors(using: key.placement),
-      pinnedSymbolDescriptors: makePinnedSymbolDescriptors(for: canvasSize),
+      pinnedSymbolDescriptors: makePinnedSymbolDescriptors(for: canvasSize, region: resolvedRegion),
+      resolvedRegion: resolvedRegion,
     )
   }
 
@@ -526,6 +556,7 @@ private extension TesseraCanvas {
         pinnedSymbolDescriptors: snapshot.pinnedSymbolDescriptors,
         edgeBehavior: snapshot.key.edgeBehavior,
         placement: snapshot.key.placement,
+        region: snapshot.resolvedRegion,
         randomGenerator: &randomGenerator,
       )
     }
@@ -546,14 +577,16 @@ private extension TesseraCanvas {
   func makeSynchronousPlacedDescriptors(for canvasSize: CGSize) -> [ShapePlacementEngine.PlacedSymbolDescriptor] {
     let placement = resolvedPlacement
     let symbolDescriptors = makeSymbolDescriptors(using: placement)
-    let pinnedSymbolDescriptors = makePinnedSymbolDescriptors(for: canvasSize)
+    let resolvedRegion = region.resolvedPolygon(in: canvasSize)
+    let pinnedSymbolDescriptors = makePinnedSymbolDescriptors(for: canvasSize, region: resolvedRegion)
     var randomGenerator = SeededGenerator(seed: seed(for: placement))
     return ShapePlacementEngine.placeSymbolDescriptors(
       in: canvasSize,
       symbolDescriptors: symbolDescriptors,
       pinnedSymbolDescriptors: pinnedSymbolDescriptors,
-      edgeBehavior: edgeBehavior,
+      edgeBehavior: effectiveEdgeBehavior,
       placement: placement,
+      region: resolvedRegion,
       randomGenerator: &randomGenerator,
     )
   }
@@ -573,11 +606,23 @@ private extension TesseraCanvas {
     }
   }
 
-  func makePinnedSymbolDescriptors(for canvasSize: CGSize) -> [ShapePlacementEngine.PinnedSymbolDescriptor] {
-    pinnedSymbols.map { pinnedSymbol in
-      ShapePlacementEngine.PinnedSymbolDescriptor(
+  func makePinnedSymbolDescriptors(
+    for canvasSize: CGSize,
+    region: TesseraResolvedPolygonRegion?,
+  ) -> [ShapePlacementEngine.PinnedSymbolDescriptor] {
+    pinnedSymbols.compactMap { pinnedSymbol in
+      let position = pinnedSymbol.resolvedPosition(in: canvasSize)
+      if let region {
+        let radius = pinnedSymbol.collisionShape.boundingRadius(atScale: pinnedSymbol.scale)
+        let expandedBounds = region.bounds.insetBy(dx: -radius, dy: -radius)
+        if expandedBounds.contains(position) == false {
+          return nil
+        }
+      }
+
+      return ShapePlacementEngine.PinnedSymbolDescriptor(
         id: pinnedSymbol.id,
-        position: pinnedSymbol.resolvedPosition(in: canvasSize),
+        position: position,
         rotationRadians: pinnedSymbol.rotation.radians,
         scale: pinnedSymbol.scale,
         collisionShape: pinnedSymbol.collisionShape,
@@ -640,11 +685,12 @@ private extension TesseraCanvas {
 
     return ComputationKey(
       canvasSize: canvasSize,
-      edgeBehavior: edgeBehavior,
+      edgeBehavior: effectiveEdgeBehavior,
       placement: placement,
       patternOffset: configuration.patternOffset,
       symbolKeys: symbolKeys,
       pinnedSymbolKeys: pinnedSymbolKeys,
+      region: region,
     )
   }
 
@@ -685,12 +731,14 @@ private extension TesseraCanvas {
 private struct TesseraCanvasStaticRenderView: View {
   var configuration: TesseraConfiguration
   var canvasSize: CGSize
+  var region: TesseraCanvasRegion
   var pinnedSymbols: [TesseraPinnedSymbol]
   var placedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor]
   var edgeBehavior: TesseraEdgeBehavior
 
   var body: some View {
     let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
+    let clipPath = region.clipPath(in: canvasSize)
     let overlayShapesBySymbolId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
       ? configuration.symbols.reduce(into: [:]) { cache, symbol in
         cache[symbol.id] = CollisionOverlayShape(collisionShape: symbol.collisionShape)
@@ -704,6 +752,10 @@ private struct TesseraCanvasStaticRenderView: View {
 
     let baseCanvas = Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: false) { context, size in
       guard size.width > 0, size.height > 0 else { return }
+
+      if let clipPath {
+        context.clip(to: clipPath)
+      }
 
       let wrappedOffset = CGSize(
         width: configuration.patternOffset.width.truncatingRemainder(dividingBy: size.width),
@@ -740,6 +792,10 @@ private struct TesseraCanvasStaticRenderView: View {
         if pinnedSymbols.isEmpty == false {
           Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: false) { context, size in
             guard size.width > 0, size.height > 0 else { return }
+
+            if let clipPath {
+              context.clip(to: clipPath)
+            }
 
             let offsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: edgeBehavior)
 

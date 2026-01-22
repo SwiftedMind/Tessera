@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+### Added
+- **Polygon Canvas Regions**: `TesseraCanvas` can now clip and place symbols inside polygonal regions mapped into the
+  resolved canvas size (polygon regions always use finite edges).
+
 ### Fixed
 - **Grid Rotation Range**: Grid placement now respects each symbol’s allowed rotation range with deterministic variation per cell.
 

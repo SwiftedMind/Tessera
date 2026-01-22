@@ -19,6 +19,7 @@ enum GridShapePlacementEngine {
   ///   - pinnedSymbolDescriptors: Symbols that must be placed at fixed positions before sampling.
   ///   - edgeBehavior: The edge behavior to apply when testing collisions.
   ///   - configuration: The grid placement configuration.
+  ///   - region: Optional polygon region in tile space used to constrain placement.
   /// - Returns: The placed symbol descriptors for the tile.
   static func placeSymbolDescriptors(
     in size: CGSize,
@@ -26,6 +27,7 @@ enum GridShapePlacementEngine {
     pinnedSymbolDescriptors: [PinnedSymbolDescriptor],
     edgeBehavior: TesseraEdgeBehavior,
     configuration: TesseraPlacement.Grid,
+    region: TesseraResolvedPolygonRegion? = nil,
   ) -> [PlacedSymbolDescriptor] {
     guard size.width > 0, size.height > 0 else { return [] }
 
@@ -101,6 +103,10 @@ enum GridShapePlacementEngine {
 
         case .seamlessWrapping:
           position = ShapePlacementWrapping.wrappedPosition(position, in: size)
+        }
+
+        if let region, region.contains(position) == false {
+          continue
         }
 
         let candidate = PlacedSymbolDescriptor(
