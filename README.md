@@ -412,6 +412,8 @@ configuration.patternOffset = CGSize(width: 40, height: 0)
 ## Notes
 
 - Tessera uses `Canvas` symbols for performance; keep symbol views lightweight.
+- Canvas rendering defaults to synchronous updates to keep interactive transforms in sync. Use
+  `.rendersAsynchronously(true)` on `TesseraCanvas`, `TesseraTiledCanvas`, or `TesseraTile` if you prefer async drawing.
 - Collision geometry is intentionally approximate; use `collisionShape` when an symbol needs a more accurate footprint.
   Complex polygons and multi-polygon shapes can dramatically reduce placement performance.
 - `TesseraPlacement.Organic.maximumSymbolCount` is a safety cap. If you crank up `density` on large canvases, you may want to raise it.

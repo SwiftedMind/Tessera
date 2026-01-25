@@ -30,6 +30,8 @@ public struct TesseraCanvas: View {
   public var region: TesseraCanvasRegion
   /// Defines how regions are rendered.
   public var regionRendering: TesseraRegionRendering
+  /// Controls whether the underlying SwiftUI canvas renders asynchronously.
+  public var rendersAsynchronously: Bool
   public var onComputationStateChange: ((Bool) -> Void)?
 
   // swiftformat:disable privateStateVariables
@@ -49,6 +51,8 @@ public struct TesseraCanvas: View {
   ///   - region: Region used to clip rendering and constrain placement. Polygon and alpha mask regions always use
   ///     finite edges.
   ///   - regionRendering: Defines whether drawing is clipped to the region.
+  ///   - rendersAsynchronously: Whether the SwiftUI canvas renders asynchronously. Defaults to `false` to keep
+  ///     interactive transforms in sync.
   ///
   /// The canvas fills the space provided by layout. Set an explicit `.frame(...)` on this view when you need a fixed
   /// on-screen size.
@@ -59,6 +63,7 @@ public struct TesseraCanvas: View {
     edgeBehavior: TesseraEdgeBehavior = .finite,
     region: TesseraCanvasRegion = .rectangle,
     regionRendering: TesseraRegionRendering = .clipped,
+    rendersAsynchronously: Bool = false,
     onComputationStateChange: ((Bool) -> Void)? = nil,
   ) {
     self.configuration = configuration
@@ -67,6 +72,7 @@ public struct TesseraCanvas: View {
     self.edgeBehavior = edgeBehavior
     self.region = region
     self.regionRendering = regionRendering
+    self.rendersAsynchronously = rendersAsynchronously
     self.onComputationStateChange = onComputationStateChange
   }
 
@@ -90,6 +96,7 @@ public struct TesseraCanvas: View {
     let shouldHideUntilAlphaMaskReady = shouldClipAlphaMask && cachedAlphaMask == nil
     let placedSymbolDescriptors = cachedPlacedSymbolDescriptors
     let onComputationStateChange = onComputationStateChange
+    let rendersAsynchronously = rendersAsynchronously
     let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
     let overlayShapesBySymbolId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
       ? configuration.symbols.reduce(into: [:]) { cache, symbol in
@@ -104,8 +111,12 @@ public struct TesseraCanvas: View {
 
     let computationKey = makeComputationKey(for: canvasSize)
 
-    // Render synchronously to avoid stale-frame flashes when a parent view applies interactive transforms.
-    let baseCanvas = Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: false) { context, size in
+    // Default to synchronous rendering to avoid stale-frame flashes during interactive transforms.
+    let baseCanvas = Canvas(
+      opaque: false,
+      colorMode: .nonLinear,
+      rendersAsynchronously: rendersAsynchronously
+    ) { context, size in
       guard size.width > 0, size.height > 0 else { return }
 
       if let clipPath {
@@ -146,7 +157,11 @@ public struct TesseraCanvas: View {
       .overlay {
         if pinnedSymbols.isEmpty == false {
           // Keep the overlay in lockstep with the base canvas during interactive transforms.
-          Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: false) { context, size in
+          Canvas(
+            opaque: false,
+            colorMode: .nonLinear,
+            rendersAsynchronously: rendersAsynchronously
+          ) { context, size in
             guard size.width > 0, size.height > 0 else { return }
 
             if let clipPath {
@@ -248,5 +263,14 @@ public struct TesseraCanvas: View {
         .interpolation(.none)
         .frame(width: canvasSize.width, height: canvasSize.height),
     )
+  }
+}
+
+public extension TesseraCanvas {
+  /// Returns a copy that controls whether the SwiftUI canvas renders asynchronously.
+  func rendersAsynchronously(_ value: Bool) -> TesseraCanvas {
+    var copy = self
+    copy.rendersAsynchronously = value
+    return copy
   }
 }

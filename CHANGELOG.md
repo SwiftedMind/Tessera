@@ -5,6 +5,8 @@
   resolved canvas size (polygon regions always use finite edges).
 - **Alpha Mask Regions**: `TesseraCanvas` can now place symbols inside alpha masks derived from views or images, with
   optional clipping and thresholded sampling.
+- **Async Canvas Toggle**: `TesseraTile` now exposes `rendersAsynchronously` (default `false`) and forwards it into
+  exports.
 
 ### Fixed
 - **Grid Rotation Range**: Grid placement now respects each symbol’s allowed rotation range with deterministic variation per cell.

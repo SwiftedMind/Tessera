@@ -46,6 +46,7 @@ public extension TesseraCanvas {
       placedSymbolDescriptors: placedSymbolDescriptors,
       resolvedAlphaMask: resolvedAlphaMask,
       edgeBehavior: effectiveEdgeBehavior,
+      rendersAsynchronously: rendersAsynchronously,
     )
     let exportView = TesseraCanvasExportRenderView(
       pageSize: canvasSize,
@@ -136,6 +137,7 @@ public extension TesseraCanvas {
       placedSymbolDescriptors: placedSymbolDescriptors,
       resolvedAlphaMask: resolvedAlphaMask,
       edgeBehavior: effectiveEdgeBehavior,
+      rendersAsynchronously: rendersAsynchronously,
     )
     let exportView = TesseraCanvasExportRenderView(
       pageSize: renderSize,
@@ -198,6 +200,7 @@ private struct TesseraCanvasStaticRenderView: View {
   var placedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor]
   var resolvedAlphaMask: TesseraAlphaMask?
   var edgeBehavior: TesseraEdgeBehavior
+  var rendersAsynchronously: Bool
 
   var body: some View {
     let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
@@ -216,7 +219,11 @@ private struct TesseraCanvasStaticRenderView: View {
       }
       : [:]
 
-    let baseCanvas = Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: false) { context, size in
+    let baseCanvas = Canvas(
+      opaque: false,
+      colorMode: .nonLinear,
+      rendersAsynchronously: rendersAsynchronously
+    ) { context, size in
       guard size.width > 0, size.height > 0 else { return }
 
       if let clipPath {
@@ -256,7 +263,11 @@ private struct TesseraCanvasStaticRenderView: View {
     let compositeCanvas = baseCanvas
       .overlay {
         if pinnedSymbols.isEmpty == false {
-          Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: false) { context, size in
+          Canvas(
+            opaque: false,
+            colorMode: .nonLinear,
+            rendersAsynchronously: rendersAsynchronously
+          ) { context, size in
             guard size.width > 0, size.height > 0 else { return }
 
             if let clipPath {

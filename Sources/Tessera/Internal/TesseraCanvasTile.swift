@@ -7,6 +7,7 @@ struct TesseraCanvasTile: View {
   var configuration: TesseraConfiguration
   var tileSize: CGSize
   var seed: UInt64
+  var rendersAsynchronously: Bool
   var onComputationStateChange: ((Bool) -> Void)?
 
   @State private var cachedPlacedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor] = []
@@ -15,11 +16,13 @@ struct TesseraCanvasTile: View {
     configuration: TesseraConfiguration,
     tileSize: CGSize,
     seed: UInt64,
+    rendersAsynchronously: Bool,
     onComputationStateChange: ((Bool) -> Void)? = nil,
   ) {
     self.configuration = configuration
     self.tileSize = tileSize
     self.seed = seed
+    self.rendersAsynchronously = rendersAsynchronously
     self.onComputationStateChange = onComputationStateChange
   }
 
@@ -28,6 +31,7 @@ struct TesseraCanvasTile: View {
     let tileSize = tileSize
     let placedSymbolDescriptors = cachedPlacedSymbolDescriptors
     let onComputationStateChange = onComputationStateChange
+    let rendersAsynchronously = rendersAsynchronously
     let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
     let overlayShapesBySymbolId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
       ? configuration.symbols.reduce(into: [:]) { cache, symbol in
@@ -35,8 +39,8 @@ struct TesseraCanvasTile: View {
       }
       : [:]
 
-    // Render synchronously to avoid stale-frame flashes when a parent view applies interactive transforms.
-    Canvas(rendersAsynchronously: false) { context, size in
+    // Default to synchronous rendering to avoid stale-frame flashes during interactive transforms.
+    Canvas(rendersAsynchronously: rendersAsynchronously) { context, size in
       let wrappedOffset = CGSize(
         width: configuration.patternOffset.width.truncatingRemainder(dividingBy: size.width),
         height: configuration.patternOffset.height.truncatingRemainder(dividingBy: size.height),
