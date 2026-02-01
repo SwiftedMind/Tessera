@@ -25,6 +25,15 @@ These are the defaults and conventions that keep changes consistent and easy to 
 
 ---
 
+## Subagents
+- ALWAYS wait for all subagents to complete before yielding.
+- Spawn subagents automatically when:
+  - Parallelizable work
+  - Long-running or blocking tasks where a worker can run independently. 
+  - Isolation for risky changes or checks
+
+---
+
 ## Project guidelines
 
 ### Documentation
@@ -39,19 +48,28 @@ These are the defaults and conventions that keep changes consistent and easy to 
 
 ### SwiftUI view organization
 
-- In view types, declare properties as `var` (not `let`).
-- Use `#Preview` for previews.
+- Prefer composition; keep views small and focused. 
+- Avoid “actions” extensions on views; keep `@State` private. If logic grows, split into subviews or helper types instead of moving long functions into `extension SomeView`
+- Apply local conventions: prefer SwiftUI-native state, keep state local when possible, and use environment injection for shared dependencies.
+- Prefer a shared `@Observable` session/model injected via `@Environment` for heavily shared state to keep view initializers compact.
+- Use `#Preview(traits: .tesseraDesigner)` for previews.
 - For state-driven animation, prefer `.animation(.default, value: ...)` over scattered `withAnimation`.
-  - Put `.animation` as high in the hierarchy as you can so containers/scroll views animate naturally.
 - Prefer `$`-derived bindings (`$state`, `$binding`, `@Bindable` projections).
-  - Avoid manual `Binding(get:set:)` unless it genuinely simplifies an adaptation (optional defaults, type bridging, etc.). If you do use it, leave a short note explaining why.
+  - Prefer state-derived bindings + `onChange` side effects; use IdentifiedCollections for ID-based access instead of index-based bindings.
 - Prefer `.onChange(of: value) { ... }` with no closure arguments; read `value` inside the closure.
-- Push `@State` as deep as possible, but keep it as high as necessary. Don’t default to hoisting everything to the root.
+- Use async/await with .task and explicit loading/error states.
+- Use `@ViewBuilder` where possible
 
 ---
 
-## Build & test commands (copy/paste)
+## Build & test commands
 
-- Build from the repository root with `swift build --quiet`.
-- Test from the repository root with `swift test --quiet`.
-- Prefer `swift build --quiet` to reduce noise; only drop `--quiet` when debugging a failure.
+- Use the FlowDeck skill and CLI for all iOS/macOS build, run, test, and debug tasks.
+- Do not use xcodebuild, xcrun simctl, or other Apple CLI tools unless FlowDeck is unavailable.
+- If a FlowDeck command fails, troubleshoot using FlowDeck output and retry before falling back.
+
+### Shortcuts
+
+- Use this section to proactively and autonomously manage common flowdeck commands.
+- Whenever you use a command that likely will be reused, proactively add it in this section
+- Proactively keep the commands up to date, like when the scheme or devices change. 

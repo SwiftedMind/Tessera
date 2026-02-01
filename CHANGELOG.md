@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+
+
+## [3.0.0]
+
 ### Added
 - **Polygon Canvas Regions**: `TesseraCanvas` can now clip and place symbols inside polygonal regions mapped into the
   resolved canvas size (polygon regions always use finite edges).
