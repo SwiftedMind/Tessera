@@ -63,6 +63,10 @@ public enum TesseraPlacement: Hashable, Sendable {
     public var offsetStrategy: GridOffsetStrategy
     /// Order in which symbols are assigned to grid cells.
     public var symbolOrder: GridSymbolOrder
+    /// Seed used to drive deterministic randomness for grid symbol assignment.
+    ///
+    /// This affects symbol orders that rely on randomness such as `.randomWeightedPerCell` and `.shuffle`.
+    public var seed: UInt64
 
     /// Creates a grid placement configuration.
     /// - Parameters:
@@ -70,16 +74,19 @@ public enum TesseraPlacement: Hashable, Sendable {
     ///   - rowCount: The number of rows in the grid.
     ///   - offsetStrategy: Offset strategy applied to grid rows or columns.
     ///   - symbolOrder: Order in which symbols are assigned to grid cells.
+    ///   - seed: Seed used to drive deterministic randomness for grid symbol assignment.
     public init(
       columnCount: Int,
       rowCount: Int,
       offsetStrategy: GridOffsetStrategy = .none,
       symbolOrder: GridSymbolOrder = .sequence,
+      seed: UInt64 = TesseraConfiguration.randomSeed(),
     ) {
       self.columnCount = columnCount
       self.rowCount = rowCount
       self.offsetStrategy = offsetStrategy
       self.symbolOrder = symbolOrder
+      self.seed = seed
     }
   }
 
@@ -111,5 +118,17 @@ public enum TesseraPlacement: Hashable, Sendable {
   public enum GridSymbolOrder: Hashable, Sendable {
     /// Assign symbols in array order, repeating from the start as needed.
     case sequence
+    /// Assign a random symbol to each cell, sampling using `TesseraSymbol.weight`.
+    ///
+    /// Each cell is sampled independently using a deterministic per-cell random seed derived from `Grid.seed`.
+    case randomWeightedPerCell
+    /// Assign symbols by shuffling a repeated symbol sequence to cover the whole grid.
+    ///
+    /// This tends to distribute symbols more evenly than pure per-cell randomness.
+    case shuffle
+    /// Assign symbols based on the sum of row and column indices, repeating from the start as needed.
+    case diagonal
+    /// Assign symbols row-major, reversing the symbol index progression on odd rows.
+    case snake
   }
 }

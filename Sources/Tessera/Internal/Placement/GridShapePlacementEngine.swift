@@ -41,6 +41,18 @@ enum GridShapePlacementEngine {
     )
     let normalizedOffset = normalizedOffsetAmount(from: configuration.offsetStrategy)
     let wrapOffsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: edgeBehavior)
+    let shuffledSymbolIndices = configuration.symbolOrder == .shuffle
+      ? GridSymbolAssignment.shuffledSymbolIndices(
+        symbolCount: symbolCount,
+        totalCellCount: resolvedGrid.totalCellCount,
+        seed: configuration.seed,
+      )
+      : nil
+
+    let cumulativeWeights = configuration.symbolOrder == .randomWeightedPerCell
+      ? GridSymbolAssignment.cumulativeWeights(for: symbolDescriptors)
+      : []
+    let totalWeight = cumulativeWeights.last ?? 0
 
     let pinnedColliders: [PlacedCollider] = pinnedSymbolDescriptors.map { pinnedSymbol in
       let collisionTransform = CollisionTransform(
@@ -67,9 +79,34 @@ enum GridShapePlacementEngine {
       for columnIndex in 0..<resolvedGrid.columnCount {
         if Task.isCancelled { return placedDescriptors }
 
-        let resolvedSymbolIndex: Int = switch configuration.symbolOrder {
+        let cellIndex = rowIndex * resolvedGrid.columnCount + columnIndex
+
+        let resolvedSymbolIndex: Int
+        switch configuration.symbolOrder {
         case .sequence:
-          rowIndex * resolvedGrid.columnCount + columnIndex
+          resolvedSymbolIndex = cellIndex
+        case .diagonal:
+          resolvedSymbolIndex = rowIndex + columnIndex
+        case .snake:
+          let snakeColumn = rowIndex.isMultiple(of: 2) ? columnIndex : (resolvedGrid.columnCount - 1 - columnIndex)
+          resolvedSymbolIndex = rowIndex * resolvedGrid.columnCount + snakeColumn
+        case .shuffle:
+          resolvedSymbolIndex = shuffledSymbolIndices?[cellIndex] ?? cellIndex
+        case .randomWeightedPerCell:
+          var randomGenerator = SeededGenerator(
+            seed: GridSymbolAssignment.symbolSeed(
+              baseSeed: configuration.seed,
+              rowIndex: rowIndex,
+              columnIndex: columnIndex,
+              cellIndex: cellIndex,
+            ),
+          )
+          resolvedSymbolIndex = GridSymbolAssignment.randomWeightedSymbolIndex(
+            symbolCount: symbolCount,
+            cumulativeWeights: cumulativeWeights,
+            totalWeight: totalWeight,
+            randomGenerator: &randomGenerator,
+          )
         }
         let selectedSymbol = symbolDescriptors[resolvedSymbolIndex % symbolCount]
 
@@ -78,7 +115,7 @@ enum GridShapePlacementEngine {
           rangeDegrees: selectedSymbol.allowedRotationRangeDegrees,
           rowIndex: rowIndex,
           columnIndex: columnIndex,
-          symbolIndex: resolvedSymbolIndex,
+          cellIndex: cellIndex,
         )
 
         guard let selectedPolygons = polygonCache[selectedSymbol.id] else { continue }
@@ -150,7 +187,7 @@ enum GridShapePlacementEngine {
     rangeDegrees: ClosedRange<Double>,
     rowIndex: Int,
     columnIndex: Int,
-    symbolIndex: Int,
+    cellIndex: Int,
   ) -> Double {
     let lower = rangeDegrees.lowerBound
     let upper = rangeDegrees.upperBound
@@ -161,7 +198,7 @@ enum GridShapePlacementEngine {
     let seed = gridRotationSeed(
       rowIndex: rowIndex,
       columnIndex: columnIndex,
-      symbolIndex: symbolIndex,
+      cellIndex: cellIndex,
     )
     var randomGenerator = SeededGenerator(seed: seed)
     let degrees = Double.random(in: lower...upper, using: &randomGenerator)
@@ -171,11 +208,11 @@ enum GridShapePlacementEngine {
   private static func gridRotationSeed(
     rowIndex: Int,
     columnIndex: Int,
-    symbolIndex: Int,
+    cellIndex: Int,
   ) -> UInt64 {
     var seed = UInt64(truncatingIfNeeded: rowIndex) &* 0x9E37_79B9_7F4A_7C15
     seed ^= UInt64(truncatingIfNeeded: columnIndex) &* 0xBF58_476D_1CE4_E5B9
-    seed ^= UInt64(truncatingIfNeeded: symbolIndex) &* 0x94D0_49BB_1331_11EB
+    seed ^= UInt64(truncatingIfNeeded: cellIndex) &* 0x94D0_49BB_1331_11EB
     seed ^= seed >> 29
     return seed
   }

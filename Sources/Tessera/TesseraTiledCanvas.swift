@@ -15,7 +15,7 @@ public struct TesseraTiledCanvas: View {
   /// - Parameters:
   ///   - configuration: The tessera configuration to render.
   ///   - tileSize: Size of the tile that will be repeated.
-  ///   - seed: Optional seed override for organic placement.
+  ///   - seed: Optional seed override for placement randomness.
   ///   - rendersAsynchronously: Whether the SwiftUI canvas renders asynchronously. Defaults to `false` to keep
   ///     interactive transforms in sync.
   public init(
@@ -27,7 +27,7 @@ public struct TesseraTiledCanvas: View {
   ) {
     self.configuration = configuration
     self.tileSize = tileSize
-    self.seed = seed ?? configuration.organicPlacement?.seed ?? TesseraConfiguration.randomSeed()
+    self.seed = seed ?? configuration.placementSeed ?? TesseraConfiguration.randomSeed()
     self.rendersAsynchronously = rendersAsynchronously
     self.onComputationStateChange = onComputationStateChange
   }

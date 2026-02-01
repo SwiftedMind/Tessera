@@ -223,9 +223,10 @@ let region = TesseraCanvasRegion.alphaMask(
 ## Grid Placement
 
 Use grid placement when you want orderly, repeatable patterns with optional row/column offsets. Symbols are assigned in
-row-major order, and the grid derives cell size from the configured row and column counts. When seamless wrapping with
-non-zero offset strategies requires even counts, the engine rounds up to the nearest even value. Offset fractions are
-expressed in cell units, so values greater than 1 shift by whole cells (for example `2.5` shifts by 2½ cells).
+the order defined by `symbolOrder` (defaults to row-major `.sequence`), and the grid derives cell size from the
+configured row and column counts. When seamless wrapping with non-zero offset strategies requires even counts, the
+engine rounds up to the nearest even value. Offset fractions are expressed in cell units, so values greater than 1 shift
+by whole cells (for example `2.5` shifts by 2½ cells).
 
 ```swift
 var configuration = TesseraConfiguration(
@@ -234,7 +235,9 @@ var configuration = TesseraConfiguration(
     TesseraPlacement.Grid(
       columnCount: 8,
       rowCount: 6,
-      offsetStrategy: .rowShift(fraction: 0.5)
+      offsetStrategy: .rowShift(fraction: 0.5),
+      symbolOrder: .randomWeightedPerCell,
+      seed: 42
     )
   )
 )

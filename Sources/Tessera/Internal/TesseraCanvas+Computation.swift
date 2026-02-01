@@ -74,8 +74,9 @@ extension TesseraCanvas {
     case var .organic(organicPlacement):
       organicPlacement.seed = seed
       return .organic(organicPlacement)
-    case .grid:
-      return configuration.placement
+    case var .grid(gridPlacement):
+      gridPlacement.seed = seed
+      return .grid(gridPlacement)
     }
   }
 
@@ -245,8 +246,8 @@ extension TesseraCanvas {
     switch placement {
     case let .organic(organicPlacement):
       organicPlacement.seed
-    case .grid:
-      0
+    case let .grid(gridPlacement):
+      gridPlacement.seed
     }
   }
 

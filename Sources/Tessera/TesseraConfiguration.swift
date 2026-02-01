@@ -42,6 +42,22 @@ extension TesseraConfiguration {
     return nil
   }
 
+  var gridPlacement: TesseraPlacement.Grid? {
+    if case let .grid(placement) = placement {
+      return placement
+    }
+    return nil
+  }
+
+  var placementSeed: UInt64? {
+    switch placement {
+    case let .organic(organicPlacement):
+      organicPlacement.seed
+    case let .grid(gridPlacement):
+      gridPlacement.seed
+    }
+  }
+
   var showsCollisionOverlay: Bool {
     organicPlacement?.showsCollisionOverlay ?? false
   }

@@ -46,7 +46,7 @@ public struct TesseraCanvas: View {
   /// - Parameters:
   ///   - configuration: Base configuration (symbols and placement).
   ///   - pinnedSymbols: Views placed once; treated as obstacles.
-  ///   - seed: Optional seed override for organic placement.
+  ///   - seed: Optional seed override for placement randomness.
   ///   - edgeBehavior: Whether to wrap edges toroidally or not.
   ///   - region: Region used to clip rendering and constrain placement. Polygon and alpha mask regions always use
   ///     finite edges.
@@ -68,7 +68,7 @@ public struct TesseraCanvas: View {
   ) {
     self.configuration = configuration
     self.pinnedSymbols = pinnedSymbols
-    self.seed = seed ?? configuration.organicPlacement?.seed ?? TesseraConfiguration.randomSeed()
+    self.seed = seed ?? configuration.placementSeed ?? TesseraConfiguration.randomSeed()
     self.edgeBehavior = edgeBehavior
     self.region = region
     self.regionRendering = regionRendering
@@ -115,7 +115,7 @@ public struct TesseraCanvas: View {
     let baseCanvas = Canvas(
       opaque: false,
       colorMode: .nonLinear,
-      rendersAsynchronously: rendersAsynchronously
+      rendersAsynchronously: rendersAsynchronously,
     ) { context, size in
       guard size.width > 0, size.height > 0 else { return }
 
@@ -160,7 +160,7 @@ public struct TesseraCanvas: View {
           Canvas(
             opaque: false,
             colorMode: .nonLinear,
-            rendersAsynchronously: rendersAsynchronously
+            rendersAsynchronously: rendersAsynchronously,
           ) { context, size in
             guard size.width > 0, size.height > 0 else { return }
 

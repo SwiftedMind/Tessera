@@ -1,5 +1,14 @@
 ## [Unreleased]
 
+### Added
+- **Grid Symbol Orders**: `TesseraPlacement.GridSymbolOrder` now supports `.randomWeightedPerCell`, `.shuffle`,
+  `.diagonal`, and `.snake` (in addition to `.sequence`).
+- **Grid Seed**: `TesseraPlacement.Grid` now includes `seed` to drive deterministic grid symbol assignment.
+
+### Changed
+- **Seed Override Applies To Grid**: `TesseraCanvas(seed:)`, `TesseraTile(seed:)`, and `TesseraTiledCanvas(seed:)` now
+  override grid placement seeding as well.
+
 
 
 ## [3.0.0]
