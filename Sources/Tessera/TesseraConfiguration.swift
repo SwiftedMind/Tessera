@@ -17,8 +17,8 @@ public struct TesseraConfiguration {
   ///
   /// Unlike rotating the final rendered tile, this rotates the placement positions used to generate symbols.
   /// The placement engines apply this rotation only when using `.seamlessWrapping` edge behavior.
-  /// For grid placement, the rotation is applied in placement space and then wrapped back into the tile bounds to
-  /// preserve seamless tiling.
+  /// For grid placement, rotation expands sampling and clips back into the tile bounds, so the number of placed symbols
+  /// can differ slightly from `rowCount * columnCount`.
   public var patternRotation: Angle
   /// Anchor used for rotating the pattern in placement space.
   ///
