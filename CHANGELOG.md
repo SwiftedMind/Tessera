@@ -11,9 +11,6 @@
 - **Seed Override Applies To Grid**: `TesseraCanvas(seed:)`, `TesseraTile(seed:)`, and `TesseraTiledCanvas(seed:)` now
   override grid placement seeding as well.
 
-### Fixed
-- **Pattern Rotation (Grid)**: Pattern rotation no longer produces overlapping placements or under-filled tiles when using grid placement under seamless wrapping.
-
 
 
 ## [3.0.0]
