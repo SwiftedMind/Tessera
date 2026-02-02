@@ -6,14 +6,14 @@ import SwiftUI
 @testable import Tessera
 import Testing
 
-@Test func patternRotationRotatesAndClipsGridPositionsUnderSeamlessWrapping() async throws {
+@Test func patternRotationExpandsRotatedGridToFillTileUnderSeamlessWrapping() async throws {
   let size = CGSize(width: 200, height: 200)
   let patternRotationRadians = Double.pi / 4
   let anchor = CGPoint(x: size.width / 2, y: size.height / 2)
 
   let configuration = TesseraPlacement.Grid(
-    columnCount: 4,
-    rowCount: 4,
+    columnCount: 6,
+    rowCount: 6,
   )
 
   var randomGenerator = SeededGenerator(seed: 1)
@@ -28,35 +28,28 @@ import Testing
     randomGenerator: &randomGenerator,
   )
 
-  #expect(placed.count == 16)
+  #expect(placed.count >= 30)
+  #expect(placed.count <= 6 * 6 * 4)
   #expect(placed.allSatisfy { (0..<size.width).contains($0.position.x) && (0..<size.height).contains($0.position.y) })
 
-  let cellSize = CGSize(width: size.width / 4, height: size.height / 4)
-  let epsilon: CGFloat = 0.000_1
+  // Coverage check: ensure the rotated grid spans the whole tile.
+  let cellSize = CGSize(width: size.width / 6, height: size.height / 6)
 
-  var matchesWrapped = 0
+  let xs = placed.map(\.position.x)
+  let ys = placed.map(\.position.y)
+  let minX = xs.min() ?? 0
+  let maxX = xs.max() ?? 0
+  let minY = ys.min() ?? 0
+  let maxY = ys.max() ?? 0
 
-  for row in 0..<4 {
-    for column in 0..<4 {
-      let baseCellIndex = row * 4 + column
-      let canonical = CGPoint(
-        x: (CGFloat(column) + 0.5) * cellSize.width,
-        y: (CGFloat(row) + 0.5) * cellSize.height,
-      )
-      let wrappedCanonicalRotated = wrapped(
-        rotate(canonical, around: anchor, radians: patternRotationRadians),
-        in: size,
-      )
+  #expect(minX < cellSize.width)
+  #expect(maxX > size.width - cellSize.width)
+  #expect(minY < cellSize.height)
+  #expect(maxY > size.height - cellSize.height)
 
-      let actual = placed[baseCellIndex].position
-      if abs(actual.x - wrappedCanonicalRotated.x) < epsilon, abs(actual.y - wrappedCanonicalRotated.y) < epsilon {
-        matchesWrapped += 1
-      }
-    }
-  }
-
-  // Regression check: pattern rotation must not be implemented as "rotate then wrap into tile bounds".
-  #expect(matchesWrapped < 16)
+  // No duplicate placements (common failure mode when trying to force a fixed count).
+  let quantized = Set(placed.map { "\(Int($0.position.x * 10000)):\(Int($0.position.y * 10000))" })
+  #expect(quantized.count == placed.count)
 }
 
 @Test func patternRotationIsDeterministicForOrganicPlacement() async throws {
