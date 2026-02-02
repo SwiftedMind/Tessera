@@ -12,7 +12,7 @@
   override grid placement seeding as well.
 
 ### Fixed
-- **Pattern Rotation (Grid)**: Pattern rotation now preserves seamless wrapping for grid placement (no visible seams between repeated tiles).
+- **Pattern Rotation (Grid)**: Pattern rotation no longer produces overlapping placements or under-filled tiles when using grid placement under seamless wrapping.
 
 
 
