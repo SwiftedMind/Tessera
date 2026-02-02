@@ -31,25 +31,9 @@ enum GridShapePlacementEngine {
     configuration: TesseraPlacement.Grid,
     region: TesseraResolvedPolygonRegion? = nil,
     alphaMask: TesseraAlphaMask? = nil,
-    patternRotationRadians: Double = 0,
-    patternRotationAnchor: CGPoint = .zero,
   ) -> [PlacedSymbolDescriptor] {
     guard size.width > 0, size.height > 0 else { return [] }
     guard symbolDescriptors.isEmpty == false else { return [] }
-
-    let normalizedPatternRotationRadians = RotationMath.normalizedRadians(patternRotationRadians)
-    if edgeBehavior == .seamlessWrapping, normalizedPatternRotationRadians.isZero == false {
-      return placeSymbolDescriptorsForSeamlessPatternRotation(
-        in: size,
-        symbolDescriptors: symbolDescriptors,
-        pinnedSymbolDescriptors: pinnedSymbolDescriptors,
-        configuration: configuration,
-        region: region,
-        alphaMask: alphaMask,
-        patternRotationRadians: normalizedPatternRotationRadians,
-        patternRotationAnchor: patternRotationAnchor,
-      )
-    }
 
     let symbolCount = symbolDescriptors.count
     let resolvedGrid = resolveGrid(
@@ -235,7 +219,7 @@ enum GridShapePlacementEngine {
     return seed
   }
 
-  static func resolveGrid(
+  private static func resolveGrid(
     for size: CGSize,
     configuration: TesseraPlacement.Grid,
     edgeBehavior: TesseraEdgeBehavior,

@@ -36,15 +36,6 @@ struct TesseraDemoView: View {
             )
           }
           NavigationLink {
-            PatternRotationExampleView()
-          } label: {
-            ExampleRow(
-              title: "Pattern Rotation",
-              subtitle: "Rotate placements inside a tile",
-              systemImage: "rotate.right",
-            )
-          }
-          NavigationLink {
             PolygonRegionExampleView()
           } label: {
             ExampleRow(
@@ -141,18 +132,6 @@ private struct GridPlacementExampleView: View {
     .tileRotation(.degrees(45))
     .ignoresSafeArea()
     .navigationTitle("Grid Placement")
-    .navigationBarTitleDisplayMode(.inline)
-  }
-}
-
-private struct PatternRotationExampleView: View {
-  var body: some View {
-    TesseraTiledCanvas(
-      DemoConfigurations.gridPatternRotation,
-      tileSize: CGSize(width: 250, height: 250),
-    )
-    .ignoresSafeArea()
-    .navigationTitle("Pattern Rotation")
     .navigationBarTitleDisplayMode(.inline)
   }
 }

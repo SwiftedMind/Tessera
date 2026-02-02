@@ -105,9 +105,6 @@ private extension TesseraCanvasTile {
     var tileSize: CGSize
     var placement: TesseraPlacement
     var patternOffset: CGSize
-    var patternRotationRadians: Double
-    var patternRotationAnchorX: Double
-    var patternRotationAnchorY: Double
     var symbolKeys: [SymbolKey]
 
     struct SymbolKey: Hashable, Sendable {
@@ -149,15 +146,10 @@ private extension TesseraCanvasTile {
       )
     }
 
-    let patternRotationRadians = RotationMath.normalizedRadians(configuration.patternRotation.radians)
-
     return ComputationKey(
       tileSize: tileSize,
       placement: resolvedPlacement,
       patternOffset: configuration.patternOffset,
-      patternRotationRadians: patternRotationRadians,
-      patternRotationAnchorX: Double(configuration.patternRotationAnchor.x),
-      patternRotationAnchorY: Double(configuration.patternRotationAnchor.y),
       symbolKeys: symbolKeys,
     )
   }
@@ -207,17 +199,11 @@ private extension TesseraCanvasTile {
     let placementSeed = seed(for: snapshot.key.placement)
     let computeTask = Task.detached(priority: .userInitiated) {
       var randomGenerator = SeededGenerator(seed: placementSeed)
-      let patternRotationAnchor = CGPoint(
-        x: snapshot.key.tileSize.width * CGFloat(snapshot.key.patternRotationAnchorX),
-        y: snapshot.key.tileSize.height * CGFloat(snapshot.key.patternRotationAnchorY),
-      )
       return ShapePlacementEngine.placeSymbolDescriptors(
         in: snapshot.key.tileSize,
         symbolDescriptors: snapshot.symbolDescriptors,
         edgeBehavior: .seamlessWrapping,
         placement: snapshot.key.placement,
-        patternRotationRadians: snapshot.key.patternRotationRadians,
-        patternRotationAnchor: patternRotationAnchor,
         randomGenerator: &randomGenerator,
       )
     }

@@ -3,12 +3,6 @@
 import CoreGraphics
 
 enum RotationMath {
-  static func normalizedRadians(_ radians: Double) -> Double {
-    let twoPi = Double.pi * 2
-    let remainder = radians.truncatingRemainder(dividingBy: twoPi)
-    return abs(remainder) < 1e-12 ? 0 : remainder
-  }
-
   static func rotate(
     _ point: CGPoint,
     around anchor: CGPoint,
