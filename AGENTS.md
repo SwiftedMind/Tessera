@@ -65,7 +65,8 @@ These are the defaults and conventions that keep changes consistent and easy to 
 ## Build & test commands
 
 - Use the FlowDeck skill and CLI for all iOS/macOS build, run, test, and debug tasks.
-- Do not use xcodebuild, xcrun simctl, or other Apple CLI tools unless FlowDeck is unavailable.
+- Do not use xcodebuild, xcrun simctl, swift or other Apple CLI tools unless FlowDeck is unavailable.
+- Do not use `swift build` or `swift test` or other Swift Package related commands unless FlowDeck is unavailable.
 - If a FlowDeck command fails, troubleshoot using FlowDeck output and retry before falling back.
 
 ### Shortcuts

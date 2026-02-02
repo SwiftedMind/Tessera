@@ -1,5 +1,7 @@
 // By Dennis Müller
 
+import SwiftUI
+
 /// Describes how Tessera chooses symbol positions.
 public enum TesseraPlacement: Hashable, Sendable {
   /// Evenly spaced, organic placement using wrap-aware rejection sampling.
