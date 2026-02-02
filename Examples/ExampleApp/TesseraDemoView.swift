@@ -147,10 +147,23 @@ private struct GridPlacementExampleView: View {
 
 private struct PatternRotationExampleView: View {
   var body: some View {
-    TesseraTiledCanvas(
-      DemoConfigurations.gridPatternRotation,
-      tileSize: CGSize(width: 250, height: 250),
-    )
+    let configuration = DemoConfigurations.gridPatternRotation
+    HStack(spacing: 0) {
+      TesseraTile(
+        configuration,
+        tileSize: CGSize(width: 250, height: 250),
+      )
+      .overlay {
+        Rectangle().stroke(Color.red, lineWidth: 1)
+      }
+      TesseraTile(
+        configuration,
+        tileSize: CGSize(width: 250, height: 250),
+      )
+      .overlay {
+        Rectangle().stroke(Color.red, lineWidth: 1)
+      }
+    }
     .ignoresSafeArea()
     .navigationTitle("Pattern Rotation")
     .navigationBarTitleDisplayMode(.inline)
