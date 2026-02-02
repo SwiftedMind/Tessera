@@ -26,6 +26,7 @@ enum DemoConfigurations {
           columnCount: 6,
           rowCount: 6,
           offsetStrategy: .rowShift(fraction: 0.5),
+          seed: 0,
         ),
       ),
     )
@@ -39,6 +40,7 @@ enum DemoConfigurations {
           columnCount: 6,
           rowCount: 6,
           offsetStrategy: .rowShift(fraction: 0.5),
+          seed: 0,
         ),
       ),
       patternRotation: .degrees(45),

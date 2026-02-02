@@ -28,8 +28,7 @@ import Testing
     randomGenerator: &randomGenerator,
   )
 
-  #expect(placed.count >= 30)
-  #expect(placed.count <= 6 * 6 * 4)
+  #expect(placed.count == 36)
   #expect(placed.allSatisfy { (0..<size.width).contains($0.position.x) && (0..<size.height).contains($0.position.y) })
 
   // Coverage check: ensure the rotated grid spans the whole tile.
@@ -46,6 +45,16 @@ import Testing
   #expect(maxX > size.width - cellSize.width)
   #expect(minY < cellSize.height)
   #expect(maxY > size.height - cellSize.height)
+
+  // Seamless check: under `.seamlessWrapping`, rotated grid positions wrap back into the tile bounds.
+  let canonical = CGPoint(x: 0.5 * cellSize.width, y: 0.5 * cellSize.height)
+  let expectedWrapped = wrapped(
+    rotate(canonical, around: anchor, radians: patternRotationRadians),
+    in: size,
+  )
+  let actual = placed[0].position
+  #expect(abs(actual.x - expectedWrapped.x) < 0.000_1)
+  #expect(abs(actual.y - expectedWrapped.y) < 0.000_1)
 
   // No duplicate placements (common failure mode when trying to force a fixed count).
   let quantized = Set(placed.map { "\(Int($0.position.x * 10000)):\(Int($0.position.y * 10000))" })

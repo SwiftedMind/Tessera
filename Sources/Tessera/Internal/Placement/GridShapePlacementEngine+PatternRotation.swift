@@ -57,52 +57,19 @@ extension GridShapePlacementEngine {
       cache[symbol.id] = CollisionMath.polygons(for: symbol.collisionShape)
     }
 
-    let inverseBounds = RotationMath.inverseRotatedTileBounds(
-      tileSize: size,
-      anchor: patternRotationAnchor,
-      rotationRadians: patternRotationRadians,
-    )
-
-    let padding = patternRotationPadding(
-      for: configuration.offsetStrategy,
-      normalizedOffset: normalizedOffset,
-    )
-    let maximumExpandedColumns = min(max(resolvedGrid.columnCount * 5, 256), 4096)
-    let maximumExpandedRows = min(max(resolvedGrid.rowCount * 5, 256), 4096)
-
     var placedDescriptors: [PlacedSymbolDescriptor] = []
     placedDescriptors.reserveCapacity(resolvedGrid.totalCellCount)
 
-    var columnRange = RotationMath.indexRangeCoveringBounds(
-      min: inverseBounds.minX,
-      max: inverseBounds.maxX,
-      cellSize: cellSize.width,
-    )
-    var rowRange = RotationMath.indexRangeCoveringBounds(
-      min: inverseBounds.minY,
-      max: inverseBounds.maxY,
-      cellSize: cellSize.height,
-    )
-
-    // Expand slightly to avoid under-coverage after rotation, and to account for offset strategies.
-    columnRange = (columnRange.lowerBound - padding.columns)...(columnRange.upperBound + padding.columns)
-    rowRange = (rowRange.lowerBound - padding.rows)...(rowRange.upperBound + padding.rows)
-
-    columnRange = RotationMath.clampedIndexRange(columnRange, maximumCount: maximumExpandedColumns)
-    rowRange = RotationMath.clampedIndexRange(rowRange, maximumCount: maximumExpandedRows)
-
-    for rowIndex in rowRange {
-      for columnIndex in columnRange {
+    for rowIndex in 0..<resolvedGrid.rowCount {
+      for columnIndex in 0..<resolvedGrid.columnCount {
         if Task.isCancelled { return placedDescriptors }
 
-        let baseRow = ShapePlacementWrapping.wrappedIndex(rowIndex, modulus: resolvedGrid.rowCount)
-        let baseColumn = ShapePlacementWrapping.wrappedIndex(columnIndex, modulus: resolvedGrid.columnCount)
-        let baseCellIndex = baseRow * resolvedGrid.columnCount + baseColumn
+        let cellIndex = rowIndex * resolvedGrid.columnCount + columnIndex
 
         let resolvedSymbolIndex = resolvedSymbolIndexForGridCell(
-          baseRow: baseRow,
-          baseColumn: baseColumn,
-          baseCellIndex: baseCellIndex,
+          baseRow: rowIndex,
+          baseColumn: columnIndex,
+          baseCellIndex: cellIndex,
           gridColumnCount: resolvedGrid.columnCount,
           symbolCount: symbolCount,
           configuration: configuration,
@@ -115,9 +82,9 @@ extension GridShapePlacementEngine {
         let scale = selectedSymbol.resolvedScaleRange.lowerBound
         let symbolRotationRadians = rotationRadiansForGrid(
           rangeDegrees: selectedSymbol.allowedRotationRangeDegrees,
-          rowIndex: baseRow,
-          columnIndex: baseColumn,
-          cellIndex: baseCellIndex,
+          rowIndex: rowIndex,
+          columnIndex: columnIndex,
+          cellIndex: cellIndex,
         )
 
         guard let selectedPolygons = polygonCache[selectedSymbol.id] else { continue }
@@ -140,10 +107,7 @@ extension GridShapePlacementEngine {
           around: patternRotationAnchor,
           radians: patternRotationRadians,
         )
-
-        guard (0..<size.width).contains(position.x),
-              (0..<size.height).contains(position.y)
-        else { continue }
+        position = ShapePlacementWrapping.wrappedPosition(position, in: size)
 
         if let region, region.contains(position) == false {
           continue
@@ -184,29 +148,6 @@ extension GridShapePlacementEngine {
 }
 
 private extension GridShapePlacementEngine {
-  struct PatternRotationPadding: Sendable {
-    var columns: Int
-    var rows: Int
-  }
-
-  static func patternRotationPadding(
-    for strategy: TesseraPlacement.GridOffsetStrategy,
-    normalizedOffset: Double,
-  ) -> PatternRotationPadding {
-    let base = max(2, Int(ceil(normalizedOffset)) + 2)
-
-    return switch strategy {
-    case .none:
-      PatternRotationPadding(columns: 2, rows: 2)
-    case .rowShift:
-      PatternRotationPadding(columns: base, rows: 2)
-    case .columnShift:
-      PatternRotationPadding(columns: 2, rows: base)
-    case .checkerShift:
-      PatternRotationPadding(columns: base, rows: base)
-    }
-  }
-
   static func resolvedSymbolIndexForGridCell(
     baseRow: Int,
     baseColumn: Int,
