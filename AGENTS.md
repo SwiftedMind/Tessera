@@ -74,3 +74,7 @@ These are the defaults and conventions that keep changes consistent and easy to 
 - Use this section to proactively and autonomously manage common flowdeck commands.
 - Whenever you use a command that likely will be reused, proactively add it in this section
 - Proactively keep the commands up to date, like when the scheme or devices change. 
+
+- List schemes: `flowdeck project schemes -w "/Users/swiftedmind/Code/Workspace/Tessera/Tessera.xcworkspace"`
+- Build ExampleApp: `flowdeck build -w "/Users/swiftedmind/Code/Workspace/Tessera/Tessera.xcworkspace" -s "ExampleApp" -S "iPhone 17"`
+- Run package tests: `flowdeck test -w "/Users/swiftedmind/Code/Workspace/Tessera/Tessera.xcworkspace" -s "TesseraTests" -S "iPhone 17"`
