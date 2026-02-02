@@ -61,29 +61,29 @@ dependencies: [
 import SwiftUI
 import Tessera
 
-struct PatternBackground: View {
-  var body: some View {
-    TesseraTiledCanvas(
-      configuration,
-      tileSize: CGSize(width: 256, height: 256),
-      seed: 20
-    )
-    .tileRotation(.degrees(45))
-    .ignoresSafeArea()
-  }
+	struct PatternBackground: View {
+	  var body: some View {
+	    TesseraTiledCanvas(
+	      configuration,
+	      tileSize: CGSize(width: 256, height: 256),
+	      seed: 20
+	    )
+	    .ignoresSafeArea()
+	  }
 
-  var configuration: TesseraConfiguration {
-    TesseraConfiguration(
-      symbols: symbols,
-      placement: .organic(
-        TesseraPlacement.Organic(
-          minimumSpacing: 10,
-          density: 0.6,
-          baseScaleRange: 0.9...1.15
-        )
-      )
-    )
-  }
+	  var configuration: TesseraConfiguration {
+	    TesseraConfiguration(
+	      symbols: symbols,
+	      placement: .organic(
+	        TesseraPlacement.Organic(
+	          minimumSpacing: 10,
+	          density: 0.6,
+	          baseScaleRange: 0.9...1.15
+	        )
+	      ),
+	      patternRotation: .degrees(45)
+	    )
+	  }
 
   var symbols: [TesseraSymbol] {
     [
@@ -110,6 +110,9 @@ struct PatternBackground: View {
   }
 }
 ```
+
+> Tip: `patternRotation` rotates placement positions inside an axis-aligned tile (no tile/frame rotation). Use
+> `TesseraTiledCanvas.tileRotation(...)` to rotate the tiling lattice in view space.
 
 ### Render a finite canvas
 

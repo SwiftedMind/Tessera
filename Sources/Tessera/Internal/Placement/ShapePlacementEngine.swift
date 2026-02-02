@@ -27,6 +27,12 @@ enum ShapePlacementEngine {
   ) -> [PlacedSymbol] {
     guard !configuration.symbols.isEmpty else { return [] }
 
+    let patternRotationRadians = RotationMath.normalizedRadians(configuration.patternRotation.radians)
+    let patternRotationAnchor = CGPoint(
+      x: size.width * configuration.patternRotationAnchor.x,
+      y: size.height * configuration.patternRotationAnchor.y,
+    )
+
     let symbolDescriptors = configuration.symbols.map { symbol in
       let scaleRange = resolvedScaleRange(for: symbol, placement: configuration.placement)
       return PlacementSymbolDescriptor(
@@ -58,6 +64,8 @@ enum ShapePlacementEngine {
       placement: configuration.placement,
       region: region,
       alphaMask: alphaMask,
+      patternRotationRadians: patternRotationRadians,
+      patternRotationAnchor: patternRotationAnchor,
       randomGenerator: &randomGenerator,
     )
 
@@ -99,6 +107,8 @@ enum ShapePlacementEngine {
     placement: TesseraPlacement,
     region: TesseraResolvedPolygonRegion? = nil,
     alphaMask: TesseraAlphaMask? = nil,
+    patternRotationRadians: Double = 0,
+    patternRotationAnchor: CGPoint = .zero,
     randomGenerator: inout some RandomNumberGenerator,
   ) -> [PlacedSymbolDescriptor] {
     guard !symbolDescriptors.isEmpty else { return [] }
@@ -113,6 +123,8 @@ enum ShapePlacementEngine {
         configuration: organicConfiguration,
         region: region,
         alphaMask: alphaMask,
+        patternRotationRadians: patternRotationRadians,
+        patternRotationAnchor: patternRotationAnchor,
         randomGenerator: &randomGenerator,
       )
     case let .grid(gridConfiguration):
@@ -124,6 +136,8 @@ enum ShapePlacementEngine {
         configuration: gridConfiguration,
         region: region,
         alphaMask: alphaMask,
+        patternRotationRadians: patternRotationRadians,
+        patternRotationAnchor: patternRotationAnchor,
       )
     }
   }

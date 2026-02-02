@@ -31,6 +31,20 @@ enum DemoConfigurations {
     )
   }
 
+  static var gridPatternRotation: TesseraConfiguration {
+    TesseraConfiguration(
+      symbols: DemoSymbols.grid,
+      placement: .grid(
+        TesseraPlacement.Grid(
+          columnCount: 6,
+          rowCount: 6,
+          offsetStrategy: .rowShift(fraction: 0.5),
+        ),
+      ),
+      patternRotation: .degrees(45),
+    )
+  }
+
   static var polygon: TesseraConfiguration {
     TesseraConfiguration(
       symbols: DemoSymbols.mosaic,

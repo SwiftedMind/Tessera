@@ -29,6 +29,9 @@ extension TesseraCanvas {
     var edgeBehavior: TesseraEdgeBehavior
     var placement: TesseraPlacement
     var patternOffset: CGSize
+    var patternRotationRadians: Double
+    var patternRotationAnchorX: Double
+    var patternRotationAnchorY: Double
     var symbolKeys: [SymbolKey]
     var pinnedSymbolKeys: [PinnedSymbolKey]
     var region: TesseraCanvasRegion
@@ -113,6 +116,10 @@ extension TesseraCanvas {
 
     let computeTask = Task.detached(priority: .userInitiated) {
       var randomGenerator = SeededGenerator(seed: placementSeed)
+      let patternRotationAnchor = CGPoint(
+        x: canvasSize.width * CGFloat(key.patternRotationAnchorX),
+        y: canvasSize.height * CGFloat(key.patternRotationAnchorY),
+      )
       return ShapePlacementEngine.placeSymbolDescriptors(
         in: canvasSize,
         symbolDescriptors: symbolDescriptors,
@@ -121,6 +128,8 @@ extension TesseraCanvas {
         placement: placement,
         region: resolvedRegion,
         alphaMask: resolvedAlphaMask,
+        patternRotationRadians: key.patternRotationRadians,
+        patternRotationAnchor: patternRotationAnchor,
         randomGenerator: &randomGenerator,
       )
     }
@@ -152,6 +161,11 @@ extension TesseraCanvas {
       alphaMask: resolvedAlphaMask,
     )
     var randomGenerator = SeededGenerator(seed: seed(for: placement))
+    let patternRotationRadians = RotationMath.normalizedRadians(configuration.patternRotation.radians)
+    let patternRotationAnchor = CGPoint(
+      x: canvasSize.width * configuration.patternRotationAnchor.x,
+      y: canvasSize.height * configuration.patternRotationAnchor.y,
+    )
     return ShapePlacementEngine.placeSymbolDescriptors(
       in: canvasSize,
       symbolDescriptors: symbolDescriptors,
@@ -160,6 +174,8 @@ extension TesseraCanvas {
       placement: placement,
       region: resolvedRegion,
       alphaMask: resolvedAlphaMask,
+      patternRotationRadians: patternRotationRadians,
+      patternRotationAnchor: patternRotationAnchor,
       randomGenerator: &randomGenerator,
     )
   }
@@ -253,6 +269,7 @@ extension TesseraCanvas {
 
   func makeComputationKey(for canvasSize: CGSize) -> ComputationKey {
     let placement = resolvedPlacement
+    let patternRotationRadians = RotationMath.normalizedRadians(configuration.patternRotation.radians)
     let symbolKeys: [ComputationKey.SymbolKey] = configuration.symbols.map { symbol in
       let scaleRange = resolvedScaleRange(for: symbol, placement: placement)
       return ComputationKey.SymbolKey(
@@ -288,6 +305,9 @@ extension TesseraCanvas {
       edgeBehavior: effectiveEdgeBehavior,
       placement: placement,
       patternOffset: configuration.patternOffset,
+      patternRotationRadians: patternRotationRadians,
+      patternRotationAnchorX: Double(configuration.patternRotationAnchor.x),
+      patternRotationAnchorY: Double(configuration.patternRotationAnchor.y),
       symbolKeys: symbolKeys,
       pinnedSymbolKeys: pinnedSymbolKeys,
       region: region,

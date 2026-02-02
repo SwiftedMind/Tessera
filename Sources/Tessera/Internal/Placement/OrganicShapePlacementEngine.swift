@@ -31,6 +31,8 @@ enum OrganicShapePlacementEngine {
     configuration: TesseraPlacement.Organic,
     region: TesseraResolvedPolygonRegion? = nil,
     alphaMask: TesseraAlphaMask? = nil,
+    patternRotationRadians: Double = 0,
+    patternRotationAnchor: CGPoint = .zero,
     randomGenerator: inout some RandomNumberGenerator,
   ) -> [PlacedSymbolDescriptor] {
     let minimumSpacing = CGFloat(configuration.minimumSpacing)
@@ -46,7 +48,17 @@ enum OrganicShapePlacementEngine {
     let targetCount = min(max(0, estimatedCount), maximumCount)
     let remainingTargetCount = min(max(0, targetCount - pinnedSymbolDescriptors.count), maximumCount)
 
+    let normalizedPatternRotationRadians = RotationMath.normalizedRadians(patternRotationRadians)
+    let shouldRotatePattern = edgeBehavior == .seamlessWrapping && normalizedPatternRotationRadians.isZero == false
+
     let wrapOffsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: edgeBehavior)
+    let patternRotationInverseBounds = shouldRotatePattern
+      ? RotationMath.inverseRotatedTileBounds(
+        tileSize: size,
+        anchor: patternRotationAnchor,
+        rotationRadians: normalizedPatternRotationRadians,
+      )
+      : CGRect(origin: .zero, size: size)
 
     let fixedColliders: [PlacedCollider] = pinnedSymbolDescriptors.map { pinnedSymbol in
       let collisionTransform = CollisionTransform(
@@ -120,7 +132,26 @@ enum OrganicShapePlacementEngine {
         if Task.isCancelled { return placedDescriptors }
 
         // Rejection-sample a position and reuse if it clears all collisions.
-        guard let position = randomPoint(in: size, region: region, using: &randomGenerator) else { continue }
+        guard var position = shouldRotatePattern
+          ? randomPoint(in: patternRotationInverseBounds, using: &randomGenerator)
+          : randomPoint(in: size, region: region, using: &randomGenerator)
+        else { continue }
+
+        if shouldRotatePattern {
+          position = RotationMath.rotate(
+            position,
+            around: patternRotationAnchor,
+            radians: normalizedPatternRotationRadians,
+          )
+
+          guard (0..<size.width).contains(position.x),
+                (0..<size.height).contains(position.y)
+          else { continue }
+
+          if let region, region.contains(position) == false {
+            continue
+          }
+        }
 
         if let alphaMask, alphaMask.contains(position) == false {
           continue
@@ -331,6 +362,18 @@ enum OrganicShapePlacementEngine {
     }
 
     return nil
+  }
+
+  private static func randomPoint(
+    in bounds: CGRect,
+    using randomGenerator: inout some RandomNumberGenerator,
+  ) -> CGPoint? {
+    guard bounds.isNull == false, bounds.isEmpty == false else { return nil }
+
+    return CGPoint(
+      x: CGFloat.random(in: bounds.minX..<bounds.maxX, using: &randomGenerator),
+      y: CGFloat.random(in: bounds.minY..<bounds.maxY, using: &randomGenerator),
+    )
   }
 
   private static func randomAngleRadians(
