@@ -2,7 +2,6 @@
 
 import CoreGraphics
 import Foundation
-import SwiftUI
 
 /// Places symbols in a deterministic grid using the grid placement configuration.
 enum GridShapePlacementEngine {
@@ -33,7 +32,6 @@ enum GridShapePlacementEngine {
     alphaMask: TesseraAlphaMask? = nil,
   ) -> [PlacedSymbolDescriptor] {
     guard size.width > 0, size.height > 0 else { return [] }
-    guard symbolDescriptors.isEmpty == false else { return [] }
 
     let symbolCount = symbolDescriptors.count
     let resolvedGrid = resolveGrid(
@@ -69,7 +67,6 @@ enum GridShapePlacementEngine {
         boundingRadius: pinnedSymbol.collisionShape.boundingRadius(atScale: collisionTransform.scale),
       )
     }
-    let pinnedIndices = Array(pinnedColliders.indices)
 
     let polygonCache: [UUID: [CollisionPolygon]] = symbolDescriptors.reduce(into: [:]) { cache, symbol in
       cache[symbol.id] = CollisionMath.polygons(for: symbol.collisionShape)
@@ -114,7 +111,7 @@ enum GridShapePlacementEngine {
         let selectedSymbol = symbolDescriptors[resolvedSymbolIndex % symbolCount]
 
         let scale = selectedSymbol.resolvedScaleRange.lowerBound
-        let symbolRotationRadians = rotationRadiansForGrid(
+        let rotationRadians = rotationRadiansForGrid(
           rangeDegrees: selectedSymbol.allowedRotationRangeDegrees,
           rowIndex: rowIndex,
           columnIndex: columnIndex,
@@ -158,12 +155,13 @@ enum GridShapePlacementEngine {
         let candidate = PlacedSymbolDescriptor(
           symbolId: selectedSymbol.id,
           position: position,
-          rotationRadians: symbolRotationRadians,
+          rotationRadians: rotationRadians,
           scale: CGFloat(scale),
           collisionShape: selectedSymbol.collisionShape,
         )
 
         if pinnedColliders.isEmpty == false {
+          let pinnedIndices = Array(pinnedColliders.indices)
           let isValid = ShapePlacementCollision.isPlacementValid(
             candidate: candidate,
             candidatePolygons: selectedPolygons,
@@ -185,7 +183,7 @@ enum GridShapePlacementEngine {
     return placedDescriptors
   }
 
-  static func rotationRadiansForGrid(
+  private static func rotationRadiansForGrid(
     rangeDegrees: ClosedRange<Double>,
     rowIndex: Int,
     columnIndex: Int,
@@ -197,7 +195,7 @@ enum GridShapePlacementEngine {
       return lower * Double.pi / 180
     }
 
-    let seed = gridCellRotationSeed(
+    let seed = gridRotationSeed(
       rowIndex: rowIndex,
       columnIndex: columnIndex,
       cellIndex: cellIndex,
@@ -207,7 +205,7 @@ enum GridShapePlacementEngine {
     return degrees * Double.pi / 180
   }
 
-  private static func gridCellRotationSeed(
+  private static func gridRotationSeed(
     rowIndex: Int,
     columnIndex: Int,
     cellIndex: Int,
@@ -287,7 +285,7 @@ enum GridShapePlacementEngine {
     }
   }
 
-  static func normalizedOffsetAmount(from strategy: TesseraPlacement.GridOffsetStrategy) -> Double {
+  private static func normalizedOffsetAmount(from strategy: TesseraPlacement.GridOffsetStrategy) -> Double {
     let offset: Double = switch strategy {
     case .none:
       0
@@ -302,7 +300,7 @@ enum GridShapePlacementEngine {
     return max(0, offset)
   }
 
-  static func gridCellCenter(
+  private static func gridCellCenter(
     columnIndex: Int,
     rowIndex: Int,
     cellSize: CGSize,
@@ -313,7 +311,7 @@ enum GridShapePlacementEngine {
     )
   }
 
-  static func gridOffset(
+  private static func gridOffset(
     for strategy: TesseraPlacement.GridOffsetStrategy,
     normalizedOffset: Double,
     columnIndex: Int,

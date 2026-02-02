@@ -68,7 +68,6 @@ struct PatternBackground: View {
       tileSize: CGSize(width: 256, height: 256),
       seed: 20
     )
-    .tileRotation(.degrees(45))
     .ignoresSafeArea()
   }
 

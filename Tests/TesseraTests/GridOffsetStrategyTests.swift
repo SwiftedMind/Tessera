@@ -333,7 +333,7 @@ private func expectedRotationRadians(
     return lower * Double.pi / 180
   }
 
-  let seed = gridCellRotationSeed(
+  let seed = gridRotationSeed(
     rowIndex: rowIndex,
     columnIndex: columnIndex,
     symbolIndex: symbolIndex,
@@ -343,7 +343,7 @@ private func expectedRotationRadians(
   return degrees * Double.pi / 180
 }
 
-private func gridCellRotationSeed(
+private func gridRotationSeed(
   rowIndex: Int,
   columnIndex: Int,
   symbolIndex: Int,

@@ -129,7 +129,6 @@ private struct GridPlacementExampleView: View {
       DemoConfigurations.grid,
       tileSize: CGSize(width: 250, height: 250),
     )
-    .tileRotation(.degrees(45))
     .ignoresSafeArea()
     .navigationTitle("Grid Placement")
     .navigationBarTitleDisplayMode(.inline)
