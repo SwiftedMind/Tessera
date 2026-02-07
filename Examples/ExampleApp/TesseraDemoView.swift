@@ -99,79 +99,75 @@ private struct ExampleRow: View {
 
 private struct TiledCanvasExampleView: View {
   var body: some View {
-    TesseraTiledCanvas(
-      DemoConfigurations.organic,
-      tileSize: CGSize(width: 256, height: 256),
-    )
-    .ignoresSafeArea()
-    .navigationTitle("Tiled Canvas")
-    .navigationBarTitleDisplayMode(.inline)
+    Tessera(DemoConfigurations.organic)
+      .mode(.tiled(tileSize: CGSize(width: 256, height: 256)))
+      .seed(.fixed(0))
+      .ignoresSafeArea()
+      .navigationTitle("Tiled Canvas")
+      .navigationBarTitleDisplayMode(.inline)
   }
 }
 
 private struct FiniteCanvasExampleView: View {
   var body: some View {
-    TesseraCanvas(
-      DemoConfigurations.organic,
-      pinnedSymbols: DemoPinnedSymbols.hero,
-      edgeBehavior: .finite,
-    )
-    .background(.black)
-    .ignoresSafeArea()
-    .navigationTitle("Finite Canvas")
-    .navigationBarTitleDisplayMode(.inline)
+    Tessera(DemoConfigurations.organic)
+      .mode(.canvas(edgeBehavior: .finite))
+      .seed(.fixed(0))
+      .pinnedSymbols(DemoPinnedSymbols.hero)
+      .background(.black)
+      .ignoresSafeArea()
+      .navigationTitle("Finite Canvas")
+      .navigationBarTitleDisplayMode(.inline)
   }
 }
 
 private struct GridPlacementExampleView: View {
   var body: some View {
-    TesseraTiledCanvas(
-      DemoConfigurations.grid,
-      tileSize: CGSize(width: 250, height: 250),
-    )
-    .ignoresSafeArea()
-    .navigationTitle("Grid Placement")
-    .navigationBarTitleDisplayMode(.inline)
+    Tessera(DemoConfigurations.grid)
+      .mode(.tiled(tileSize: CGSize(width: 250, height: 250)))
+      .ignoresSafeArea()
+      .navigationTitle("Grid Placement")
+      .navigationBarTitleDisplayMode(.inline)
   }
 }
 
 private struct PolygonRegionExampleView: View {
   var body: some View {
-    TesseraCanvas(
-      DemoConfigurations.polygon,
-      edgeBehavior: .finite,
-      region: DemoRegions.mosaic,
-      regionRendering: .unclipped,
-    )
-    .background(.black)
-    .ignoresSafeArea()
-    .navigationTitle("Polygon Region")
-    .navigationBarTitleDisplayMode(.inline)
+    Tessera(DemoConfigurations.polygon)
+      .mode(.canvas(edgeBehavior: .finite))
+      .seed(.fixed(14))
+      .region(DemoRegions.mosaic)
+      .regionRendering(.unclipped)
+      .background(.black)
+      .ignoresSafeArea()
+      .navigationTitle("Polygon Region")
+      .navigationBarTitleDisplayMode(.inline)
   }
 }
 
 private struct AlphaMaskRegionExampleView: View {
   var body: some View {
-    TesseraCanvas(
-      DemoConfigurations.alphaMask,
-      edgeBehavior: .finite,
-      region: alphaMaskRegion,
-      regionRendering: .clipped,
-    )
-    .background(.black)
-    .ignoresSafeArea()
-    .navigationTitle("Alpha Mask Region")
-    .navigationBarTitleDisplayMode(.inline)
+    Tessera(DemoConfigurations.alphaMask)
+      .mode(.canvas(edgeBehavior: .finite))
+      .seed(.fixed(7))
+      .region(alphaMaskRegion)
+      .regionRendering(.clipped)
+      .background(.black)
+      .ignoresSafeArea()
+      .navigationTitle("Alpha Mask Region")
+      .navigationBarTitleDisplayMode(.inline)
   }
 
-  private var alphaMaskRegion: TesseraCanvasRegion {
-    TesseraCanvasRegion.alphaMask(
-      cacheKey: "alpha-mask-demo",
-      alphaThreshold: 0.2,
-      sampling: .bilinear,
-    ) {
-      AlphaMaskShape()
-    }
+  private var alphaMaskRegion: Region {
+    .alphaMask(
+      AlphaMask(
+        cacheKey: "alpha-mask-demo",
+        alphaThreshold: 0.2,
+        sampling: .bilinear,
+      ) {
+        AlphaMaskShape()
+      },
+    )
   }
 }
 
@@ -192,16 +188,16 @@ private struct CollisionShapeEditorExampleView: View {
       .navigationBarTitleDisplayMode(.inline)
   }
 
-  var previewSymbol: TesseraSymbol {
-    TesseraSymbol(
-      collisionShape: .polygon(points: [
+  var previewSymbol: Symbol {
+    Symbol(
+      collider: .shape(.polygon(points: [
         CGPoint(x: 6.46, y: 12.57),
         CGPoint(x: 6.74, y: 39.74),
         CGPoint(x: 28.65, y: 56.17),
         CGPoint(x: 49.01, y: 42.06),
         CGPoint(x: 48.73, y: 12.36),
         CGPoint(x: 27.95, y: 4.56),
-      ]),
+      ])),
     ) {
       Image(systemName: "shield.fill")
         .font(.system(size: 52, weight: .semibold))

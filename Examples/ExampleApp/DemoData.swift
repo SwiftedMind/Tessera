@@ -4,11 +4,11 @@ import SwiftUI
 import Tessera
 
 enum DemoConfigurations {
-  static var organic: TesseraConfiguration {
-    TesseraConfiguration(
+  static var organic: Pattern {
+    Pattern(
       symbols: DemoSymbols.organic,
       placement: .organic(
-        TesseraPlacement.Organic(
+        Placement.OrganicOptions(
           seed: 0,
           minimumSpacing: 0,
           density: 0.8,
@@ -18,11 +18,11 @@ enum DemoConfigurations {
     )
   }
 
-  static var grid: TesseraConfiguration {
-    TesseraConfiguration(
+  static var grid: Pattern {
+    Pattern(
       symbols: DemoSymbols.grid,
       placement: .grid(
-        TesseraPlacement.Grid(
+        Placement.GridOptions(
           columnCount: 6,
           rowCount: 6,
           offsetStrategy: .rowShift(fraction: 0.5),
@@ -31,11 +31,11 @@ enum DemoConfigurations {
     )
   }
 
-  static var polygon: TesseraConfiguration {
-    TesseraConfiguration(
+  static var polygon: Pattern {
+    Pattern(
       symbols: DemoSymbols.mosaic,
       placement: .organic(
-        TesseraPlacement.Organic(
+        Placement.OrganicOptions(
           seed: 14,
           minimumSpacing: 2,
           density: 0.7,
@@ -46,11 +46,11 @@ enum DemoConfigurations {
     )
   }
 
-  static var alphaMask: TesseraConfiguration {
-    TesseraConfiguration(
+  static var alphaMask: Pattern {
+    Pattern(
       symbols: DemoSymbols.mosaic,
       placement: .organic(
-        TesseraPlacement.Organic(
+        Placement.OrganicOptions(
           seed: 7,
           minimumSpacing: 2,
           density: 0.75,
@@ -63,22 +63,22 @@ enum DemoConfigurations {
 }
 
 enum DemoSymbols {
-  static var organic: [TesseraSymbol] {
+  static var organic: [Symbol] {
     [.squareOutline, .roundedOutline, .partyPopper, .minus, .equals, .splitLetters, .concaveBlock, .circleOutline]
   }
 
-  static var grid: [TesseraSymbol] {
+  static var grid: [Symbol] {
     [.gridPlus, .gridPlusRotated]
   }
 
-  static var mosaic: [TesseraSymbol] {
+  static var mosaic: [Symbol] {
     [.partyPopper, .circleOutline, .roundedOutline, .equals, .minus]
   }
 }
 
 enum DemoRegions {
-  static var mosaic: TesseraCanvasRegion {
-    TesseraCanvasRegion.polygon([
+  static var mosaic: Region {
+    Region.polygon([
       CGPoint(x: 24, y: 6), CGPoint(x: 120, y: 0), CGPoint(x: 188, y: 42), CGPoint(x: 200, y: 130),
       CGPoint(x: 150, y: 204), CGPoint(x: 70, y: 196), CGPoint(x: 0, y: 120),
     ])
@@ -86,11 +86,11 @@ enum DemoRegions {
 }
 
 enum DemoPinnedSymbols {
-  static var hero: [TesseraPinnedSymbol] {
+  static var hero: [PinnedSymbol] {
     [
-      TesseraPinnedSymbol(
+      PinnedSymbol(
         position: .centered(),
-        collisionShape: .circle(center: .zero, radius: 60),
+        collider: .shape(.circle(center: .zero, radius: 60)),
       ) {
         Image(systemName: "swift")
           .resizable()
@@ -98,9 +98,9 @@ enum DemoPinnedSymbols {
           .foregroundStyle(.orange)
           .frame(width: 100, height: 100)
       },
-      TesseraPinnedSymbol(
+      PinnedSymbol(
         position: .bottomTrailing(offset: CGSize(width: -120, height: -120)),
-        collisionShape: .circle(center: .zero, radius: 140),
+        collider: .shape(.circle(center: .zero, radius: 140)),
       ) {
         Text("Tessera")
           .font(.system(size: 48, weight: .bold, design: .rounded))
@@ -110,10 +110,10 @@ enum DemoPinnedSymbols {
   }
 }
 
-extension TesseraSymbol {
-  static var squareOutline: TesseraSymbol {
-    TesseraSymbol(
-      collisionShape: .rectangle(center: .zero, size: CGSize(width: 34, height: 34)),
+extension Symbol {
+  static var squareOutline: Symbol {
+    Symbol(
+      collider: .shape(.rectangle(center: .zero, size: CGSize(width: 34, height: 34))),
     ) {
       Rectangle()
         .stroke(lineWidth: 4)
@@ -122,9 +122,9 @@ extension TesseraSymbol {
     }
   }
 
-  static var roundedOutline: TesseraSymbol {
-    TesseraSymbol(
-      collisionShape: .rectangle(center: .zero, size: CGSize(width: 34, height: 34)),
+  static var roundedOutline: Symbol {
+    Symbol(
+      collider: .shape(.rectangle(center: .zero, size: CGSize(width: 34, height: 34))),
     ) {
       RoundedRectangle(cornerRadius: 6)
         .stroke(lineWidth: 4)
@@ -132,10 +132,10 @@ extension TesseraSymbol {
     }
   }
 
-  static var partyPopper: TesseraSymbol {
-    TesseraSymbol(
-      allowedRotationRange: .degrees(-45)...(.degrees(45)),
-      collisionShape: .circle(center: .zero, radius: 20),
+  static var partyPopper: Symbol {
+    Symbol(
+      rotation: .degrees(-45)...(.degrees(45)),
+      collider: .shape(.circle(center: .zero, radius: 20)),
     ) {
       Image(systemName: "party.popper.fill")
         .foregroundStyle(.red.opacity(0.5))
@@ -143,9 +143,9 @@ extension TesseraSymbol {
     }
   }
 
-  static var minus: TesseraSymbol {
-    TesseraSymbol(
-      collisionShape: .rectangle(center: .zero, size: CGSize(width: 36, height: 4)),
+  static var minus: Symbol {
+    Symbol(
+      collider: .shape(.rectangle(center: .zero, size: CGSize(width: 36, height: 4))),
     ) {
       Text("-")
         .foregroundStyle(.gray)
@@ -153,9 +153,9 @@ extension TesseraSymbol {
     }
   }
 
-  static var equals: TesseraSymbol {
-    TesseraSymbol(
-      collisionShape: .rectangle(center: .zero, size: CGSize(width: 36, height: 12)),
+  static var equals: Symbol {
+    Symbol(
+      collider: .shape(.rectangle(center: .zero, size: CGSize(width: 36, height: 12))),
     ) {
       Text("=")
         .foregroundStyle(.gray)
@@ -163,9 +163,9 @@ extension TesseraSymbol {
     }
   }
 
-  static var circleOutline: TesseraSymbol {
-    TesseraSymbol(
-      collisionShape: .circle(center: .zero, radius: 15),
+  static var circleOutline: Symbol {
+    Symbol(
+      collider: .shape(.circle(center: .zero, radius: 15)),
     ) {
       Circle()
         .stroke(lineWidth: 4)
@@ -174,7 +174,7 @@ extension TesseraSymbol {
     }
   }
 
-  static var splitLetters: TesseraSymbol {
+  static var splitLetters: Symbol {
     let leftLetterPoints = rectanglePoints(
       centeredAt: CGPoint(x: -6, y: 0),
       size: CGSize(width: 24, height: 22),
@@ -184,10 +184,10 @@ extension TesseraSymbol {
       size: CGSize(width: 10, height: 22),
     )
 
-    return TesseraSymbol(
+    return Symbol(
       weight: 1,
-      allowedRotationRange: .degrees(0)...(.degrees(0)),
-      collisionShape: .polygons(pointSets: [leftLetterPoints, rightLetterPoints]),
+      rotation: .degrees(0)...(.degrees(0)),
+      collider: .shape(.polygons(pointSets: [leftLetterPoints, rightLetterPoints])),
     ) {
       Text("HI")
         .font(.system(size: 26, weight: .bold, design: .rounded))
@@ -195,7 +195,7 @@ extension TesseraSymbol {
     }
   }
 
-  static var concaveBlock: TesseraSymbol {
+  static var concaveBlock: Symbol {
     let points: [CGPoint] = [
       CGPoint(x: 2, y: 2),
       CGPoint(x: 30, y: 2),
@@ -205,9 +205,9 @@ extension TesseraSymbol {
       CGPoint(x: 2, y: 30),
     ]
 
-    return TesseraSymbol(
-      allowedRotationRange: .degrees(0)...(.degrees(0)),
-      collisionShape: .polygon(points: points),
+    return Symbol(
+      rotation: .degrees(0)...(.degrees(0)),
+      collider: .shape(.polygon(points: points)),
     ) {
       ConcavePolygonShape(points: points)
         .fill(.mint.opacity(0.5))
@@ -215,10 +215,10 @@ extension TesseraSymbol {
     }
   }
 
-  static var gridPlus: TesseraSymbol {
-    TesseraSymbol(
-      allowedRotationRange: .degrees(0)...(.degrees(0)),
-      collisionShape: .rectangle(center: .zero, size: CGSize(width: 0, height: 0)),
+  static var gridPlus: Symbol {
+    Symbol(
+      rotation: .degrees(0)...(.degrees(0)),
+      collider: .shape(.rectangle(center: .zero, size: CGSize(width: 0, height: 0))),
     ) {
       Image(systemName: "plus")
         .resizable()
@@ -227,10 +227,10 @@ extension TesseraSymbol {
     }
   }
 
-  static var gridPlusRotated: TesseraSymbol {
-    TesseraSymbol(
-      allowedRotationRange: .degrees(0)...(.degrees(0)),
-      collisionShape: .rectangle(center: .zero, size: CGSize(width: 0, height: 0)),
+  static var gridPlusRotated: Symbol {
+    Symbol(
+      rotation: .degrees(0)...(.degrees(0)),
+      collider: .shape(.rectangle(center: .zero, size: CGSize(width: 0, height: 0))),
     ) {
       Image(systemName: "plus")
         .resizable()

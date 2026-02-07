@@ -8,6 +8,7 @@ import SwiftUI
 ///
 /// Fixed symbols participate in collision checks so generated symbols fill around them.
 public struct TesseraPinnedSymbol: Identifiable {
+  /// Stable identity for the pinned symbol.
   public var id: UUID
   /// Center position inside the canvas.
   public var position: TesseraPlacementPosition

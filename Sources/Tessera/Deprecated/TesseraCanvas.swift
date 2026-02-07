@@ -22,9 +22,13 @@ public enum TesseraRegionRendering: Sendable, Hashable {
 
 /// Fills a finite canvas once using a tessera configuration, respecting fixed symbols.
 public struct TesseraCanvas: View {
+  /// Pattern configuration used to generate symbol placements.
   public var configuration: TesseraConfiguration
+  /// Fixed symbols rendered once and used as collision obstacles.
   public var pinnedSymbols: [TesseraPinnedSymbol]
+  /// Seed used for deterministic placement.
   public var seed: UInt64
+  /// Edge behavior used while placing and rendering generated symbols.
   public var edgeBehavior: TesseraEdgeBehavior
   /// Region used to clip rendering and constrain placement.
   public var region: TesseraCanvasRegion
@@ -32,6 +36,7 @@ public struct TesseraCanvas: View {
   public var regionRendering: TesseraRegionRendering
   /// Controls whether the underlying SwiftUI canvas renders asynchronously.
   public var rendersAsynchronously: Bool
+  /// Callback that reports whether placement computation is currently running.
   public var onComputationStateChange: ((Bool) -> Void)?
 
   // swiftformat:disable privateStateVariables
@@ -76,6 +81,7 @@ public struct TesseraCanvas: View {
     self.onComputationStateChange = onComputationStateChange
   }
 
+  /// Renders the canvas at the size resolved by parent layout.
   public var body: some View {
     GeometryReader { proxy in
       canvasBody(canvasSize: proxy.size)

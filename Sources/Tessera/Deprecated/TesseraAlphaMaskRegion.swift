@@ -174,6 +174,9 @@ public struct TesseraAlphaMaskRegion: Hashable, Sendable {
     /// The view builder is not considered for equality; update `cacheKey` to invalidate cached masks.
     case view(() -> AnyView)
 
+    /// Compares source identity for caching/equality behavior.
+    ///
+    /// For `.view`, equality is structural by case only. Update `cacheKey` when view content changes.
     public static func == (lhs: Source, rhs: Source) -> Bool {
       switch (lhs, rhs) {
       case let (.cgImage(lhsImage), .cgImage(rhsImage)):
@@ -185,6 +188,9 @@ public struct TesseraAlphaMaskRegion: Hashable, Sendable {
       }
     }
 
+    /// Hashes source identity for mask caching.
+    ///
+    /// For `.view`, hashing is case-based and intentionally ignores closure identity.
     public func hash(into hasher: inout Hasher) {
       switch self {
       case let .cgImage(image):

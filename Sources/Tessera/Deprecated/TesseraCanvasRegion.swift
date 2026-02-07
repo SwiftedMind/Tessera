@@ -77,6 +77,7 @@ public enum TesseraPolygonFitMode: Sendable, Hashable {
 // Defines a rasterized alpha mask used for placement.
 
 public extension TesseraPolygonMapping {
+  /// Compares mapping mode and alignment values.
   static func == (lhs: TesseraPolygonMapping, rhs: TesseraPolygonMapping) -> Bool {
     switch (lhs, rhs) {
     case let (.fit(lhsMode, lhsAlignment), .fit(rhsMode, rhsAlignment)):
@@ -90,6 +91,7 @@ public extension TesseraPolygonMapping {
     }
   }
 
+  /// Hashes mapping mode and alignment values.
   func hash(into hasher: inout Hasher) {
     switch self {
     case let .fit(mode, alignment):

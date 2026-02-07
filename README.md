@@ -22,24 +22,68 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 
 ## Table of Contents
 
+- [Quickstart](#quickstart)
 - [Get Started](#get-started)
-- [Migration Guide (2.0.0 → 3.0.0)](MIGRATION.md)
+- [Migration Guide (3.x → 4.0)](MIGRATION.md)
+- [Grid Placement](#grid-placement)
 - [Pinned Symbols](#pinned-symbols)
 - [Polygon Regions](#polygon-regions)
 - [Alpha Mask Regions](#alpha-mask-regions)
 - [Exporting](#exporting)
-- [Collision Shape Previews](#collision-shape-previews)
+- [Collision Shape Editor](#collision-shape-editor)
 - [Terminology](#terminology)
 - [Determinism](#determinism)
 - [Notes](#notes)
+- [Tessera App](#tessera-app)
 - [License](#license)
 - [🙏 Acknowledgments](#-acknowledgments)
+
+## Quickstart
+
+```swift
+import SwiftUI
+import Tessera
+
+struct PatternBackground: View {
+  var body: some View {
+    Tessera(
+      Pattern(
+        symbols: [
+          Symbol(collider: .automatic(size: .init(width: 30, height: 30))) {
+            Image(systemName: "sparkle")
+              .font(.system(size: 24, weight: .semibold))
+          },
+          Symbol(collider: .automatic(size: .init(width: 30, height: 30))) {
+            Image(systemName: "circle.grid.cross")
+              .font(.system(size: 24, weight: .semibold))
+          },
+        ],
+      ),
+    )
+    .mode(.tiled(tileSize: .init(width: 256, height: 256)))
+    .seed(.fixed(20))
+    .ignoresSafeArea()
+  }
+}
+```
 
 ## Get Started
 
 ### Requirements
 
 - iOS 17+ / macOS 14+
+
+### Which mode should I use?
+
+| Use case | Mode |
+| --- | --- |
+| Endless background | `.mode(.tiled(tileSize: ...))` |
+| Single seamless tile | `.mode(.tile(size: ...))` |
+| Finite composition | `.mode(.canvas(edgeBehavior: .finite))` |
+
+### Example App
+
+Run the local sample app from `/Users/swiftedmind/Code/Workspace/Tessera/Examples/README.md`.
 
 ### Add Tessera via Swift Package Manager
 
@@ -49,13 +93,17 @@ In `Package.swift`:
 
 ```swift
 dependencies: [
-  .package(url: "https://github.com/SwiftedMind/Tessera.git", from: "2.0.0"),
+  .package(url: "https://github.com/SwiftedMind/Tessera.git", from: "4.0.0"),
 ]
 ```
 
-### Render a tiled background (endlessly repeating)
+### Configuration Basics
 
-`TesseraTiledCanvas` generates a single tile, caches it as a `Canvas` symbol, then repeats it to fill all available space.
+- `Pattern` describes symbols, placement, and pattern offset.
+- `Symbol` wraps a SwiftUI view and collision behavior.
+- `Tessera` renders using mode/seed/region modifiers.
+
+### Render a tiled background (endlessly repeating)
 
 ```swift
 import SwiftUI
@@ -63,43 +111,33 @@ import Tessera
 
 struct PatternBackground: View {
   var body: some View {
-    TesseraTiledCanvas(
-      configuration,
-      tileSize: CGSize(width: 256, height: 256),
-      seed: 20
+    Tessera(
+      Pattern(
+      symbols: symbols,
+        placement: .organic(minimumSpacing: 10, density: 0.6, scale: 0.9...1.15),
+      ),
     )
+    .mode(.tiled(tileSize: CGSize(width: 256, height: 256)))
+    .seed(.fixed(20))
     .ignoresSafeArea()
   }
 
-  var configuration: TesseraConfiguration {
-    TesseraConfiguration(
-      symbols: symbols,
-      placement: .organic(
-        TesseraPlacement.Organic(
-          minimumSpacing: 10,
-          density: 0.6,
-          baseScaleRange: 0.9...1.15
-        )
-      )
-    )
-  }
-
-  var symbols: [TesseraSymbol] {
+  var symbols: [Symbol] {
     [
-      TesseraSymbol(approximateSize: CGSize(width: 30, height: 30)) {
+      Symbol(collider: .automatic(size: CGSize(width: 30, height: 30))) {
         Image(systemName: "sparkle")
           .font(.system(size: 24, weight: .semibold))
           .foregroundStyle(.primary.opacity(0.9))
       },
-      TesseraSymbol(approximateSize: CGSize(width: 30, height: 30)) {
+      Symbol(collider: .automatic(size: CGSize(width: 30, height: 30))) {
         Image(systemName: "circle.grid.cross")
           .font(.system(size: 24, weight: .semibold))
           .foregroundStyle(.primary.opacity(0.7))
       },
-      TesseraSymbol(
+      Symbol(
         weight: 0.5,
-        allowedRotationRange: .degrees(-15)...(.degrees(15)),
-        approximateSize: CGSize(width: 36, height: 36)
+        rotation: .degrees(-15)...(.degrees(15)),
+        collider: .automatic(size: CGSize(width: 36, height: 36))
       ) {
         Image(systemName: "bolt.fill")
           .font(.system(size: 28, weight: .bold))
@@ -112,7 +150,7 @@ struct PatternBackground: View {
 
 ### Render a finite canvas
 
-Use `TesseraCanvas` when you want a single generated composition at a specific size (for UI or export). It fills the size provided by the layout, so set a frame.
+Use `.mode(.canvas(...))` for a single generated composition (UI or export). It fills the size provided by layout, so set a frame.
 
 ```swift
 import SwiftUI
@@ -120,25 +158,21 @@ import Tessera
 
 struct Poster: View {
   var body: some View {
-    TesseraCanvas(configuration, edgeBehavior: .finite)
+    Tessera(configuration)
+      .mode(.canvas(edgeBehavior: .finite))
       .frame(width: 600, height: 400)
   }
 
-  var configuration: TesseraConfiguration {
-    TesseraConfiguration(
+  var configuration: Pattern {
+    Pattern(
       symbols: symbols,
-      placement: .organic(
-        TesseraPlacement.Organic(
-          minimumSpacing: 10,
-          density: 0.65
-        )
-      )
+      placement: .organic(minimumSpacing: 10, density: 0.65),
     )
   }
 
-  var symbols: [TesseraSymbol] {
+  var symbols: [Symbol] {
     [
-      TesseraSymbol(approximateSize: CGSize(width: 34, height: 34)) {
+      Symbol(collider: .automatic(size: CGSize(width: 34, height: 34))) {
         Image(systemName: "scribble.variable")
           .font(.system(size: 28, weight: .semibold))
           .foregroundStyle(.primary.opacity(0.8))
@@ -306,67 +340,68 @@ import Foundation
 import SwiftUI
 import Tessera
 
-let symbols: [TesseraSymbol] = [
-  TesseraSymbol(approximateSize: CGSize(width: 30, height: 30)) {
+let symbols: [Symbol] = [
+  Symbol(collider: .automatic(size: CGSize(width: 30, height: 30))) {
     Image(systemName: "sparkle").font(.system(size: 24, weight: .semibold))
   },
-  TesseraSymbol(approximateSize: CGSize(width: 30, height: 30)) {
+  Symbol(collider: .automatic(size: CGSize(width: 30, height: 30))) {
     Image(systemName: "circle.grid.cross").font(.system(size: 24, weight: .semibold))
   },
-  TesseraSymbol(
-    allowedRotationRange: .degrees(-10)...(.degrees(10)),
-    approximateSize: CGSize(width: 36, height: 36)
+  Symbol(
+    rotation: .degrees(-10)...(.degrees(10)),
+    collider: .automatic(size: CGSize(width: 36, height: 36))
   ) {
     Image(systemName: "bolt.fill").font(.system(size: 28, weight: .bold))
   },
 ]
 
-let configuration = TesseraConfiguration(
+let pattern = Pattern(
   symbols: symbols,
-  placement: .organic(
-    TesseraPlacement.Organic(
-      seed: 0,
-      minimumSpacing: 10,
-      density: 0.8,
-      baseScaleRange: 0.5...1.2
-    )
+  placement: .organic(minimumSpacing: 10, density: 0.8, scale: 0.5...1.2)
+)
+
+let outputDirectory = FileManager.default.temporaryDirectory
+let tessera = Tessera(pattern).mode(.tile(size: CGSize(width: 256, height: 256)))
+
+let pngURL = try tessera.export(
+  .png,
+  options: .init(
+    directory: outputDirectory,
+    fileName: "tessera",
+    render: .init(targetPixelSize: CGSize(width: 2000, height: 2000))
   )
 )
 
-let tile = TesseraTile(configuration, tileSize: CGSize(width: 256, height: 256))
-let outputDirectory = FileManager.default.temporaryDirectory
-
-// Ask for an exact pixel size; scale is derived automatically. Extension is added for you.
-let pngURL = try tile.renderPNG(
-  to: outputDirectory,
-  fileName: "tessera",
-  options: .init(targetPixelSize: CGSize(width: 2000, height: 2000))
+let whiteBackgroundPNGURL = try tessera.export(
+  .png,
+  options: .init(
+    directory: outputDirectory,
+    fileName: "tessera-white-background",
+    backgroundColor: .white,
+    render: .init(targetPixelSize: CGSize(width: 2000, height: 2000))
+  )
 )
 
-// Exports default to a transparent background; set a background color when needed.
-let whiteBackgroundPNGURL = try tile.renderPNG(
-  to: outputDirectory,
-  fileName: "tessera-white-background",
-  backgroundColor: .white,
-  options: .init(targetPixelSize: CGSize(width: 2000, height: 2000))
+let pdfURL = try tessera.export(
+  .pdf,
+  options: .init(
+    directory: outputDirectory,
+    fileName: "tessera",
+    pageSize: CGSize(width: 256, height: 256)
+  )
 )
 
-// PDF keeps vector content; pageSize is in points. Extension is added automatically.
-let pdfURL = try tile.renderPDF(
-  to: outputDirectory,
-  fileName: "tessera",
-  pageSize: CGSize(width: 256, height: 256)
-)
-
-// Prefer a fixed scale instead of pixel size:
-let pngURL = try tile.renderPNG(
-  to: outputDirectory,
-  fileName: "tessera@3x",
-  options: .init(scale: 3)
+let pngURLAt3x = try tessera.export(
+  .png,
+  options: .init(
+    directory: outputDirectory,
+    fileName: "tessera@3x",
+    render: .init(scale: 3)
+  )
 )
 ```
 
-Rendering options (`TesseraRenderOptions`):
+Rendering options (`RenderOptions`):
 
 - `targetPixelSize`: Desired output size in pixels (derives scale from content size).
 - `scale`: Explicit rasterization scale when `targetPixelSize` is `nil` (defaults to 2).
@@ -376,40 +411,35 @@ Rendering options (`TesseraRenderOptions`):
 
 ## Collision Shape Editor
 
-Use `TesseraSymbol.collisionShapeEditor()` to get a SwiftUI view containing a fully working collision shape editor that lets you build and export collision shapes easily
+Use `Symbol.collisionShapeEditor()` to open an interactive editor and export collision geometry for reuse.
 
 ## Terminology
 
-- `TesseraConfiguration` - Describes how symbols are generated.
-- `TesseraPlacement` - Defines organic or grid placement behavior.
-- `TesseraSymbol` - A drawable symbol used to fill a repeatable tile or a finite canvas
+- `Pattern` - Describes how symbols are generated.
+- `Placement` - Defines organic or grid placement behavior.
+- `Symbol` - A drawable symbol used to fill a repeatable tile or a finite canvas.
 - `CollisionShape` - Approximate local-space geometry used for collision checks of symbols.
-- `TesseraTile` - A single drawable tile that can be seamlessly repeated.
-- `TesseraTiledCanvas` - Repeats a single generated tile to fill the available space (great for backgrounds).
-- `TesseraCanvas`- Generates a single composition at a finite size (great for posters, cards, and exports).
+- `Tessera` - Primary rendering entry point with progressive modifiers (`mode`, `seed`, `region`, `pinnedSymbols`).
 - `CollisionShapeEditor` - An interactive editor that lets you visually build and export a collision shape for your symbols.
 
 ## Determinism
 
-Tessera is deterministic when you provide a seed. Set it on `TesseraPlacement.Organic`, or override it per-view:
+Tessera is deterministic when you provide a fixed seed:
 
 ```swift
-TesseraTiledCanvas(configuration, tileSize: CGSize(width: 256, height: 256), seed: 123)
+Tessera(pattern)
+  .mode(.tiled(tileSize: CGSize(width: 256, height: 256)))
+  .seed(.fixed(123))
 ```
 
-To "move" a pattern without changing the layout, modify `patternOffset`:
+To "move" a pattern without changing the layout, modify `offset`:
 
 ```swift
-var configuration = TesseraConfiguration(
+var pattern = Pattern(
   symbols: symbols,
-  placement: .organic(
-    TesseraPlacement.Organic(
-      minimumSpacing: 44,
-      density: 0.6
-    )
-  )
+  placement: .organic(minimumSpacing: 44, density: 0.6)
 )
-configuration.patternOffset = CGSize(width: 40, height: 0)
+pattern.offset = CGSize(width: 40, height: 0)
 ```
 
 ## Notes
@@ -420,6 +450,16 @@ configuration.patternOffset = CGSize(width: 40, height: 0)
 - Collision geometry is intentionally approximate; use `collisionShape` when an symbol needs a more accurate footprint.
   Complex polygons and multi-polygon shapes can dramatically reduce placement performance.
 - `TesseraPlacement.Organic.maximumSymbolCount` is a safety cap. If you crank up `density` on large canvases, you may want to raise it.
+
+## Tessera App
+
+Heads up: I also built a companion app called Tessera if you prefer making patterns in a dedicated UI instead of code.
+It lets you design, preview, and export seamless patterns on iPad and macOS.
+
+- Website: [tesserapatterns.com](https://tesserapatterns.com)
+- App Store: [Tessera - Seamless Patterns](https://apps.apple.com/us/app/tessera-seamless-patterns/id6756501042)
+
+If you check it out, I'd really appreciate it.
 
 ## License
 

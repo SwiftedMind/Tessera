@@ -1,183 +1,198 @@
 // By Dennis Müller
 
-import CoreGraphics
-import Foundation
 import SwiftUI
 
-/// Describes a single tessellated pattern configuration.
-public struct TesseraTile: View {
-  public var configuration: TesseraConfiguration
-  public var tileSize: CGSize
-  public var seed: UInt64
-  /// Controls whether the underlying SwiftUI canvas renders asynchronously.
+/// Primary Tessera rendering entry point.
+///
+/// Build a `Pattern` once, then progressively configure rendering behavior with chained modifiers.
+///
+/// Example:
+/// ```swift
+/// Tessera(pattern)
+///   .mode(.tiled(tileSize: .init(width: 256, height: 256)))
+///   .seed(.fixed(42))
+/// ```
+public struct Tessera: View {
+  /// The pattern definition to render.
+  public var pattern: Pattern
+  /// Whether rendering should produce a single tile, repeated tiling, or a finite canvas.
+  public var mode: Mode
+  /// Deterministic seed behavior.
+  public var seed: Seed
+  /// Placement and clipping region.
+  public var region: Region
+  /// Symbols pinned as fixed obstacles/content in canvas and tile modes.
+  public var pinnedSymbols: [PinnedSymbol]
+  /// Region clipping strategy.
+  public var regionRendering: RegionRendering
+  /// Whether drawing should be done asynchronously in the underlying SwiftUI canvas.
   public var rendersAsynchronously: Bool
+  /// Callback that reports whether Tessera is actively computing placements.
   public var onComputationStateChange: ((Bool) -> Void)?
 
-  /// Creates a tessera tile view.
-  /// - Parameters:
-  ///   - configuration: The tessera configuration to render.
-  ///   - tileSize: Size of the tile.
-  ///   - seed: Optional seed override for placement randomness.
-  ///   - rendersAsynchronously: Whether the SwiftUI canvas renders asynchronously. Defaults to `false` to keep
-  ///     interactive transforms in sync.
-  public init(
-    _ configuration: TesseraConfiguration,
-    tileSize: CGSize,
-    seed: UInt64? = nil,
-    rendersAsynchronously: Bool = false,
-    onComputationStateChange: ((Bool) -> Void)? = nil,
-  ) {
-    self.configuration = configuration
-    self.tileSize = tileSize
-    self.seed = seed ?? configuration.placementSeed ?? TesseraConfiguration.randomSeed()
-    self.rendersAsynchronously = rendersAsynchronously
-    self.onComputationStateChange = onComputationStateChange
+  @State private var automaticSeed: UInt64 = Pattern.randomSeed()
+
+  /// Creates a Tessera renderer for a pattern.
+  ///
+  /// Defaults:
+  /// - mode: `.tiled(tileSize: 256x256)`
+  /// - seed: `.automatic`
+  /// - region: `.rectangle`
+  /// - region rendering: `.clipped`
+  ///
+  /// - Parameter pattern: The pattern definition containing symbols and placement behavior.
+  public init(_ pattern: Pattern) {
+    self.pattern = pattern
+    mode = .tiled()
+    seed = .automatic
+    region = .rectangle
+    pinnedSymbols = []
+    regionRendering = .clipped
+    rendersAsynchronously = false
+    onComputationStateChange = nil
   }
 
-  /// Renders the configuration as a single tile view.
+  /// Renders Tessera using the current mode and options.
   public var body: some View {
-    TesseraCanvasTile(
-      configuration: configuration,
-      tileSize: tileSize,
-      seed: seed,
+    switch mode {
+    case let .canvas(edgeBehavior):
+      TesseraCanvas(
+        pattern.legacyConfiguration,
+        pinnedSymbols: pinnedSymbols,
+        seed: resolvedSeed(fallbackToAutomatic: true),
+        edgeBehavior: edgeBehavior,
+        region: region,
+        regionRendering: regionRendering,
+        rendersAsynchronously: rendersAsynchronously,
+        onComputationStateChange: onComputationStateChange,
+      )
+    case let .tile(size):
+      tileCanvas(tileSize: size)
+    case let .tiled(tileSize):
+      tiledCanvas(tileSize: tileSize)
+    }
+  }
+
+  private func tileCanvas(tileSize: CGSize) -> some View {
+    TesseraCanvas(
+      pattern.legacyConfiguration,
+      pinnedSymbols: pinnedSymbols,
+      seed: resolvedSeed(fallbackToAutomatic: true),
+      edgeBehavior: .seamlessWrapping,
+      region: region,
+      regionRendering: regionRendering,
       rendersAsynchronously: rendersAsynchronously,
       onComputationStateChange: onComputationStateChange,
     )
+    .frame(width: tileSize.width, height: tileSize.height)
   }
 
-  /// Renders the tessera tile to a PNG file.
-  /// - Parameters:
-  ///   - directory: Target directory where the file will be created.
-  ///   - fileName: Base file name without extension; `.png` is appended automatically.
-  ///   - backgroundColor: Optional background fill rendered behind the tile. Defaults to no background (transparent).
-  ///   - colorScheme: Optional SwiftUI color scheme override applied while rendering. Useful when symbols use semantic
-  /// colors such as `Color.primary`.
-  ///   - options: Rendering configuration such as output pixel size and scale.
-  /// - Returns: The resolved file URL that was written.
-  @discardableResult public func renderPNG(
-    to directory: URL,
-    fileName: String = "tessera-tile",
-    backgroundColor: Color? = nil,
-    colorScheme: ColorScheme? = nil,
-    options: TesseraRenderOptions = TesseraRenderOptions(),
-  ) throws -> URL {
-    let exportCanvas = TesseraCanvas(
-      configuration,
-      pinnedSymbols: [],
-      seed: seed,
-      edgeBehavior: .seamlessWrapping,
-      rendersAsynchronously: rendersAsynchronously,
-    )
+  private func tiledCanvas(tileSize: CGSize) -> some View {
+    let rendersAsynchronously = rendersAsynchronously
 
-    return try exportCanvas.renderPNG(
-      to: directory,
-      fileName: fileName,
-      canvasSize: tileSize,
-      backgroundColor: backgroundColor,
-      colorScheme: colorScheme,
-      options: options,
-    )
+    return Canvas(
+      opaque: false,
+      colorMode: .nonLinear,
+      rendersAsynchronously: rendersAsynchronously,
+    ) { context, size in
+      guard tileSize.width > 0, tileSize.height > 0 else { return }
+      guard let tile = context.resolveSymbol(id: 0) else { return }
+
+      let columns = Int(ceil(size.width / tileSize.width))
+      let rows = Int(ceil(size.height / tileSize.height))
+
+      for row in 0..<rows {
+        for column in 0..<columns {
+          let x = CGFloat(column) * tileSize.width + tileSize.width / 2
+          let y = CGFloat(row) * tileSize.height + tileSize.height / 2
+          context.draw(tile, at: CGPoint(x: x, y: y), anchor: .center)
+        }
+      }
+    } symbols: {
+      tileCanvas(tileSize: tileSize)
+        .frame(width: tileSize.width, height: tileSize.height)
+        .tag(0)
+    }
   }
 
-  /// Renders the tessera tile to a PDF file, preserving vector content when possible.
-  /// - Parameters:
-  ///   - directory: Target directory where the file will be created.
-  ///   - fileName: Base file name without extension; `.pdf` is appended automatically.
-  ///   - backgroundColor: Optional background fill rendered behind the tile. Defaults to no background (transparent).
-  ///   - colorScheme: Optional SwiftUI color scheme override applied while rendering. Useful when symbols use semantic
-  /// colors such as `Color.primary`.
-  ///   - pageSize: Optional PDF page size in points; defaults to the tile size.
-  ///   - options: Rendering configuration such as output pixel size and scale, applied while drawing into the PDF
-  /// context.
-  /// - Returns: The resolved file URL that was written.
-  @discardableResult public func renderPDF(
-    to directory: URL,
-    fileName: String = "tessera-tile",
-    backgroundColor: Color? = nil,
-    colorScheme: ColorScheme? = nil,
-    pageSize: CGSize? = nil,
-    options: TesseraRenderOptions = TesseraRenderOptions(scale: 1),
-  ) throws -> URL {
-    let exportCanvas = TesseraCanvas(
-      configuration,
-      pinnedSymbols: [],
-      seed: seed,
-      edgeBehavior: .seamlessWrapping,
-      rendersAsynchronously: rendersAsynchronously,
-    )
-
-    return try exportCanvas.renderPDF(
-      to: directory,
-      fileName: fileName,
-      canvasSize: tileSize,
-      backgroundColor: backgroundColor,
-      colorScheme: colorScheme,
-      pageSize: pageSize ?? tileSize,
-      options: options,
-    )
+  func resolvedSeed(fallbackToAutomatic: Bool) -> UInt64? {
+    switch seed {
+    case .automatic:
+      if let placementSeed = pattern.placementSeed {
+        return placementSeed
+      }
+      return fallbackToAutomatic ? automaticSeed : nil
+    case let .fixed(value):
+      return value
+    }
   }
 }
 
-public extension TesseraTile {
-  /// Returns a copy that controls whether the SwiftUI canvas renders asynchronously.
-  func rendersAsynchronously(_ value: Bool) -> TesseraTile {
+public extension Tessera {
+  /// Returns a copy configured with a rendering mode.
+  func mode(_ mode: Mode) -> Tessera {
     var copy = self
-    copy.rendersAsynchronously = value
+    copy.mode = mode
+    return copy
+  }
+
+  /// Returns a copy configured with a deterministic seed mode.
+  func seed(_ seed: Seed) -> Tessera {
+    var copy = self
+    copy.seed = seed
+    return copy
+  }
+
+  /// Returns a copy configured with a placement and clipping region.
+  func region(_ region: Region) -> Tessera {
+    var copy = self
+    copy.region = region
+    return copy
+  }
+
+  /// Returns a copy with fixed symbols that are rendered and used as placement obstacles.
+  func pinnedSymbols(_ symbols: [PinnedSymbol]) -> Tessera {
+    var copy = self
+    copy.pinnedSymbols = symbols
+    return copy
+  }
+
+  /// Returns a copy configured with region rendering behavior.
+  func regionRendering(_ rendering: RegionRendering) -> Tessera {
+    var copy = self
+    copy.regionRendering = rendering
+    return copy
+  }
+
+  /// Returns a copy configured for asynchronous canvas drawing.
+  func rendersAsynchronously(_ enabled: Bool) -> Tessera {
+    var copy = self
+    copy.rendersAsynchronously = enabled
+    return copy
+  }
+
+  /// Returns a copy configured with a computation-state callback.
+  func onComputationStateChange(_ action: @escaping (Bool) -> Void) -> Tessera {
+    var copy = self
+    copy.onComputationStateChange = action
     return copy
   }
 }
 
-/// Configuration options for exporting tessera tiles.
-public struct TesseraRenderOptions {
-  /// Desired pixel dimensions for the exported image. When set, the renderer picks a scale that matches this pixel size
-  /// based on the tessera's tile size.
-  public var targetPixelSize: CGSize?
-  /// Explicit scale override. If `targetPixelSize` is set, that takes precedence. Defaults to 2 for Retina-friendly
-  /// PNGs.
-  public var scale: CGFloat?
-  /// Whether to draw collision overlays while exporting.
-  ///
-  /// When set, this overrides `TesseraPlacement.Organic.showsCollisionOverlay` for the export pipeline.
-  public var showsCollisionOverlay: Bool
-  public var isOpaque: Bool
-  public var colorMode: ColorRenderingMode
-
-  /// Creates rendering options.
-  /// - Parameters:
-  ///   - targetPixelSize: Desired output in pixels; if set, the renderer derives the scale from the tessera tile size.
-  ///   - scale: Rasterization scale applied to the renderer; defaults to 2 for Retina-quality PNGs when
-  /// `targetPixelSize` is nil.
-  ///   - showsCollisionOverlay: Whether to draw collision overlays while exporting. This overrides
-  ///     `TesseraPlacement.Organic.showsCollisionOverlay` for the export pipeline.
-  ///   - isOpaque: Whether the exported image should omit an alpha channel when possible.
-  ///   - colorMode: Working color mode used during rendering.
-  public init(
-    targetPixelSize: CGSize? = nil,
-    scale: CGFloat? = nil,
-    showsCollisionOverlay: Bool = false,
-    isOpaque: Bool = false,
-    colorMode: ColorRenderingMode = .extendedLinear,
-  ) {
-    self.targetPixelSize = targetPixelSize
-    self.scale = scale
-    self.showsCollisionOverlay = showsCollisionOverlay
-    self.isOpaque = isOpaque
-    self.colorMode = colorMode
-  }
-
-  func resolvedScale(contentSize: CGSize) -> CGFloat {
-    if let targetPixelSize {
-      let widthScale = targetPixelSize.width / contentSize.width
-      let heightScale = targetPixelSize.height / contentSize.height
-      return max(widthScale, heightScale)
-    }
-    return scale ?? 2
-  }
+/// Tessera rendering output mode.
+public enum Mode: Hashable, Sendable {
+  /// Generate one seamless tile and repeat it to fill available space.
+  case tiled(tileSize: CGSize = CGSize(width: 256, height: 256))
+  /// Generate exactly one seamless tile at a fixed size.
+  case tile(size: CGSize)
+  /// Generate one finite canvas composition.
+  case canvas(edgeBehavior: EdgeBehavior = .finite)
 }
 
-/// Errors that can occur while exporting tessera tiles.
-public enum TesseraRenderError: Error {
-  case failedToCreateImage
-  case failedToCreateDestination
-  case failedToFinalizeDestination
+/// Seed behavior used for deterministic pattern generation.
+public enum Seed: Hashable, Sendable {
+  /// Use placement-provided seed when available, otherwise generate one automatically.
+  case automatic
+  /// Force a specific seed value.
+  case fixed(UInt64)
 }

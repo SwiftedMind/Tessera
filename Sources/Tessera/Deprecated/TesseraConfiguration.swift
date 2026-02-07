@@ -7,6 +7,7 @@ import CoreGraphics
 /// A configuration is size-less. Concrete rendering is performed by providing a tile size
 /// (`TesseraTile` / `TesseraTiledCanvas`) or a canvas size (`TesseraCanvas`).
 public struct TesseraConfiguration {
+  /// Symbols available for placement.
   public var symbols: [TesseraSymbol]
   /// Placement algorithm used to generate symbol positions.
   public var placement: TesseraPlacement

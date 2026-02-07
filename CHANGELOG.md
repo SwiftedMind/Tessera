@@ -1,19 +1,38 @@
-## [Unreleased]
+## [4.0.0]
 
 ### Added
 - **Grid Symbol Orders**: `TesseraPlacement.GridSymbolOrder` now supports `.randomWeightedPerCell`, `.shuffle`,
   `.diagonal`, and `.snake` (in addition to `.sequence`).
 - **Grid Seed**: `TesseraPlacement.Grid` now includes `seed` to drive deterministic grid symbol assignment.
+- **API v4 Progressive Facade**: New Apple-style primary surface with `Tessera`, `Pattern`, `Symbol`, `PinnedSymbol`,
+  `Placement`, `Region`, `Seed`, `Mode`, and unified `export(...)` options.
+- **Migration Documentation**: Added/expanded `3.x -> 4.0` migration guidance and before/after snippets in
+  [MIGRATION.md](MIGRATION.md).
 
 ### Changed
 - **Seed Override Applies To Grid**: `TesseraCanvas(seed:)`, `TesseraTile(seed:)`, and `TesseraTiledCanvas(seed:)` now
   override grid placement seeding as well.
+
+### Enhanced
+- **Docs + Onboarding**: README quickstart now leads with the v4 single-entry API and progressive disclosure path.
+- **Example App Refresh**: Example app and examples docs now use the v4 surface and naming.
+
+### Breaking Changes
+- **Primary API Renames**: Core public types now use concise names (`Pattern`, `Symbol`, `PinnedSymbol`, `Placement`,
+  `Region`, `RenderOptions`, `RenderError`) with `Tessera` as the main entry view.
+- **Mode Consolidation**: `TesseraTile`, `TesseraCanvas`, and `TesseraTiledCanvas` are superseded by
+  `Tessera.mode(.tile|.canvas|.tiled)`.
+
+### Deprecated
+- **Legacy Surface Relocated**: Deprecated compatibility types are now grouped under
+  `Sources/Tessera/Deprecated/` and kept as forwarding shims for migration.
 
 
 
 ## [3.0.0]
 
 ### Added
+- **Grid Placement Mode**: Added `TesseraPlacement.grid` with offset strategies for seamless grid-based patterns.
 - **Polygon Canvas Regions**: `TesseraCanvas` can now clip and place symbols inside polygonal regions mapped into the
   resolved canvas size (polygon regions always use finite edges).
 - **Alpha Mask Regions**: `TesseraCanvas` can now place symbols inside alpha masks derived from views or images, with
@@ -21,28 +40,19 @@
 - **Async Canvas Toggle**: `TesseraTile` now exposes `rendersAsynchronously` (default `false`) and forwards it into
   exports.
 
-### Fixed
-- **Grid Rotation Range**: Grid placement now respects each symbol’s allowed rotation range with deterministic variation per cell.
-
-### Breaking Changes
-- **TesseraCanvasRegion**: Added `.alphaMask`, so exhaustive `switch` statements must handle the new case.
-
-## [3.0.0]
-
-### Added
-- **Grid Placement Mode**: Added `TesseraPlacement.grid` with offset strategies for seamless grid-based patterns.
-
 ### Enhanced
 - **Grid Offset Strategies**: Grid offset fractions now represent cell units, so values greater than 1 shift by whole cells
   (for example `2.5` shifts by 2½ cells), and `1.0` no longer aliases `0.0`.
 
 ### Fixed
+- **Grid Rotation Range**: Grid placement now respects each symbol’s allowed rotation range with deterministic variation per cell.
 - **Canvas Placement Computation**: `TesseraCanvas` now computes placements reliably on first render (avoids missing the
   initial layout size during view creation / restoration).
 - **Pinned Symbol Render Order**: Pinned symbols now always render above generated symbols in `TesseraCanvas` (including exports).
 - **Grid Count Rounding**: Seamless wrapping no longer forces even row/column counts when a grid offset strategy's fraction is zero.
 
 ### Breaking Changes
+- **TesseraCanvasRegion**: Added `.alphaMask`, so exhaustive `switch` statements must handle the new case.
 - **Migration Guide**: See [MIGRATION.md](MIGRATION.md) for 2.0.0 → 3.0.0 upgrade steps.
 - **Placement Configuration Refactor**: `TesseraConfiguration` now takes a `TesseraPlacement` with per-mode settings
   (for example `TesseraPlacement.Organic`), moving organic-only properties out of the top-level configuration.

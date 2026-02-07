@@ -4,10 +4,15 @@ import SwiftUI
 
 /// Describes a drawable symbol that can appear inside a tessera tile.
 public struct TesseraSymbol: Identifiable {
+  /// Stable identity for the symbol variant.
   public var id: UUID
+  /// Relative probability of being selected during placement.
   public var weight: Double
+  /// Rotation range sampled for each placed instance.
   public var allowedRotationRange: ClosedRange<Angle>
+  /// Optional per-symbol scale override.
   public var scaleRange: ClosedRange<Double>?
+  /// Collision geometry used during overlap checks.
   public var collisionShape: CollisionShape
   private let builder: () -> AnyView
 

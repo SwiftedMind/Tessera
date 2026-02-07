@@ -4,11 +4,15 @@ import SwiftUI
 
 /// A view that repeats a tessera tile to fill the available space by tiling a single generated tile.
 public struct TesseraTiledCanvas: View {
+  /// Pattern configuration used to generate symbol placements.
   public var configuration: TesseraConfiguration
+  /// Output size of each repeated tile.
   public var tileSize: CGSize
+  /// Seed used for deterministic placement.
   public var seed: UInt64
   /// Controls whether the underlying SwiftUI canvas renders asynchronously.
   public var rendersAsynchronously: Bool
+  /// Callback that reports whether placement computation is currently running.
   public var onComputationStateChange: ((Bool) -> Void)?
 
   /// Creates a tiled tessera canvas view.
@@ -32,6 +36,7 @@ public struct TesseraTiledCanvas: View {
     self.onComputationStateChange = onComputationStateChange
   }
 
+  /// Renders repeated tiles to fill all available layout space.
   public var body: some View {
     let rendersAsynchronously = rendersAsynchronously
 
