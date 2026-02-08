@@ -12,16 +12,18 @@ public extension Placement {
   /// Creates organic placement with pragmatic defaults.
   ///
   /// - Parameters:
-  ///   - minimumSpacing: Minimum center-to-center spacing between symbols.
+  ///   - minimumSpacing: Additional spacing buffer between symbol collision shapes.
   ///   - density: Desired fill amount in the range `0...1`.
   ///   - scale: Default symbol scale range.
   ///   - maximumCount: Safety cap for placed symbol count.
+  ///   - steering: Position-based steering controls.
   ///   - showsCollisionOverlay: Whether on-screen collision overlays are drawn.
   static func organic(
     minimumSpacing: Double = 10,
     density: Double = 0.6,
     scale: ClosedRange<Double> = 0.9...1.1,
     maximumCount: Int = 512,
+    steering: OrganicSteering = .none,
     showsCollisionOverlay: Bool = false,
   ) -> Placement {
     .organic(
@@ -30,6 +32,7 @@ public extension Placement {
         density: density,
         baseScaleRange: scale,
         maximumSymbolCount: maximumCount,
+        steering: steering,
         showsCollisionOverlay: showsCollisionOverlay,
       ),
     )
@@ -43,12 +46,14 @@ public extension Placement {
   ///   - offset: Row/column offset strategy.
   ///   - symbolOrder: Symbol assignment strategy.
   ///   - seed: Seed used for deterministic grid assignment.
+  ///   - steering: Position-based steering controls.
   static func grid(
     columns: Int,
     rows: Int,
     offset: GridOffsetStrategy = .none,
     symbolOrder: GridSymbolOrder = .sequence,
     seed: UInt64 = Pattern.randomSeed(),
+    steering: GridSteering = .none,
   ) -> Placement {
     .grid(
       Grid(
@@ -57,6 +62,7 @@ public extension Placement {
         offsetStrategy: offset,
         symbolOrder: symbolOrder,
         seed: seed,
+        steering: steering,
       ),
     )
   }

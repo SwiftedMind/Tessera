@@ -60,6 +60,117 @@ enum DemoConfigurations {
       ),
     )
   }
+
+  static var organicSpacingGradient: Pattern {
+    Pattern(
+      symbols: DemoSymbols.mosaic,
+      placement: .organic(
+        Placement.OrganicOptions(
+          seed: 21,
+          minimumSpacing: 7,
+          density: 0.85,
+          baseScaleRange: 0.8...1.15,
+          maximumSymbolCount: 280,
+          steering: .init(
+            minimumSpacingMultiplier: .init(
+              values: 0.25...2.0,
+              from: .top,
+              to: .bottom,
+              easing: .smoothStep,
+            ),
+          ),
+        ),
+      ),
+    )
+  }
+
+  static var organicScaleGradient: Pattern {
+    Pattern(
+      symbols: DemoSymbols.organic,
+      placement: .organic(
+        Placement.OrganicOptions(
+          seed: 34,
+          minimumSpacing: 3,
+          density: 0.85,
+          baseScaleRange: 0.8...1.15,
+          maximumSymbolCount: 320,
+          steering: .init(
+            scaleMultiplier: .init(
+              values: 0.55...1.7,
+              from: .leading,
+              to: .trailing,
+              easing: .easeInOut,
+            ),
+          ),
+        ),
+      ),
+    )
+  }
+
+  static var gridScaleGradient: Pattern {
+    Pattern(
+      symbols: DemoSymbols.grid,
+      placement: .grid(
+        Placement.GridOptions(
+          columnCount: 8,
+          rowCount: 8,
+          seed: 55,
+          steering: .init(
+            scaleMultiplier: .init(
+              values: 0.5...1.2,
+              from: .topLeading,
+              to: .bottomTrailing,
+              easing: .smoothStep,
+            ),
+          ),
+        ),
+      ),
+    )
+  }
+
+  static var organicRotationGradient: Pattern {
+    Pattern(
+      symbols: DemoSymbols.rotationBars,
+      placement: .organic(
+        Placement.OrganicOptions(
+          seed: 89,
+          minimumSpacing: 10,
+          density: 0.7,
+          baseScaleRange: 0.9...1.1,
+          maximumSymbolCount: 180,
+          steering: .init(
+            rotationOffsetDegrees: .init(
+              values: 0...180,
+              from: .top,
+              to: .bottom,
+              easing: .linear,
+            ),
+          ),
+        ),
+      ),
+    )
+  }
+
+  static var gridRotationGradient: Pattern {
+    Pattern(
+      symbols: DemoSymbols.rotationBars,
+      placement: .grid(
+        Placement.GridOptions(
+          columnCount: 8,
+          rowCount: 8,
+          seed: 121,
+          steering: .init(
+            rotationMultiplier: .init(
+              values: 0.5...1.5,
+              from: .leading,
+              to: .trailing,
+              easing: .linear,
+            ),
+          ),
+        ),
+      ),
+    )
+  }
 }
 
 enum DemoSymbols {
@@ -73,6 +184,10 @@ enum DemoSymbols {
 
   static var mosaic: [Symbol] {
     [.partyPopper, .circleOutline, .roundedOutline, .equals, .minus]
+  }
+
+  static var rotationBars: [Symbol] {
+    [.rotationBarBold, .rotationBarLight]
   }
 }
 
@@ -238,6 +353,28 @@ extension Symbol {
         .frame(width: 25, height: 25)
         .opacity(0.5)
         .rotationEffect(.degrees(45))
+    }
+  }
+
+  static var rotationBarBold: Symbol {
+    Symbol(
+      rotation: .degrees(90)...(.degrees(90)),
+      collider: .shape(.rectangle(center: .zero, size: CGSize(width: 34, height: 7))),
+    ) {
+      Capsule()
+        .fill(.white.opacity(0.9))
+        .frame(width: 32, height: 5)
+    }
+  }
+
+  static var rotationBarLight: Symbol {
+    Symbol(
+      rotation: .degrees(45)...(.degrees(45)),
+      collider: .shape(.rectangle(center: .zero, size: CGSize(width: 28, height: 6))),
+    ) {
+      Capsule()
+        .fill(.gray.opacity(0.7))
+        .frame(width: 26, height: 4)
     }
   }
 

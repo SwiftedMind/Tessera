@@ -54,6 +54,53 @@ struct TesseraDemoView: View {
             )
           }
         }
+        Section("Spatial Steering") {
+          NavigationLink {
+            OrganicSpacingSteeringExampleView()
+          } label: {
+            ExampleRow(
+              title: "Organic Spacing Gradient",
+              subtitle: "Dense top, spacious bottom",
+              systemImage: "arrow.down.to.line.compact",
+            )
+          }
+          NavigationLink {
+            OrganicScaleSteeringExampleView()
+          } label: {
+            ExampleRow(
+              title: "Organic Scale Gradient",
+              subtitle: "Small left, large right",
+              systemImage: "arrow.left.and.right.righttriangle.left.righttriangle.right",
+            )
+          }
+          NavigationLink {
+            GridScaleSteeringExampleView()
+          } label: {
+            ExampleRow(
+              title: "Grid Scale Gradient",
+              subtitle: "Diagonal size steering",
+              systemImage: "arrow.down.right.and.arrow.up.left",
+            )
+          }
+          NavigationLink {
+            OrganicRotationSteeringExampleView()
+          } label: {
+            ExampleRow(
+              title: "Organic Rotation Gradient",
+              subtitle: "Top-to-bottom rotation offset",
+              systemImage: "arrow.clockwise.circle",
+            )
+          }
+          NavigationLink {
+            GridRotationSteeringExampleView()
+          } label: {
+            ExampleRow(
+              title: "Grid Rotation Gradient",
+              subtitle: "Left-to-right rotation multiplier",
+              systemImage: "arrow.left.and.right.circle",
+            )
+          }
+        }
         Section("Tools") {
           NavigationLink {
             CollisionShapeEditorExampleView()
@@ -203,5 +250,131 @@ private struct CollisionShapeEditorExampleView: View {
         .font(.system(size: 52, weight: .semibold))
         .foregroundStyle(.primary)
     }
+  }
+}
+
+private struct OrganicSpacingSteeringExampleView: View {
+  var body: some View {
+    Tessera(DemoConfigurations.organicSpacingGradient)
+      .mode(.canvas(edgeBehavior: .finite))
+      .seed(.fixed(21))
+      .background(.black)
+      .ignoresSafeArea()
+      .overlay(alignment: .topLeading) {
+        SteeringLegendOverlay(
+          title: "Minimum Spacing",
+          startLabel: "top: tight",
+          endLabel: "bottom: wide",
+          axisSymbol: "arrow.down",
+        )
+      }
+      .navigationTitle("Organic Spacing Gradient")
+      .navigationBarTitleDisplayMode(.inline)
+  }
+}
+
+private struct OrganicScaleSteeringExampleView: View {
+  var body: some View {
+    Tessera(DemoConfigurations.organicScaleGradient)
+      .mode(.canvas(edgeBehavior: .finite))
+      .seed(.fixed(34))
+      .background(.black)
+      .ignoresSafeArea()
+      .overlay(alignment: .topLeading) {
+        SteeringLegendOverlay(
+          title: "Symbol Scale",
+          startLabel: "left: small",
+          endLabel: "right: large",
+          axisSymbol: "arrow.right",
+        )
+      }
+      .navigationTitle("Organic Scale Gradient")
+      .navigationBarTitleDisplayMode(.inline)
+  }
+}
+
+private struct GridScaleSteeringExampleView: View {
+  var body: some View {
+    Tessera(DemoConfigurations.gridScaleGradient)
+      .mode(.tiled(tileSize: CGSize(width: 260, height: 260)))
+      .seed(.fixed(55))
+      .background(.black)
+      .ignoresSafeArea()
+      .overlay(alignment: .topLeading) {
+        SteeringLegendOverlay(
+          title: "Grid Scale",
+          startLabel: "top-left: small",
+          endLabel: "bottom-right: large",
+          axisSymbol: "arrow.down.right",
+        )
+      }
+      .navigationTitle("Grid Scale Gradient")
+      .navigationBarTitleDisplayMode(.inline)
+  }
+}
+
+private struct OrganicRotationSteeringExampleView: View {
+  var body: some View {
+    Tessera(DemoConfigurations.organicRotationGradient)
+      .mode(.canvas(edgeBehavior: .finite))
+      .seed(.fixed(89))
+      .background(.black)
+      .ignoresSafeArea()
+      .overlay(alignment: .topLeading) {
+        SteeringLegendOverlay(
+          title: "Rotation Offset",
+          startLabel: "top: +0°",
+          endLabel: "bottom: +180°",
+          axisSymbol: "arrow.down.circle",
+        )
+      }
+      .navigationTitle("Organic Rotation Gradient")
+      .navigationBarTitleDisplayMode(.inline)
+  }
+}
+
+private struct GridRotationSteeringExampleView: View {
+  var body: some View {
+    Tessera(DemoConfigurations.gridRotationGradient)
+      .mode(.canvas(edgeBehavior: .finite))
+      .seed(.fixed(121))
+      .background(.black)
+      .ignoresSafeArea()
+      .overlay(alignment: .topLeading) {
+        SteeringLegendOverlay(
+          title: "Rotation Multiplier",
+          startLabel: "left: 0.5×",
+          endLabel: "right: 1.5×",
+          axisSymbol: "arrow.right.circle",
+        )
+      }
+      .navigationTitle("Grid Rotation Gradient")
+      .navigationBarTitleDisplayMode(.inline)
+  }
+}
+
+private struct SteeringLegendOverlay: View {
+  var title: String
+  var startLabel: String
+  var endLabel: String
+  var axisSymbol: String
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 6) {
+      Text(title)
+        .font(.caption.weight(.semibold))
+      HStack(spacing: 6) {
+        Image(systemName: axisSymbol)
+          .font(.caption2.weight(.semibold))
+        Text(startLabel)
+          .font(.caption2)
+      }
+      Text(endLabel)
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+    }
+    .padding(10)
+    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    .padding(16)
   }
 }

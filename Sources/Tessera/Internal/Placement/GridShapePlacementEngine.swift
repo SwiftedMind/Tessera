@@ -34,6 +34,8 @@ enum GridShapePlacementEngine {
     guard size.width > 0, size.height > 0 else { return [] }
 
     let symbolCount = symbolDescriptors.count
+    guard symbolCount > 0 else { return [] }
+
     let resolvedGrid = resolveGrid(
       for: size,
       configuration: configuration,
@@ -65,8 +67,10 @@ enum GridShapePlacementEngine {
         collisionTransform: collisionTransform,
         polygons: CollisionMath.polygons(for: pinnedSymbol.collisionShape),
         boundingRadius: pinnedSymbol.collisionShape.boundingRadius(atScale: collisionTransform.scale),
+        minimumSpacing: 0,
       )
     }
+    let pinnedIndices = Array(pinnedColliders.indices)
 
     let polygonCache: [UUID: [CollisionPolygon]] = symbolDescriptors.reduce(into: [:]) { cache, symbol in
       cache[symbol.id] = CollisionMath.polygons(for: symbol.collisionShape)
@@ -110,9 +114,9 @@ enum GridShapePlacementEngine {
         }
         let selectedSymbol = symbolDescriptors[resolvedSymbolIndex % symbolCount]
 
-        let scale = selectedSymbol.resolvedScaleRange.lowerBound
-        let rotationRadians = rotationRadiansForGrid(
+        let baseRotationRadians = rotationRadiansForGrid(
           rangeDegrees: selectedSymbol.allowedRotationRangeDegrees,
+          baseSeed: configuration.seed,
           rowIndex: rowIndex,
           columnIndex: columnIndex,
           cellIndex: cellIndex,
@@ -152,6 +156,34 @@ enum GridShapePlacementEngine {
           continue
         }
 
+        let scaleMultiplier = max(
+          0,
+          ShapePlacementSteering.value(
+            for: configuration.steering.scaleMultiplier,
+            position: position,
+            canvasSize: size,
+            defaultValue: 1,
+          ),
+        )
+        let scale = max(0, selectedSymbol.resolvedScaleRange.lowerBound * scaleMultiplier)
+        let rotationMultiplier = max(
+          0,
+          ShapePlacementSteering.value(
+            for: configuration.steering.rotationMultiplier,
+            position: position,
+            canvasSize: size,
+            defaultValue: 1,
+          ),
+        )
+        let rotationOffsetDegrees = ShapePlacementSteering.value(
+          for: configuration.steering.rotationOffsetDegrees,
+          position: position,
+          canvasSize: size,
+          defaultValue: 0,
+        )
+        let rotationOffsetRadians = rotationOffsetDegrees * Double.pi / 180
+        let rotationRadians = baseRotationRadians * rotationMultiplier + rotationOffsetRadians
+
         let candidate = PlacedSymbolDescriptor(
           symbolId: selectedSymbol.id,
           position: position,
@@ -161,7 +193,6 @@ enum GridShapePlacementEngine {
         )
 
         if pinnedColliders.isEmpty == false {
-          let pinnedIndices = Array(pinnedColliders.indices)
           let isValid = ShapePlacementCollision.isPlacementValid(
             candidate: candidate,
             candidatePolygons: selectedPolygons,
@@ -170,7 +201,7 @@ enum GridShapePlacementEngine {
             tileSize: size,
             edgeBehavior: edgeBehavior,
             wrapOffsets: wrapOffsets,
-            minimumSpacing: 0,
+            candidateMinimumSpacing: 0,
           )
 
           guard isValid else { continue }
@@ -185,6 +216,7 @@ enum GridShapePlacementEngine {
 
   private static func rotationRadiansForGrid(
     rangeDegrees: ClosedRange<Double>,
+    baseSeed: UInt64,
     rowIndex: Int,
     columnIndex: Int,
     cellIndex: Int,
@@ -196,6 +228,7 @@ enum GridShapePlacementEngine {
     }
 
     let seed = gridRotationSeed(
+      baseSeed: baseSeed,
       rowIndex: rowIndex,
       columnIndex: columnIndex,
       cellIndex: cellIndex,
@@ -206,11 +239,13 @@ enum GridShapePlacementEngine {
   }
 
   private static func gridRotationSeed(
+    baseSeed: UInt64,
     rowIndex: Int,
     columnIndex: Int,
     cellIndex: Int,
   ) -> UInt64 {
-    var seed = UInt64(truncatingIfNeeded: rowIndex) &* 0x9E37_79B9_7F4A_7C15
+    var seed = baseSeed &* 0xD6E8_FEB8_6659_FD93
+    seed ^= UInt64(truncatingIfNeeded: rowIndex) &* 0x9E37_79B9_7F4A_7C15
     seed ^= UInt64(truncatingIfNeeded: columnIndex) &* 0xBF58_476D_1CE4_E5B9
     seed ^= UInt64(truncatingIfNeeded: cellIndex) &* 0x94D0_49BB_1331_11EB
     seed ^= seed >> 29

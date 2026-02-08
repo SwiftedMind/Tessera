@@ -4,6 +4,12 @@
 - **Grid Symbol Orders**: `TesseraPlacement.GridSymbolOrder` now supports `.randomWeightedPerCell`, `.shuffle`,
   `.diagonal`, and `.snake` (in addition to `.sequence`).
 - **Grid Seed**: `TesseraPlacement.Grid` now includes `seed` to drive deterministic grid symbol assignment.
+- **Spatial Steering Fields**: Added `TesseraPlacement.SteeringField` with unit-space direction (`from`/`to`), value
+  range, and easing (`linear`, `smoothStep`, `easeIn`, `easeOut`, `easeInOut`) for position-based interpolation.
+- **Organic Steering Controls**: `TesseraPlacement.OrganicSteering` now supports
+  `minimumSpacingMultiplier`, `scaleMultiplier`, `rotationMultiplier`, and `rotationOffsetDegrees`.
+- **Grid Steering Controls**: `TesseraPlacement.GridSteering` now supports `scaleMultiplier`, `rotationMultiplier`, and
+  `rotationOffsetDegrees`.
 - **API v4 Progressive Facade**: New Apple-style primary surface with `Tessera`, `Pattern`, `Symbol`, `PinnedSymbol`,
   `Placement`, `Region`, `Seed`, `Mode`, and unified `export(...)` options.
 - **Migration Documentation**: Added/expanded `3.x -> 4.0` migration guidance and before/after snippets in
@@ -12,10 +18,18 @@
 ### Changed
 - **Seed Override Applies To Grid**: `TesseraCanvas(seed:)`, `TesseraTile(seed:)`, and `TesseraTiledCanvas(seed:)` now
   override grid placement seeding as well.
+- **Pairwise Organic Spacing**: Organic spacing checks now use per-symbol pairwise buffers (`max(lhs, rhs)`) so
+  position-steered minimum spacing remains symmetric and collision-safe.
+- **Steering Space**: Spatial steering is evaluated in local tile/canvas coordinates. In tiled modes (`.tile` / `.tiled`),
+  steering gradients repeat per tile by design.
 
 ### Enhanced
 - **Docs + Onboarding**: README quickstart now leads with the v4 single-entry API and progressive disclosure path.
 - **Example App Refresh**: Example app and examples docs now use the v4 surface and naming.
+- **Steering Demos**: Example app now includes dedicated spatial steering demos for organic spacing, and organic/grid
+  scale + rotation gradients.
+- **Steering Documentation**: README now documents steering transform semantics (multiplier vs offset) and
+  tile-repeat behavior guidance for grid steering.
 
 ### Breaking Changes
 - **Primary API Renames**: Core public types now use concise names (`Pattern`, `Symbol`, `PinnedSymbol`, `Placement`,

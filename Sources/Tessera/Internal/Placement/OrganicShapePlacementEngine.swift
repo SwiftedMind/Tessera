@@ -33,7 +33,22 @@ enum OrganicShapePlacementEngine {
     alphaMask: TesseraAlphaMask? = nil,
     randomGenerator: inout some RandomNumberGenerator,
   ) -> [PlacedSymbolDescriptor] {
-    let minimumSpacing = CGFloat(configuration.minimumSpacing)
+    let baseMinimumSpacing = CGFloat(max(0, configuration.minimumSpacing))
+    let maximumSpacingMultiplier = max(
+      0,
+      ShapePlacementSteering.maximumValue(
+        for: configuration.steering.minimumSpacingMultiplier,
+        defaultValue: 1,
+      ),
+    )
+    let maximumMinimumSpacing = baseMinimumSpacing * CGFloat(maximumSpacingMultiplier)
+    let maximumScaleMultiplier = max(
+      0,
+      ShapePlacementSteering.maximumValue(
+        for: configuration.steering.scaleMultiplier,
+        defaultValue: 1,
+      ),
+    )
     let clampedDensity = max(0, min(1, configuration.density))
     let maximumCount = max(0, configuration.maximumSymbolCount)
 
@@ -41,7 +56,7 @@ enum OrganicShapePlacementEngine {
     let regionArea = region.map { Double($0.area) } ?? tileArea
     let maskArea = alphaMask.map { Double($0.filledFraction) * tileArea } ?? tileArea
     let constrainedArea = min(regionArea, maskArea)
-    let approximateSymbolArea = max(Double(minimumSpacing * minimumSpacing), 1)
+    let approximateSymbolArea = max(Double(maximumMinimumSpacing * maximumMinimumSpacing), 1)
     let estimatedCount = Int(constrainedArea / approximateSymbolArea * clampedDensity)
     let targetCount = min(max(0, estimatedCount), maximumCount)
     let remainingTargetCount = min(max(0, targetCount - pinnedSymbolDescriptors.count), maximumCount)
@@ -59,11 +74,13 @@ enum OrganicShapePlacementEngine {
         collisionTransform: collisionTransform,
         polygons: CollisionMath.polygons(for: pinnedSymbol.collisionShape),
         boundingRadius: pinnedSymbol.collisionShape.boundingRadius(atScale: collisionTransform.scale),
+        minimumSpacing: 0,
       )
     }
 
     let maximumGeneratedBoundingRadius = maximumBoundingRadius(
       for: symbolDescriptors,
+      maximumScaleMultiplier: CGFloat(maximumScaleMultiplier),
     )
     let maximumFixedBoundingRadius = pinnedSymbolDescriptors
       .map { pinnedSymbol in
@@ -71,7 +88,7 @@ enum OrganicShapePlacementEngine {
       }
       .max() ?? 0
     let maximumBoundingRadius = max(maximumGeneratedBoundingRadius, maximumFixedBoundingRadius)
-    let maximumInteractionDistance = maximumBoundingRadius * 2 + minimumSpacing
+    let maximumInteractionDistance = maximumBoundingRadius * 2 + maximumMinimumSpacing
     let cellSize = max(maximumInteractionDistance, 1)
     let gridColumnCount = max(1, Int(ceil(size.width / cellSize)))
     let gridRowCount = max(1, Int(ceil(size.height / cellSize)))
@@ -105,8 +122,8 @@ enum OrganicShapePlacementEngine {
 
       guard let selectedSymbol = pickSymbol(from: symbolDescriptors, using: &randomGenerator) else { break }
 
-      let scale = Double.random(in: selectedSymbol.resolvedScaleRange, using: &randomGenerator)
-      let rotationRadians = randomAngleRadians(
+      let baseScale = Double.random(in: selectedSymbol.resolvedScaleRange, using: &randomGenerator)
+      let baseRotationRadians = randomAngleRadians(
         in: selectedSymbol.allowedRotationRangeDegrees,
         using: &randomGenerator,
       )
@@ -125,6 +142,44 @@ enum OrganicShapePlacementEngine {
         if let alphaMask, alphaMask.contains(position) == false {
           continue
         }
+
+        let spacingMultiplier = max(
+          0,
+          ShapePlacementSteering.value(
+            for: configuration.steering.minimumSpacingMultiplier,
+            position: position,
+            canvasSize: size,
+            defaultValue: 1,
+          ),
+        )
+        let candidateMinimumSpacing = baseMinimumSpacing * CGFloat(spacingMultiplier)
+        let scaleMultiplier = max(
+          0,
+          ShapePlacementSteering.value(
+            for: configuration.steering.scaleMultiplier,
+            position: position,
+            canvasSize: size,
+            defaultValue: 1,
+          ),
+        )
+        let scale = max(0, baseScale * scaleMultiplier)
+        let rotationMultiplier = max(
+          0,
+          ShapePlacementSteering.value(
+            for: configuration.steering.rotationMultiplier,
+            position: position,
+            canvasSize: size,
+            defaultValue: 1,
+          ),
+        )
+        let rotationOffsetDegrees = ShapePlacementSteering.value(
+          for: configuration.steering.rotationOffsetDegrees,
+          position: position,
+          canvasSize: size,
+          defaultValue: 0,
+        )
+        let rotationOffsetRadians = rotationOffsetDegrees * Double.pi / 180
+        let rotationRadians = baseRotationRadians * rotationMultiplier + rotationOffsetRadians
 
         let candidate = PlacedSymbolDescriptor(
           symbolId: selectedSymbol.id,
@@ -164,7 +219,7 @@ enum OrganicShapePlacementEngine {
           tileSize: size,
           edgeBehavior: edgeBehavior,
           wrapOffsets: wrapOffsets,
-          minimumSpacing: minimumSpacing,
+          candidateMinimumSpacing: candidateMinimumSpacing,
         ) else { continue }
 
         placedDescriptors.append(candidate)
@@ -175,6 +230,7 @@ enum OrganicShapePlacementEngine {
             collisionTransform: candidateTransform,
             polygons: selectedPolygons,
             boundingRadius: selectedSymbol.collisionShape.boundingRadius(atScale: candidateTransform.scale),
+            minimumSpacing: candidateMinimumSpacing,
           ),
         )
         let newColliderIndex = colliders.count - 1
@@ -193,10 +249,11 @@ enum OrganicShapePlacementEngine {
 
   private static func maximumBoundingRadius(
     for symbols: [PlacementSymbolDescriptor],
+    maximumScaleMultiplier: CGFloat,
   ) -> CGFloat {
     var maximumRadius: CGFloat = 0
     for symbol in symbols {
-      let maximumScale = symbol.resolvedScaleRange.upperBound
+      let maximumScale = max(0, symbol.resolvedScaleRange.upperBound) * Double(maximumScaleMultiplier)
       let radius = symbol.collisionShape.boundingRadius(atScale: CGFloat(maximumScale))
       maximumRadius = max(maximumRadius, radius)
     }

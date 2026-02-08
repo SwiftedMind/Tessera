@@ -19,7 +19,23 @@ import Testing
   #expect(options.baseScaleRange.lowerBound == 0.9)
   #expect(options.baseScaleRange.upperBound == 1.1)
   #expect(options.maximumSymbolCount == 512)
+  #expect(options.steering == .none)
   #expect(options.showsCollisionOverlay == false)
+}
+
+@Test func gridPlacementFactoryProvidesExpectedDefaults() async throws {
+  let placement = Placement.grid(columns: 3, rows: 2)
+
+  guard case let .grid(options) = placement else {
+    Issue.record("Expected grid placement")
+    return
+  }
+
+  #expect(options.columnCount == 3)
+  #expect(options.rowCount == 2)
+  #expect(options.offsetStrategy == .none)
+  #expect(options.symbolOrder == .sequence)
+  #expect(options.steering == .none)
 }
 
 @Test func patternOffsetMapsToLegacyPatternOffset() async throws {

@@ -14,6 +14,7 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 - Declarative configuration: describe symbols and placement; provide a size at render time.
 - Even spacing: shape-aware placement that avoids clustering.
 - Grid placement: place symbols on a regular grid with configurable offsets.
+- Spatial steering: modulate spacing, scale, and rotation from position-based fields.
 - Seamless wrapping: tile edges wrap toroidally so patterns repeat without seams.
 - Deterministic output: provide a seed for reproducible layouts; omit to randomize.
 - Polygon regions: fill an arbitrary polygon, not just a rectangle.
@@ -26,6 +27,7 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 - [Get Started](#get-started)
 - [Migration Guide (3.x → 4.0)](MIGRATION.md)
 - [Grid Placement](#grid-placement)
+- [Spatial Steering](#spatial-steering)
 - [Pinned Symbols](#pinned-symbols)
 - [Polygon Regions](#polygon-regions)
 - [Alpha Mask Regions](#alpha-mask-regions)
@@ -83,7 +85,7 @@ struct PatternBackground: View {
 
 ### Example App
 
-Run the local sample app from `/Users/swiftedmind/Code/Workspace/Tessera/Examples/README.md`.
+Run the local sample app using `Examples/README.md`.
 
 ### Add Tessera via Swift Package Manager
 
@@ -276,6 +278,106 @@ var configuration = TesseraConfiguration(
   )
 )
 ```
+
+## Spatial Steering
+
+Spatial steering lets you modulate placement from position using a unit-space field (`0...1`).
+Each symbol samples a `SteeringField` at its normalized position, projected from `from` to `to`, then eased.
+
+- `SteeringField` defines:
+  - `values`: interpolation range
+  - `from` / `to`: direction in unit space (`UnitPoint`)
+  - `easing`: interpolation curve (`linear`, `smoothStep`, `easeIn`, `easeOut`, `easeInOut`)
+- Organic steering (`Placement.OrganicSteering`):
+  - `minimumSpacingMultiplier`
+  - `scaleMultiplier`
+  - `rotationMultiplier`
+  - `rotationOffsetDegrees`
+- Grid steering (`Placement.GridSteering`):
+  - `scaleMultiplier`
+  - `rotationMultiplier`
+  - `rotationOffsetDegrees`
+
+Effective transforms are applied as:
+
+```swift
+minimumSpacing = baseMinimumSpacing * minimumSpacingMultiplier  // organic only
+scale = baseScale * scaleMultiplier                             // organic + grid
+rotation = baseRotation * rotationMultiplier + rotationOffset   // organic + grid
+```
+
+### Organic steering example
+
+```swift
+let pattern = Pattern(
+  symbols: symbols,
+  placement: .organic(
+    minimumSpacing: 8,
+    density: 0.8,
+    scale: 0.85...1.15,
+    steering: .init(
+      minimumSpacingMultiplier: .init(
+        values: 0.3...2.0,
+        from: .top,
+        to: .bottom,
+        easing: .smoothStep
+      ),
+      scaleMultiplier: .init(
+        values: 0.7...1.4,
+        from: .leading,
+        to: .trailing,
+        easing: .easeInOut
+      ),
+      rotationOffsetDegrees: .init(
+        values: 0...180,
+        from: .topLeading,
+        to: .bottomTrailing,
+        easing: .linear
+      )
+    )
+  )
+)
+```
+
+### Grid steering example
+
+```swift
+let pattern = Pattern(
+  symbols: symbols,
+  placement: .grid(
+    columns: 8,
+    rows: 6,
+    symbolOrder: .randomWeightedPerCell,
+    seed: 42,
+    steering: .init(
+      scaleMultiplier: .init(
+        values: 0.6...1.3,
+        from: .topLeading,
+        to: .bottomTrailing
+      ),
+      rotationMultiplier: .init(
+        values: 0.5...1.5,
+        from: .leading,
+        to: .trailing,
+        easing: .linear
+      ),
+      rotationOffsetDegrees: .init(
+        values: -20...20,
+        from: .top,
+        to: .bottom,
+        easing: .smoothStep
+      )
+    )
+  )
+)
+```
+
+> Notes:
+> - Steering is evaluated in local tile/canvas space.
+> - In tiled/seamless modes (`.tile` / `.tiled`), gradients repeat per tile.
+> - This repeating reset is often most visible with grid scale/rotation steering and is expected.
+> - Grid placement does not reject overlaps between generated grid symbols; it only enforces collisions against pinned symbols.
+> - For a single non-repeating gradient across the whole output, use `.mode(.canvas(edgeBehavior: .finite))`.
 
 ## Pinned Symbols
 

@@ -14,7 +14,7 @@ enum ShapePlacementCollision {
   ///   - tileSize: The size of the tile used for wrap checks.
   ///   - edgeBehavior: The edge behavior that determines wrapping rules.
   ///   - wrapOffsets: The offsets used for wrap-aware collision checks.
-  ///   - minimumSpacing: The extra spacing buffer to enforce.
+  ///   - candidateMinimumSpacing: The local spacing requirement for the candidate symbol.
   /// - Returns: `true` when the candidate does not overlap any collider.
   static func isPlacementValid(
     candidate: ShapePlacementEngine.PlacedSymbolDescriptor,
@@ -24,7 +24,7 @@ enum ShapePlacementCollision {
     tileSize: CGSize,
     edgeBehavior: TesseraEdgeBehavior,
     wrapOffsets: [CGPoint],
-    minimumSpacing: CGFloat,
+    candidateMinimumSpacing: CGFloat,
   ) -> Bool {
     let candidateBoundingRadius = candidate.collisionShape.boundingRadius(atScale: candidate.collisionTransform.scale)
     let candidatePosition = candidate.collisionTransform.position
@@ -34,8 +34,9 @@ enum ShapePlacementCollision {
     for colliderIndex in existingColliderIndices {
       let collider = allColliders[colliderIndex]
       let colliderBoundingRadius = collider.boundingRadius
+      let pairMinimumSpacing = max(candidateMinimumSpacing, collider.minimumSpacing)
       let combinedRadius = candidateBoundingRadius + colliderBoundingRadius
-      let bufferedDistance = combinedRadius + minimumSpacing
+      let bufferedDistance = combinedRadius + pairMinimumSpacing
       let bufferedDistanceSquared = bufferedDistance * bufferedDistance
 
       let shouldUseNearestPeriodicImage = switch edgeBehavior {
@@ -76,7 +77,7 @@ enum ShapePlacementCollision {
           transformA: candidate.collisionTransform,
           collider.polygons,
           transformB: shiftedTransform,
-          buffer: minimumSpacing,
+          buffer: pairMinimumSpacing,
         ) { return false }
       } else {
         for offset in wrapOffsets {
@@ -103,7 +104,7 @@ enum ShapePlacementCollision {
             transformA: candidate.collisionTransform,
             collider.polygons,
             transformB: shiftedTransform,
-            buffer: minimumSpacing,
+            buffer: pairMinimumSpacing,
           ) { return false }
         }
       }

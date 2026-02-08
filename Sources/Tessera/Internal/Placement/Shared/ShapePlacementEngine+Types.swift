@@ -65,6 +65,8 @@ extension ShapePlacementEngine {
     var polygons: [CollisionPolygon]
     /// The maximum radius of the shape at the applied scale.
     var boundingRadius: CGFloat
+    /// Local spacing requirement used for pairwise spacing checks.
+    var minimumSpacing: CGFloat
   }
 
   /// Identifies a cell in the spatial grid used by organic placement.

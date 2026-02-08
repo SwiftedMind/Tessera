@@ -16,6 +16,7 @@ import Testing
     collisionTransform: colliderTransform,
     polygons: polygons,
     boundingRadius: collisionShape.boundingRadius(atScale: colliderTransform.scale),
+    minimumSpacing: 0,
   )
 
   let candidate = ShapePlacementEngine.PlacedSymbolDescriptor(
@@ -35,7 +36,7 @@ import Testing
     tileSize: size,
     edgeBehavior: .seamlessWrapping,
     wrapOffsets: wrappedOffsets,
-    minimumSpacing: 0,
+    candidateMinimumSpacing: 0,
   )
 
   let finiteOffsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: .finite)
@@ -47,7 +48,7 @@ import Testing
     tileSize: size,
     edgeBehavior: .finite,
     wrapOffsets: finiteOffsets,
-    minimumSpacing: 0,
+    candidateMinimumSpacing: 0,
   )
 
   #expect(isValidWhenWrapped == false)
