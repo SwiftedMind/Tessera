@@ -4,8 +4,11 @@
 - **Grid Symbol Orders**: `TesseraPlacement.GridSymbolOrder` now supports `.randomWeightedPerCell`, `.shuffle`,
   `.diagonal`, and `.snake` (in addition to `.sequence`).
 - **Grid Seed**: `TesseraPlacement.Grid` now includes `seed` to drive deterministic grid symbol assignment.
-- **Spatial Steering Fields**: Added `TesseraPlacement.SteeringField` with unit-space direction (`from`/`to`), value
-  range, and easing (`linear`, `smoothStep`, `easeIn`, `easeOut`, `easeInOut`) for position-based interpolation.
+- **Spatial Steering Fields**: Added `TesseraPlacement.SteeringField` with value range, easing
+  (`linear`, `smoothStep`, `easeIn`, `easeOut`, `easeInOut`), and shape selection (`linear`, `radial`) for
+  position-based interpolation.
+- **Radial Steering Fields**: `TesseraPlacement.SteeringField` now supports radial shape steering via
+  `.radial(center:radius:)`, with `.autoFarthestCorner` and `.shortestSideFraction(Double)` radius options.
 - **Organic Steering Controls**: `TesseraPlacement.OrganicSteering` now supports
   `minimumSpacingMultiplier`, `scaleMultiplier`, `rotationMultiplier`, and `rotationOffsetDegrees`.
 - **Grid Steering Controls**: `TesseraPlacement.GridSteering` now supports `scaleMultiplier`, `rotationMultiplier`, and
@@ -27,9 +30,9 @@
 - **Docs + Onboarding**: README quickstart now leads with the v4 single-entry API and progressive disclosure path.
 - **Example App Refresh**: Example app and examples docs now use the v4 surface and naming.
 - **Steering Demos**: Example app now includes dedicated spatial steering demos for organic spacing, and organic/grid
-  scale + rotation gradients.
+  scale + rotation gradients, plus radial scale/rotation demos.
 - **Steering Documentation**: README now documents steering transform semantics (multiplier vs offset) and
-  tile-repeat behavior guidance for grid steering.
+  linear/radial field usage with tile-repeat behavior guidance for grid steering.
 
 ### Breaking Changes
 - **Primary API Renames**: Core public types now use concise names (`Pattern`, `Symbol`, `PinnedSymbol`, `Placement`,

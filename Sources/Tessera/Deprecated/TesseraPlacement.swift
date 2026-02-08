@@ -20,14 +20,18 @@ public enum TesseraPlacement: Hashable, Sendable {
 
       /// Creates a unit-space point.
       public init(x: Double, y: Double) {
-        self.x = x
-        self.y = y
+        self.x = Self.sanitizedCoordinate(x)
+        self.y = Self.sanitizedCoordinate(y)
       }
 
       /// Creates a point from a SwiftUI `UnitPoint`.
       public init(_ unitPoint: UnitPoint) {
-        x = unitPoint.x
-        y = unitPoint.y
+        self.init(x: unitPoint.x, y: unitPoint.y)
+      }
+
+      private static func sanitizedCoordinate(_ value: Double) -> Double {
+        let sanitized = value.isFinite ? value : 0
+        return max(0, min(1, sanitized))
       }
     }
 
@@ -45,26 +49,172 @@ public enum TesseraPlacement: Hashable, Sendable {
       case easeInOut
     }
 
+    /// Radial radius behavior.
+    public enum Radius: Hashable, Sendable {
+      /// Uses the farthest canvas corner from `center`.
+      case autoFarthestCorner
+      /// Uses a fraction of the shortest canvas side.
+      case shortestSideFraction(Double)
+    }
+
+    /// Steering field shape.
+    public enum Shape: Hashable, Sendable {
+      /// Linear gradient projected from `from` to `to` in unit space.
+      case linear(from: Point, to: Point)
+      /// Radial gradient expanding from `center`.
+      case radial(center: Point, radius: Radius)
+    }
+
     /// Interpolated scalar range.
-    public var values: ClosedRange<Double>
-    /// Start anchor in unit space.
-    public var from: Point
-    /// End anchor in unit space.
-    public var to: Point
+    public var values: ClosedRange<Double> {
+      didSet {
+        let canonical = Self.canonicalizedValues(values)
+        if canonical != values {
+          values = canonical
+        }
+      }
+    }
+
+    /// Steering field shape.
+    public var shape: Shape {
+      didSet {
+        let canonical = Self.canonicalizedShape(shape)
+        if canonical != shape {
+          shape = canonical
+        }
+      }
+    }
+
     /// Easing applied to interpolation progress.
     public var easing: Easing
 
-    /// Creates a steering field.
+    /// Compatibility accessor for linear `from` anchor.
+    @available(*, deprecated, message: "Use `shape` to inspect or update steering geometry.")
+    public var from: Point {
+      get {
+        switch shape {
+        case let .linear(from: from, to: _):
+          from
+        case let .radial(center: center, radius: _):
+          center
+        }
+      }
+      set {
+        switch shape {
+        case let .linear(from: _, to: to):
+          shape = .linear(from: newValue, to: to)
+        case let .radial(center: _, radius: radius):
+          shape = .radial(center: newValue, radius: radius)
+        }
+      }
+    }
+
+    /// Compatibility accessor for linear `to` anchor.
+    @available(*, deprecated, message: "Use `shape` to inspect or update steering geometry.")
+    public var to: Point {
+      get {
+        switch shape {
+        case let .linear(from: _, to: to):
+          to
+        case let .radial(center: center, radius: _):
+          center
+        }
+      }
+      set {
+        switch shape {
+        case let .linear(from: from, to: _):
+          shape = .linear(from: from, to: newValue)
+        case let .radial(center: _, radius: radius):
+          shape = .radial(center: newValue, radius: radius)
+        }
+      }
+    }
+
+    /// Creates a linear steering field.
     public init(
       values: ClosedRange<Double>,
       from: UnitPoint,
       to: UnitPoint,
       easing: Easing = .smoothStep,
     ) {
-      self.values = values
-      self.from = Point(from)
-      self.to = Point(to)
+      self.values = Self.canonicalizedValues(values)
+      shape = Self.canonicalizedShape(
+        .linear(from: Point(from), to: Point(to)),
+      )
       self.easing = easing
+    }
+
+    /// Creates a radial steering field.
+    public init(
+      values: ClosedRange<Double>,
+      center: UnitPoint,
+      radius: Radius = .autoFarthestCorner,
+      easing: Easing = .smoothStep,
+    ) {
+      self.values = Self.canonicalizedValues(values)
+      shape = Self.canonicalizedShape(
+        .radial(center: Point(center), radius: radius),
+      )
+      self.easing = easing
+    }
+
+    /// Convenience constructor for linear steering.
+    public static func linear(
+      values: ClosedRange<Double>,
+      from: UnitPoint,
+      to: UnitPoint,
+      easing: Easing = .smoothStep,
+    ) -> Self {
+      .init(values: values, from: from, to: to, easing: easing)
+    }
+
+    /// Convenience constructor for radial steering.
+    public static func radial(
+      values: ClosedRange<Double>,
+      center: UnitPoint,
+      radius: Radius = .autoFarthestCorner,
+      easing: Easing = .smoothStep,
+    ) -> Self {
+      .init(values: values, center: center, radius: radius, easing: easing)
+    }
+
+    private static func canonicalizedValues(_ values: ClosedRange<Double>) -> ClosedRange<Double> {
+      let lowerBound = sanitizedFinite(values.lowerBound, fallback: 0)
+      let upperBound = sanitizedFinite(values.upperBound, fallback: lowerBound)
+      let resolvedUpperBound = max(lowerBound, upperBound)
+      return lowerBound...resolvedUpperBound
+    }
+
+    private static func canonicalizedShape(_ shape: Shape) -> Shape {
+      switch shape {
+      case let .linear(from: from, to: to):
+        .linear(
+          from: Point(x: from.x, y: from.y),
+          to: Point(x: to.x, y: to.y),
+        )
+      case let .radial(center: center, radius: radius):
+        .radial(
+          center: Point(x: center.x, y: center.y),
+          radius: canonicalizedRadius(radius),
+        )
+      }
+    }
+
+    private static func canonicalizedRadius(_ radius: Radius) -> Radius {
+      switch radius {
+      case .autoFarthestCorner:
+        return .autoFarthestCorner
+      case let .shortestSideFraction(fraction):
+        guard fraction.isFinite, fraction > 0 else {
+          return .autoFarthestCorner
+        }
+
+        return .shortestSideFraction(fraction)
+      }
+    }
+
+    private static func sanitizedFinite(_ value: Double, fallback: Double) -> Double {
+      value.isFinite ? value : fallback
     }
   }
 

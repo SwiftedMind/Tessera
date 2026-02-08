@@ -22,6 +22,8 @@ The workspace is wired to the local package so API changes are available immedia
 - Spatial steering examples:
   - Organic spacing gradient
   - Organic scale gradient
+  - Organic radial scale
   - Grid scale gradient
   - Organic rotation gradient
+  - Grid radial rotation
   - Grid rotation gradient

@@ -281,12 +281,16 @@ var configuration = TesseraConfiguration(
 
 ## Spatial Steering
 
-Spatial steering lets you modulate placement from position using a unit-space field (`0...1`).
-Each symbol samples a `SteeringField` at its normalized position, projected from `from` to `to`, then eased.
+Spatial steering lets you modulate placement from position using a `SteeringField`.
 
 - `SteeringField` defines:
   - `values`: interpolation range
-  - `from` / `to`: direction in unit space (`UnitPoint`)
+  - `shape`:
+    - `.linear(from:to:)`: unit-space axis projection (`0...1`)
+    - `.radial(center:radius:)`: radial distance from a unit-space center
+  - `radius` (radial):
+    - `.autoFarthestCorner`
+    - `.shortestSideFraction(Double)`
   - `easing`: interpolation curve (`linear`, `smoothStep`, `easeIn`, `easeOut`, `easeInOut`)
 - Organic steering (`Placement.OrganicSteering`):
   - `minimumSpacingMultiplier`
@@ -372,10 +376,54 @@ let pattern = Pattern(
 )
 ```
 
+### Organic radial steering example
+
+```swift
+let pattern = Pattern(
+  symbols: symbols,
+  placement: .organic(
+    minimumSpacing: 8,
+    density: 0.8,
+    scale: 0.85...1.15,
+    steering: .init(
+      scaleMultiplier: .radial(
+        values: 0.65...1.6,
+        center: .center,
+        radius: .shortestSideFraction(0.55),
+        easing: .smoothStep
+      )
+    )
+  )
+)
+```
+
+### Grid radial steering example
+
+```swift
+let pattern = Pattern(
+  symbols: symbols,
+  placement: .grid(
+    columns: 9,
+    rows: 9,
+    seed: 303,
+    steering: .init(
+      rotationOffsetDegrees: .radial(
+        values: 0...42,
+        center: .center,
+        radius: .autoFarthestCorner,
+        easing: .easeInOut
+      )
+    )
+  )
+)
+```
+
 > Notes:
 > - Steering is evaluated in local tile/canvas space.
+> - Radial distance is measured in canvas points after mapping `center` from unit space.
 > - In tiled/seamless modes (`.tile` / `.tiled`), gradients repeat per tile.
 > - This repeating reset is often most visible with grid scale/rotation steering and is expected.
+> - Steering multipliers are clamped to `>= 0` before application.
 > - Grid placement does not reject overlaps between generated grid symbols; it only enforces collisions against pinned symbols.
 > - For a single non-repeating gradient across the whole output, use `.mode(.canvas(edgeBehavior: .finite))`.
 

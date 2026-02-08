@@ -83,12 +83,30 @@ struct TesseraDemoView: View {
             )
           }
           NavigationLink {
+            OrganicRadialScaleSteeringExampleView()
+          } label: {
+            ExampleRow(
+              title: "Organic Radial Scale",
+              subtitle: "Center small, edges large",
+              systemImage: "circle.lefthalf.filled",
+            )
+          }
+          NavigationLink {
             OrganicRotationSteeringExampleView()
           } label: {
             ExampleRow(
               title: "Organic Rotation Gradient",
               subtitle: "Top-to-bottom rotation offset",
               systemImage: "arrow.clockwise.circle",
+            )
+          }
+          NavigationLink {
+            GridRadialRotationSteeringExampleView()
+          } label: {
+            ExampleRow(
+              title: "Grid Radial Rotation",
+              subtitle: "Center calm, edges rotated",
+              systemImage: "scope",
             )
           }
           NavigationLink {
@@ -353,7 +371,7 @@ private struct GridRotationSteeringExampleView: View {
   }
 }
 
-private struct SteeringLegendOverlay: View {
+struct SteeringLegendOverlay: View {
   var title: String
   var startLabel: String
   var endLabel: String
