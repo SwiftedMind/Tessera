@@ -4,6 +4,8 @@
 - **Grid Symbol Orders**: `TesseraPlacement.GridSymbolOrder` now supports `.randomWeightedPerCell`, `.shuffle`,
   `.diagonal`, and `.snake` (in addition to `.sequence`).
 - **Grid Seed**: `TesseraPlacement.Grid` now includes `seed` to drive deterministic grid symbol assignment.
+- **Per-Symbol Grid Phases**: `TesseraPlacement.Grid.symbolPhases` allows deterministic per-symbol phase offsets in
+  grid cell units (for interleaved lattices and phase-shifted symbol families).
 - **Spatial Steering Fields**: Added `TesseraPlacement.SteeringField` with value range, easing
   (`linear`, `smoothStep`, `easeIn`, `easeOut`, `easeInOut`), and shape selection (`linear`, `radial`) for
   position-based interpolation.

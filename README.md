@@ -279,6 +279,42 @@ var configuration = TesseraConfiguration(
 )
 ```
 
+Use `symbolPhases` to shift specific symbol IDs in cell units when you need interleaved lattices:
+
+```swift
+let primaryID = UUID()
+let secondaryID = UUID()
+
+let pattern = Pattern(
+  symbols: [
+    Symbol(id: primaryID) { Circle() },
+    Symbol(id: secondaryID) { Circle() },
+  ],
+  placement: .grid(
+    columns: 8,
+    rows: 8,
+    symbolOrder: .diagonal,
+    symbolPhases: [secondaryID: .init(x: 0.5, y: 0.5)]
+  )
+)
+```
+
+`symbolPhases` is a dictionary keyed by each symbol's `id`:
+
+- Key (`UUID`): the `id` of the symbol to shift.
+- Value (`SymbolPhase`): `x` and `y` phase in cell units (`0.5` = half a cell).
+- Application order: base cell center -> `offsetStrategy` -> matching `symbolPhases` entry.
+
+Typical uses:
+
+- Interleaving two symbol families with stable phase offsets.
+- Nudging only one symbol family without changing all grid cells.
+- Building offset motifs while keeping deterministic assignment via `seed`.
+
+Important: a single grid pass still places one symbol per cell.
+If you need two complete lattices overlaid (both fully populated), render two Tessera layers (one per symbol family)
+and phase-shift one of the layers.
+
 ## Spatial Steering
 
 Spatial steering lets you modulate placement from position using a `SteeringField`.

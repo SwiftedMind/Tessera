@@ -35,7 +35,27 @@ import Testing
   #expect(options.rowCount == 2)
   #expect(options.offsetStrategy == .none)
   #expect(options.symbolOrder == .sequence)
+  #expect(options.symbolPhases.isEmpty)
   #expect(options.steering == .none)
+}
+
+@Test func gridPlacementFactoryMapsSymbolPhases() async throws {
+  let symbolID = UUID()
+  let phases: [UUID: Placement.GridOptions.SymbolPhase] = [
+    symbolID: .init(x: 0.5, y: 0.25),
+  ]
+  let placement = Placement.grid(
+    columns: 4,
+    rows: 3,
+    symbolPhases: phases,
+  )
+
+  guard case let .grid(options) = placement else {
+    Issue.record("Expected grid placement")
+    return
+  }
+
+  #expect(options.symbolPhases == phases)
 }
 
 @Test func patternOffsetMapsToLegacyPatternOffset() async throws {

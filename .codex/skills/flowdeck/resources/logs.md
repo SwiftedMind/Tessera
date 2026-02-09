@@ -13,6 +13,17 @@ flowdeck logs com.example.myapp
 flowdeck logs abc123 --json
 ```
 
+**Filtering and windows:**
+```bash
+# Filter by keyword (plain text)
+flowdeck logs abc123 | rg 'Pattern|thepattern'
+
+# Filter JSON logs (more reliable for tooling)
+flowdeck logs abc123 --json | rg 'Pattern|thepattern'
+```
+
+`flowdeck logs` is a live stream. If you need a time window like `--last 2m`, start streaming, reproduce the issue, then stop after the window you need.
+
 **Arguments:**
 | Argument | Description |
 |----------|-------------|

@@ -31,7 +31,7 @@ struct TesseraDemoView: View {
           } label: {
             ExampleRow(
               title: "Grid Placement",
-              subtitle: "Deterministic grid with offsets",
+              subtitle: "Interleaved lattice via symbol phases",
               systemImage: "square.grid.2x2",
             )
           }
@@ -188,8 +188,7 @@ private struct FiniteCanvasExampleView: View {
 
 private struct GridPlacementExampleView: View {
   var body: some View {
-    Tessera(DemoConfigurations.grid)
-      .mode(.tiled(tileSize: CGSize(width: 250, height: 250)))
+    InterleavedGridCanvas()
       .ignoresSafeArea()
       .navigationTitle("Grid Placement")
       .navigationBarTitleDisplayMode(.inline)

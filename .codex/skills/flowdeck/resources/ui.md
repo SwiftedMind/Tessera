@@ -3,10 +3,14 @@
 UI automation is a top-level command group. Use `flowdeck ui simulator` for screen capture, element queries, gestures, taps, typing, assertions, and app control on iOS simulators. Do not use `flowdeck simulator ui`. Commands are kebab-case (for example: `double-tap`, `hide-keyboard`, `open-url`, `clear-state`).
 
 **Guidance:**
+- For agent automation, always pass `--udid <udid>` on every `flowdeck ui simulator ...` command to avoid acting on the wrong booted simulator.
 - Prefer accessibility identifiers; use `--by-id` for taps, finds, and assertions.
 - Use `flowdeck ui simulator screen --tree --json` for structure-only; add `--optimize` if you need a screenshot.
 - Avoid screenshots during navigation; capture images only for design comparison or layout validation.
 - For agent loops, use `flowdeck ui simulator session start` and read `latest.json`, `latest.jpg`, and `latest-tree.json`.
+- Coordinates are in points; session screenshots are normalized 1:1 to points.
+- Coordinate taps use the provided point exactly; use label/ID taps to target element centers.
+- Do not scale by @2x/@3x or device resolution; use the image coordinates directly.
 - For off-screen elements, `flowdeck ui simulator scroll --until "id:yourElement"` before tapping.
 
 #### ui simulator screen
@@ -28,15 +32,18 @@ flowdeck ui simulator screen --tree --json
 | Option | Description |
 |--------|-------------|
 | `-o, --output <path>` | Output path for screenshot |
-| `-u, --udid <udid>` | Simulator UDID (uses session simulator if not specified) |
+| `-u, --udid <udid>` | Simulator UDID (pass explicitly in automation; omitting falls back to session/default simulator) |
 | `-j, --json` | Output as JSON |
 | `--optimize` | Optimize screenshot for agents (smaller size) |
 | `--tree` | Accessibility tree only (no screenshot) |
 | `-v, --verbose` | Show detailed output |
 
+**Notes:**
+- Size output is reported in points. JSON includes `point_width`/`point_height` and `pixel_width`/`pixel_height` when available.
+
 #### ui simulator session
 
-Start or stop a UI automation capture session. Requires a booted simulator. Starting a session stops any active session and captures tree + screenshot every 500ms into `./.flowdeck/automation/sessions/<session-short-id>`. Screenshots are JPEG at 50% quality and only written when the tree changes. JSON output includes the session directory, files, and latest pointers.
+Start or stop a UI automation capture session. Requires a booted simulator. Starting a session stops any active session and captures tree + screenshot every 500ms into `./.flowdeck/automation/sessions/<session-short-id>`. Screenshots are JPEG at 50% quality and only written when the tree changes. JSON output includes the session directory, files, latest pointers, and the current screen size in points (`screen`).
 
 ```bash
 flowdeck ui simulator session start
@@ -81,7 +88,7 @@ flowdeck ui simulator tap --point 120,340
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `-p, --point <point>` | Tap at coordinates (x,y) |
+| `-p, --point <point>` | Tap at point coordinates (x,y) |
 | `-d, --duration <seconds>` | Hold duration for long press |
 | `-u, --udid <udid>` | Simulator UDID |
 | `--by-id` | Treat target as accessibility identifier |
@@ -106,7 +113,7 @@ flowdeck ui simulator double-tap --point 160,420
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `-p, --point <point>` | Coordinates to double tap (x,y) |
+| `-p, --point <point>` | Point coordinates to double tap (x,y) |
 | `-u, --udid <udid>` | Simulator UDID |
 | `--by-id` | Search by accessibility identifier |
 | `-j, --json` | Output as JSON |
@@ -153,8 +160,8 @@ flowdeck ui simulator swipe --from 120,700 --to 120,200 --duration 0.5
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `--from <point>` | Start point (x,y) |
-| `--to <point>` | End point (x,y) |
+| `--from <point>` | Start point in points (x,y) |
+| `--to <point>` | End point in points (x,y) |
 | `--duration <seconds>` | Swipe duration (default: 0.3) |
 | `-u, --udid <udid>` | Simulator UDID |
 | `-j, --json` | Output as JSON |
@@ -174,6 +181,7 @@ flowdeck ui simulator scroll --until "id:yourElement"
 | Option | Description |
 |--------|-------------|
 | `-d, --direction <direction>` | Scroll direction (UP, DOWN, LEFT, RIGHT) |
+| `--distance <fraction>` | Scroll distance as fraction of the screen (0.05–0.95, not pixels/points) |
 | `-s, --speed <speed>` | Scroll speed 0-100 (default: 40) |
 | `--until <target>` | Scroll until element becomes visible |
 | `--timeout <ms>` | Timeout in ms for --until (default: 20000) |
@@ -214,7 +222,7 @@ flowdeck ui simulator pinch in --scale 0.6 --point 200,400
 | Option | Description |
 |--------|-------------|
 | `--scale <scale>` | Scale factor (default: 2.0 for out, 0.5 for in) |
-| `-p, --point <point>` | Center point for pinch (x,y) |
+| `-p, --point <point>` | Center point in points (x,y) |
 | `--duration <seconds>` | Pinch duration (default: 0.5) |
 | `-u, --udid <udid>` | Simulator UDID |
 | `-j, --json` | Output as JSON |
@@ -243,7 +251,7 @@ flowdeck ui simulator gesture tap --point 200,400
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `-p, --point <point>` | Center point for tap/long-press/pinch (x,y) |
+| `-p, --point <point>` | Center point in points (x,y) |
 | `--duration <seconds>` | Duration in seconds (long-press/swipe; also influences scroll speed) |
 | `--scale <scale>` | Pinch scale (default: 2.0 for out, 0.5 for in) |
 | `-u, --udid <udid>` | Simulator UDID |

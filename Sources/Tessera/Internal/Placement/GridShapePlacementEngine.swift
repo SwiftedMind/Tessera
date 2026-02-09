@@ -136,7 +136,15 @@ enum GridShapePlacementEngine {
           rowIndex: rowIndex,
           cellSize: resolvedGrid.cellSize,
         )
-        var position = CGPoint(x: basePosition.x + offset.width, y: basePosition.y + offset.height)
+        let symbolPhaseOffset = symbolPhaseOffset(
+          for: selectedSymbol.id,
+          symbolPhases: configuration.symbolPhases,
+          cellSize: resolvedGrid.cellSize,
+        )
+        var position = CGPoint(
+          x: basePosition.x + offset.width + symbolPhaseOffset.width,
+          y: basePosition.y + offset.height + symbolPhaseOffset.height,
+        )
 
         switch edgeBehavior {
         case .finite:
@@ -368,5 +376,20 @@ enum GridShapePlacementEngine {
     case .checkerShift:
       (rowIndex + columnIndex).isMultiple(of: 2) ? .zero : CGSize(width: offsetX, height: offsetY)
     }
+  }
+
+  private static func symbolPhaseOffset(
+    for symbolID: UUID,
+    symbolPhases: [UUID: TesseraPlacement.Grid.SymbolPhase],
+    cellSize: CGSize,
+  ) -> CGSize {
+    guard let phase = symbolPhases[symbolID] else { return .zero }
+
+    let x = phase.x.isFinite ? phase.x : 0
+    let y = phase.y.isFinite ? phase.y : 0
+    return CGSize(
+      width: CGFloat(x) * cellSize.width,
+      height: CGFloat(y) * cellSize.height,
+    )
   }
 }

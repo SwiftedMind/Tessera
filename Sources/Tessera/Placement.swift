@@ -1,5 +1,7 @@
 // By Dennis Müller
 
+import Foundation
+
 /// Primary placement API alias for Tessera v4.
 public typealias Placement = TesseraPlacement
 
@@ -46,6 +48,8 @@ public extension Placement {
   ///   - offset: Row/column offset strategy.
   ///   - symbolOrder: Symbol assignment strategy.
   ///   - seed: Seed used for deterministic grid assignment.
+  ///   - symbolPhases: Optional per-symbol phase offsets keyed by symbol ID.
+  ///     Values are in grid cell units (for example `0.5, 0.5` is a half-cell shift on both axes).
   ///   - steering: Position-based steering controls.
   static func grid(
     columns: Int,
@@ -53,6 +57,7 @@ public extension Placement {
     offset: GridOffsetStrategy = .none,
     symbolOrder: GridSymbolOrder = .sequence,
     seed: UInt64 = Pattern.randomSeed(),
+    symbolPhases: [UUID: Grid.SymbolPhase] = [:],
     steering: GridSteering = .none,
   ) -> Placement {
     .grid(
@@ -62,6 +67,7 @@ public extension Placement {
         offsetStrategy: offset,
         symbolOrder: symbolOrder,
         seed: seed,
+        symbolPhases: symbolPhases,
         steering: steering,
       ),
     )
@@ -99,5 +105,14 @@ public extension Placement.GridOptions {
   var offset: Placement.GridOffsetStrategy {
     get { offsetStrategy }
     set { offsetStrategy = newValue }
+  }
+
+  /// Alias for `symbolPhases`.
+  ///
+  /// Dictionary key: `Symbol.id`.
+  /// Dictionary value: `SymbolPhase` in grid cell units.
+  var phases: [UUID: Placement.GridOptions.SymbolPhase] {
+    get { symbolPhases }
+    set { symbolPhases = newValue }
   }
 }

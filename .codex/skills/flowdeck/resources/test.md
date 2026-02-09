@@ -24,6 +24,12 @@ flowdeck test -w App.xcworkspace -s MyApp -S "iPhone 16" --skip MyAppTests/SlowI
 # Run specific test targets
 flowdeck test -w App.xcworkspace -s MyApp -S "iPhone 16" --test-targets "UnitTests,IntegrationTests"
 
+# Run a specific test plan by name (from the scheme)
+flowdeck test -w App.xcworkspace -s MyApp -S "iPhone 16" --plan "PassingOnly"
+
+# Run a specific test plan by path (normalized to plan name)
+flowdeck test -w App.xcworkspace -s MyApp -S "iPhone 16" --plan "TestPlans/PassingOnly.xctestplan"
+
 # Show test results as they complete
 flowdeck test -w App.xcworkspace -s MyApp -S "iPhone 16" --progress
 
@@ -55,6 +61,7 @@ flowdeck test -w App.xcworkspace -s MyApp -S "iPhone 16" --xcodebuild-env='CI=tr
 | `-D, --device <name>` | Device name/UDID (use "My Mac" for macOS) |
 | `-C, --configuration <name>` | Build configuration (Debug/Release) |
 | `-d, --derived-data-path <path>` | Custom derived data path |
+| `--plan <name-or-path>` | Test plan name or `.xctestplan` path (uses plan name from filename) |
 | `--test-targets <targets>` | Specific test targets to run (comma-separated) |
 | `--test-cases <cases>` | Specific test cases to run (comma-separated, format: Target/Class/testMethod) |
 | `--only <tests>` | Run only specific tests (format: Target/Class or Target/Class/testMethod) |
@@ -74,6 +81,10 @@ The `--only` option supports:
 - Method name: `testValidLogin` (runs all tests with that method name)
 
 The `--test-cases` option accepts a comma-separated list of full identifiers.
+
+**Test Plans:**
+- `--plan` accepts a plan name or a `.xctestplan` path; the plan name is taken from the filename.
+- If `--xcodebuild-options` already includes `-testPlan`, the CLI does not add another test plan.
 
 ---
 
@@ -105,5 +116,29 @@ flowdeck test discover -w App.xcworkspace -s MyScheme --include-skipped-tests
 | `-c, --config <path>` | Path to JSON config file (also accepts `--cfg`) |
 | `-j, --json` | Output as JSON |
 | `--include-skipped-tests` | Include tests marked as skipped in the scheme/test plan |
+
+---
+
+## test plans - List Test Plans
+
+Lists test plans referenced by a scheme (no build required).
+
+```bash
+# List plans (human-readable)
+flowdeck test plans -w App.xcworkspace -s MyScheme
+
+# List plans as JSON (for tooling)
+flowdeck test plans -w App.xcworkspace -s MyScheme --json
+```
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `-p, --project <path>` | Project directory |
+| `-w, --workspace <path>` | Path to .xcworkspace or .xcodeproj (also accepts `--ws`) |
+| `-s, --scheme <name>` | Scheme name (also accepts `--sch`) |
+| `-c, --config <path>` | Path to JSON config file (also accepts `--cfg`) |
+| `-j, --json` | Output as JSON |
+| `-e, --examples` | Show usage examples |
 
 ---
