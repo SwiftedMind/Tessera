@@ -24,70 +24,37 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 
 ## Table of Contents
 
-- [Quickstart](#quickstart)
 - [Get Started](#get-started)
-- [Migration Guide (3.x → 4.0)](MIGRATION.md)
-- [Grid Placement](#grid-placement)
-- [Choice Symbols](#choice-symbols)
-- [Spatial Steering](#spatial-steering)
-- [Pinned Symbols](#pinned-symbols)
-- [Polygon Regions](#polygon-regions)
-- [Alpha Mask Regions](#alpha-mask-regions)
-- [Exporting](#exporting)
-- [Collision Shape Editor](#collision-shape-editor)
-- [Terminology](#terminology)
-- [Determinism](#determinism)
-- [Notes](#notes)
+  - [Requirements](#requirements)
+  - [Add Tessera via Swift Package Manager](#add-tessera-via-swift-package-manager)
+  - [Configuration Basics](#configuration-basics)
+  - [Quickstart: Render a tiled background](#quickstart-render-a-tiled-background)
+  - [Which mode should I use?](#which-mode-should-i-use)
+  - [Render a finite canvas](#render-a-finite-canvas)
+  - [Next Steps](#next-steps)
+- [Advanced Guides](#advanced-guides)
+  - [Polygon Regions](#polygon-regions)
+  - [Alpha Mask Regions](#alpha-mask-regions)
+  - [Grid Placement](#grid-placement)
+  - [Choice Symbols](#choice-symbols)
+  - [Spatial Steering](#spatial-steering)
+  - [Pinned Symbols](#pinned-symbols)
+  - [Exporting](#exporting)
+  - [Collision Shape Editor](#collision-shape-editor)
+- [Reference](#reference)
+  - [Terminology](#terminology)
+  - [Determinism](#determinism)
+  - [Performance Notes](#performance-notes)
+  - [Migration Guide (3.x → 4.0)](MIGRATION.md)
 - [Tessera App](#tessera-app)
 - [License](#license)
-- [🙏 Acknowledgments](#-acknowledgments)
-
-## Quickstart
-
-```swift
-import SwiftUI
-import Tessera
-
-struct PatternBackground: View {
-  var body: some View {
-    Tessera(
-      Pattern(
-        symbols: [
-          Symbol(collider: .automatic(size: .init(width: 30, height: 30))) {
-            Image(systemName: "sparkle")
-              .font(.system(size: 24, weight: .semibold))
-          },
-          Symbol(collider: .automatic(size: .init(width: 30, height: 30))) {
-            Image(systemName: "circle.grid.cross")
-              .font(.system(size: 24, weight: .semibold))
-          },
-        ],
-      ),
-    )
-    .mode(.tiled(tileSize: .init(width: 256, height: 256)))
-    .seed(.fixed(20))
-    .ignoresSafeArea()
-  }
-}
-```
+- [Acknowledgments](#acknowledgments)
 
 ## Get Started
 
 ### Requirements
 
 - iOS 17+ / macOS 14+
-
-### Which mode should I use?
-
-| Use case | Mode |
-| --- | --- |
-| Endless background | `.mode(.tiled(tileSize: ...))` |
-| Single seamless tile | `.mode(.tile(size: ...))` |
-| Finite composition | `.mode(.canvas(edgeBehavior: .finite))` |
-
-### Example App
-
-Run the local sample app using `Examples/README.md`.
 
 ### Add Tessera via Swift Package Manager
 
@@ -107,7 +74,7 @@ dependencies: [
 - `Symbol` wraps a SwiftUI view and collision behavior.
 - `Tessera` renders using mode/seed/region modifiers.
 
-### Render a tiled background (endlessly repeating)
+### Quickstart: Render a tiled background
 
 ```swift
 import SwiftUI
@@ -115,15 +82,17 @@ import Tessera
 
 struct PatternBackground: View {
   var body: some View {
-    Tessera(
-      Pattern(
+    Tessera(pattern)
+      .mode(.tiled(tileSize: CGSize(width: 256, height: 256)))
+      .seed(.fixed(20))
+      .ignoresSafeArea()
+  }
+
+  var pattern: Pattern {
+    Pattern(
       symbols: symbols,
-        placement: .organic(minimumSpacing: 10, density: 0.6, scale: 0.9...1.15),
-      ),
+      placement: .organic(minimumSpacing: 10, density: 0.6, scale: 0.9...1.15),
     )
-    .mode(.tiled(tileSize: CGSize(width: 256, height: 256)))
-    .seed(.fixed(20))
-    .ignoresSafeArea()
   }
 
   var symbols: [Symbol] {
@@ -152,9 +121,17 @@ struct PatternBackground: View {
 }
 ```
 
+### Which mode should I use?
+
+| Use case | Mode |
+| --- | --- |
+| Endless background | `.mode(.tiled(tileSize: ...))` |
+| Single seamless tile | `.mode(.tile(size: ...))` |
+| Finite composition | `.mode(.canvas(edgeBehavior: .finite))` |
+
 ### Render a finite canvas
 
-Use `.mode(.canvas(...))` for a single generated composition (UI or export). It fills the size provided by layout, so set a frame.
+Use `.mode(.canvas(...))` when you want one non-repeating composition for UI or export.
 
 ```swift
 import SwiftUI
@@ -162,12 +139,12 @@ import Tessera
 
 struct Poster: View {
   var body: some View {
-    Tessera(configuration)
+    Tessera(pattern)
       .mode(.canvas(edgeBehavior: .finite))
       .frame(width: 600, height: 400)
   }
 
-  var configuration: Pattern {
+  var pattern: Pattern {
     Pattern(
       symbols: symbols,
       placement: .organic(minimumSpacing: 10, density: 0.65),
@@ -186,14 +163,20 @@ struct Poster: View {
 }
 ```
 
-## Polygon Regions
+### Next Steps
 
-`TesseraCanvas` can clip and place symbols inside an arbitrary polygon. Provide points in any source space; Tessera maps
-the polygon into the resolved canvas size using aspect-fit and centered alignment by default. Use
-`.canvasCoordinates` when your points are already in canvas space. Polygon regions always use finite edges.
+- Run the sample app: [`Examples/README.md`](Examples/README.md)
+- Review migration notes: [`MIGRATION.md`](MIGRATION.md)
+- Jump to advanced guides: [Polygon Regions](#polygon-regions), [Grid Placement](#grid-placement), [Spatial Steering](#spatial-steering)
 
-By default, drawing is clipped to the region. Use `regionRendering: .unclipped` to allow symbols to extend beyond the
-outline (while still placing symbols inside the polygon).
+## Advanced Guides
+
+### Polygon Regions
+
+- Place symbols inside arbitrary polygons rather than rectangles.
+- Points can be defined in source space and mapped into the resolved canvas size.
+- Use `.canvasCoordinates` when points are already in canvas space.
+- Use `.regionRendering(.unclipped)` to let symbols extend beyond the region while still constraining placement.
 
 ```swift
 let outlinePoints: [CGPoint] = [
@@ -203,9 +186,11 @@ let outlinePoints: [CGPoint] = [
   CGPoint(x: 0, y: 160)
 ]
 
-let region = TesseraCanvasRegion.polygon(outlinePoints)
+let region = Region.polygon(outlinePoints)
 
-TesseraCanvas(configuration, region: region)
+Tessera(pattern)
+  .mode(.canvas(edgeBehavior: .finite))
+  .region(region)
   .frame(width: 400, height: 400)
 ```
 
@@ -214,10 +199,10 @@ polygon points:
 
 ```swift
 let path = CGPath(ellipseIn: CGRect(x: 0, y: 0, width: 200, height: 120), transform: nil)
-let region = TesseraCanvasRegion.polygon(path, flatness: 2)
+let region = Region.polygon(path, flatness: 2)
 ```
 
-### Mapping Modes
+#### Mapping Modes
 
 | Mapping | Behavior |
 | --- | --- |
@@ -226,27 +211,29 @@ let region = TesseraCanvasRegion.polygon(path, flatness: 2)
 | `.fit(mode: .stretch, alignment: .center)` | Stretches independently on each axis to fill the canvas. |
 | `.canvasCoordinates` | Treats points as canvas coordinates with no additional mapping. |
 
-## Alpha Mask Regions
+### Alpha Mask Regions
 
-Alpha mask regions constrain placement using the alpha channel of a SwiftUI view or image. Tessera rasterizes the mask
-at the provided `pixelScale` and treats pixels with alpha ≥ `alphaThreshold` as inside the region. Use
-`regionRendering: .unclipped` to allow symbols to extend past the mask while still placing them inside it.
+- Constrain placement using the alpha channel from a SwiftUI view or image.
+- Tessera rasterizes the mask at `pixelScale` and treats alpha ≥ `alphaThreshold` as inside.
+- Use `.regionRendering(.unclipped)` to draw outside the mask while keeping placement constrained.
 
 ```swift
-let region = TesseraCanvasRegion.alphaMask(cacheKey: "logo-mask") {
+let region = Region.alphaMask(cacheKey: "logo-mask") {
   Image("Logo")
     .resizable()
     .aspectRatio(contentMode: .fit)
 }
 
-TesseraCanvas(configuration, region: region)
+Tessera(pattern)
+  .mode(.canvas(edgeBehavior: .finite))
+  .region(region)
   .frame(width: 400, height: 400)
 ```
 
 If you already have a `CGImage`, pass it directly:
 
 ```swift
-let region = TesseraCanvasRegion.alphaMask(
+let region = Region.alphaMask(
   cacheKey: "mask",
   image: cgImage,
   pixelScale: 2,
@@ -258,7 +245,7 @@ let region = TesseraCanvasRegion.alphaMask(
 > Note: For view-based masks, the view is sized by the mapping; use view modifiers such as `.aspectRatio` to preserve
 > the shape’s proportions. Increase `pixelScale` when you need sharper edges at the cost of extra placement work.
 
-## Grid Placement
+### Grid Placement
 
 Use grid placement when you want orderly, repeatable patterns with optional row/column offsets. Symbols are assigned in
 the order defined by `symbolOrder` (defaults to row-major `.sequence`), and the grid derives cell size from the
@@ -267,16 +254,14 @@ engine rounds up to the nearest even value. Offset fractions are expressed in ce
 by whole cells (for example `2.5` shifts by 2½ cells).
 
 ```swift
-var configuration = TesseraConfiguration(
+let pattern = Pattern(
   symbols: symbols,
   placement: .grid(
-    TesseraPlacement.Grid(
-      columnCount: 8,
-      rowCount: 6,
-      offsetStrategy: .rowShift(fraction: 0.5),
-      symbolOrder: .randomWeightedPerCell,
-      seed: 42
-    )
+    columns: 8,
+    rows: 6,
+    offset: .rowShift(fraction: 0.5),
+    symbolOrder: .randomWeightedPerCell,
+    seed: 42
   )
 )
 ```
@@ -317,17 +302,15 @@ Important: a single grid pass still places one symbol per cell.
 If you need two complete lattices overlaid (both fully populated), render two Tessera layers (one per symbol family)
 and phase-shift one of the layers.
 
-## Choice Symbols
+### Choice Symbols
 
 Choice symbols let one top-level `Symbol` resolve one child symbol per accepted placement.
 
-- Use `choiceStrategy` to control resolution:
-  - `.weightedRandom`: pick a child by child `weight`.
-  - `.sequence`: cycle children deterministically (`first`, `second`, ... then wrap).
+- `.weightedRandom`: pick a child by child `weight`.
+- `.sequence`: cycle children deterministically (`first`, `second`, ... then wrap).
 - Child `weight` values are relative probabilities for `.weightedRandom`.
 - `choiceSeed` is an optional per-symbol seed salt mixed with the placement seed.
-  - Keep it `nil` to use only the global seed.
-  - Set it when you want stable, per-symbol variation control.
+- Keep `choiceSeed` as `nil` to use only the global seed, or set it for stable per-symbol variation control.
 
 ```swift
 let sparkle = Symbol(
@@ -375,28 +358,17 @@ let pattern = Pattern(
 )
 ```
 
-## Spatial Steering
+### Spatial Steering
 
 Spatial steering lets you modulate placement from position using a `SteeringField`.
 
-- `SteeringField` defines:
-  - `values`: interpolation range
-  - `shape`:
-    - `.linear(from:to:)`: unit-space axis projection (`0...1`)
-    - `.radial(center:radius:)`: radial distance from a unit-space center
-  - `radius` (radial):
-    - `.autoFarthestCorner`
-    - `.shortestSideFraction(Double)`
-  - `easing`: interpolation curve (`linear`, `smoothStep`, `easeIn`, `easeOut`, `easeInOut`)
-- Organic steering (`Placement.OrganicSteering`):
-  - `minimumSpacingMultiplier`
-  - `scaleMultiplier`
-  - `rotationMultiplier`
-  - `rotationOffsetDegrees`
-- Grid steering (`Placement.GridSteering`):
-  - `scaleMultiplier`
-  - `rotationMultiplier`
-  - `rotationOffsetDegrees`
+Key `SteeringField` properties:
+- `values`: interpolation range.
+- `shape`: `.linear(from:to:)` or `.radial(center:radius:)`.
+- `radius` (radial): `.autoFarthestCorner` or `.shortestSideFraction(Double)`.
+- `easing`: `linear`, `smoothStep`, `easeIn`, `easeOut`, `easeInOut`.
+- Organic steering fields: `minimumSpacingMultiplier`, `scaleMultiplier`, `rotationMultiplier`, `rotationOffsetDegrees`.
+- Grid steering fields: `scaleMultiplier`, `rotationMultiplier`, `rotationOffsetDegrees`.
 
 Effective transforms are applied as:
 
@@ -406,7 +378,7 @@ scale = baseScale * scaleMultiplier                             // organic + gri
 rotation = baseRotation * rotationMultiplier + rotationOffset   // organic + grid
 ```
 
-### Organic steering example
+#### Organic steering (primary example)
 
 ```swift
 let pattern = Pattern(
@@ -439,7 +411,7 @@ let pattern = Pattern(
 )
 ```
 
-### Grid steering example
+#### Grid steering (variant)
 
 ```swift
 let pattern = Pattern(
@@ -472,7 +444,9 @@ let pattern = Pattern(
 )
 ```
 
-### Organic radial steering example
+#### Radial variants
+
+Organic radial:
 
 ```swift
 let pattern = Pattern(
@@ -493,7 +467,7 @@ let pattern = Pattern(
 )
 ```
 
-### Grid radial steering example
+Grid radial:
 
 ```swift
 let pattern = Pattern(
@@ -523,7 +497,7 @@ let pattern = Pattern(
 > - Grid placement does not reject overlaps between generated grid symbols; it only enforces collisions against pinned symbols.
 > - For a single non-repeating gradient across the whole output, use `.mode(.canvas(edgeBehavior: .finite))`.
 
-## Pinned Symbols
+### Pinned Symbols
 
 Pinned symbols let you place specific content (like a logo or headline) on a fixed-sized canvas while Tessera fills the space around it with repeating Tessera symbols. Pinned symbols are rendered above generated symbols. Fixed symbols participate in collision checks, so generated symbols keep their distance.
 
@@ -533,30 +507,23 @@ import Tessera
 
 struct HeroCard: View {
   var body: some View {
-    TesseraCanvas(
-      configuration,
-      pinnedSymbols: [logo],
-      edgeBehavior: .finite
-    )
-    .frame(width: 600, height: 360)
-    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+    Tessera(pattern)
+      .mode(.canvas(edgeBehavior: .finite))
+      .pinnedSymbols([logo])
+      .frame(width: 600, height: 360)
+      .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
   }
 
-  var configuration: TesseraConfiguration {
-    TesseraConfiguration(
-      symbols: symbols,
-      placement: .organic(
-        TesseraPlacement.Organic(
-          minimumSpacing: 10,
-          density: 0.7
-        )
-      )
+  var pattern: Pattern {
+    Pattern(
+      symbols: generatedSymbols,
+      placement: .organic(minimumSpacing: 10, density: 0.7),
     )
   }
 
-  var symbols: [TesseraSymbol] {
+  var generatedSymbols: [Symbol] {
     [
-      TesseraSymbol(approximateSize: CGSize(width: 28, height: 28)) {
+      Symbol(collider: .automatic(size: CGSize(width: 28, height: 28))) {
         Image(systemName: "hexagon.fill")
           .font(.system(size: 22, weight: .bold))
           .foregroundStyle(.blue.opacity(0.55))
@@ -564,10 +531,10 @@ struct HeroCard: View {
     ]
   }
 
-  var logo: TesseraPinnedSymbol {
-    TesseraPinnedSymbol(
-      position: .centered(),
-      approximateSize: CGSize(width: 160, height: 160)
+  var logo: PinnedSymbol {
+    PinnedSymbol(
+      position: .init(.center),
+      collider: .automatic(size: CGSize(width: 160, height: 160))
     ) {
       Image(systemName: "t.square.fill")
         .font(.system(size: 120, weight: .heavy))
@@ -577,7 +544,7 @@ struct HeroCard: View {
 }
 ```
 
-## Exporting
+### Exporting
 
 Export a tile or tiled canvas to PNG or vector-friendly PDF using the built-in exporter (powered by `ImageRenderer`).
 
@@ -655,11 +622,15 @@ Rendering options (`RenderOptions`):
 - `isOpaque`, `colorMode`: Forwarded to `ImageRenderer`.
 - `backgroundColor` (export function parameter): Optional fill rendered behind the export (defaults to none).
 
-## Collision Shape Editor
+### Collision Shape Editor
 
 Use `Symbol.collisionShapeEditor()` to open an interactive editor and export collision geometry for reuse.
 
-## Terminology
+## Reference
+
+### Terminology
+
+Compatibility note: legacy names (`TesseraConfiguration`, `TesseraSymbol`, `TesseraPlacement`, `TesseraPinnedSymbol`) are still available as shims.
 
 - `Pattern` - Describes how symbols are generated.
 - `Placement` - Defines organic or grid placement behavior.
@@ -668,7 +639,7 @@ Use `Symbol.collisionShapeEditor()` to open an interactive editor and export col
 - `Tessera` - Primary rendering entry point with progressive modifiers (`mode`, `seed`, `region`, `pinnedSymbols`).
 - `CollisionShapeEditor` - An interactive editor that lets you visually build and export a collision shape for your symbols.
 
-## Determinism
+### Determinism
 
 Tessera is deterministic when you provide a fixed seed:
 
@@ -688,14 +659,14 @@ var pattern = Pattern(
 pattern.offset = CGSize(width: 40, height: 0)
 ```
 
-## Notes
+### Performance Notes
 
 - Tessera uses `Canvas` symbols for performance; keep symbol views lightweight.
 - Canvas rendering defaults to synchronous updates to keep interactive transforms in sync. Use
-  `.rendersAsynchronously(true)` on `TesseraCanvas`, `TesseraTiledCanvas`, or `TesseraTile` if you prefer async drawing.
-- Collision geometry is intentionally approximate; use `collisionShape` when an symbol needs a more accurate footprint.
+  `.rendersAsynchronously(true)` on `Tessera` when you prefer async drawing.
+- Collision geometry is intentionally approximate; use `collisionShape` when a symbol needs a more accurate footprint.
   Complex polygons and multi-polygon shapes can dramatically reduce placement performance.
-- `TesseraPlacement.Organic.maximumSymbolCount` is a safety cap. If you crank up `density` on large canvases, you may want to raise it.
+- `Placement.OrganicOptions.maximumCount` is a safety cap. If you crank up `density` on large canvases, you may want to raise it.
 
 ## Tessera App
 
@@ -731,7 +702,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 Built with the amazing Swift ecosystem and community
 
