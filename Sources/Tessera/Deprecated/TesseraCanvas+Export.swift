@@ -204,12 +204,13 @@ private struct TesseraCanvasStaticRenderView: View {
 
   var body: some View {
     let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
+    let renderableLeafSymbols = configuration.symbols.uniqueRenderableLeafSymbols
     let clipPath = region.isPolygon && regionRendering == .clipped ? region.clipPath(in: canvasSize) : nil
     let alphaMaskView = region.isAlphaMask && regionRendering == .clipped
       ? resolvedAlphaMask?.maskView()
       : nil
     let overlayShapesBySymbolId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
-      ? configuration.symbols.reduce(into: [:]) { cache, symbol in
+      ? renderableLeafSymbols.reduce(into: [:]) { cache, symbol in
         cache[symbol.id] = CollisionOverlayShape(collisionShape: symbol.collisionShape)
       }
       : [:]
@@ -222,7 +223,7 @@ private struct TesseraCanvasStaticRenderView: View {
     let baseCanvas = Canvas(
       opaque: false,
       colorMode: .nonLinear,
-      rendersAsynchronously: rendersAsynchronously
+      rendersAsynchronously: rendersAsynchronously,
     ) { context, size in
       guard size.width > 0, size.height > 0 else { return }
 
@@ -238,7 +239,7 @@ private struct TesseraCanvasStaticRenderView: View {
       let offsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: edgeBehavior)
 
       for placedSymbol in placedSymbolDescriptors {
-        guard let symbol = context.resolveSymbol(id: placedSymbol.symbolId) else { continue }
+        guard let symbol = context.resolveSymbol(id: placedSymbol.renderSymbolId) else { continue }
 
         for offset in offsets {
           var symbolContext = context
@@ -249,13 +250,13 @@ private struct TesseraCanvasStaticRenderView: View {
           symbolContext.draw(symbol, at: .zero, anchor: .center)
 
           if isCollisionOverlayEnabled,
-             let overlayShape = overlayShapesBySymbolId[placedSymbol.symbolId] {
+             let overlayShape = overlayShapesBySymbolId[placedSymbol.renderSymbolId] {
             CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
           }
         }
       }
     } symbols: {
-      ForEach(configuration.symbols) { symbol in
+      ForEach(renderableLeafSymbols) { symbol in
         symbol.makeView().tag(symbol.id)
       }
     }
@@ -266,7 +267,7 @@ private struct TesseraCanvasStaticRenderView: View {
           Canvas(
             opaque: false,
             colorMode: .nonLinear,
-            rendersAsynchronously: rendersAsynchronously
+            rendersAsynchronously: rendersAsynchronously,
           ) { context, size in
             guard size.width > 0, size.height > 0 else { return }
 

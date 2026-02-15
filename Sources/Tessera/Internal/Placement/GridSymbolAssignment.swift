@@ -48,6 +48,35 @@ enum GridSymbolAssignment {
     return seed
   }
 
+  static func choiceSeed(
+    baseSeed: UInt64,
+    rowIndex: Int,
+    columnIndex: Int,
+    cellIndex: Int,
+    symbolID: UUID,
+    symbolChoiceSeed: UInt64?,
+  ) -> UInt64 {
+    let bytes = symbolID.uuid
+    let upper = UInt64(bytes.0) << 56 | UInt64(bytes.1) << 48 | UInt64(bytes.2) << 40 | UInt64(bytes.3) << 32 |
+      UInt64(bytes.4) << 24 | UInt64(bytes.5) << 16 | UInt64(bytes.6) << 8 | UInt64(bytes.7)
+    let lower = UInt64(bytes.8) << 56 | UInt64(bytes.9) << 48 | UInt64(bytes.10) << 40 | UInt64(bytes.11) << 32 |
+      UInt64(bytes.12) << 24 | UInt64(bytes.13) << 16 | UInt64(bytes.14) << 8 | UInt64(bytes.15)
+
+    var seed = symbolSeed(
+      baseSeed: baseSeed,
+      rowIndex: rowIndex,
+      columnIndex: columnIndex,
+      cellIndex: cellIndex,
+    ) &* 0xA076_1D64_78BD_642F
+    seed ^= upper
+    seed ^= lower &* 0xE703_7ED1_A0B4_28DB
+    if let symbolChoiceSeed {
+      seed ^= symbolChoiceSeed &* 0xD1B5_4A32_D192_ED03
+    }
+    seed ^= seed >> 31
+    return seed
+  }
+
   static func randomWeightedSymbolIndex(
     symbolCount: Int,
     cumulativeWeights: [Double],

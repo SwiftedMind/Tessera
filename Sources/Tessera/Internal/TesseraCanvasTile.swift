@@ -32,9 +32,10 @@ struct TesseraCanvasTile: View {
     let placedSymbolDescriptors = cachedPlacedSymbolDescriptors
     let onComputationStateChange = onComputationStateChange
     let rendersAsynchronously = rendersAsynchronously
+    let renderableLeafSymbols = configuration.symbols.uniqueRenderableLeafSymbols
     let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
     let overlayShapesBySymbolId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
-      ? configuration.symbols.reduce(into: [:]) { cache, symbol in
+      ? renderableLeafSymbols.reduce(into: [:]) { cache, symbol in
         cache[symbol.id] = CollisionOverlayShape(collisionShape: symbol.collisionShape)
       }
       : [:]
@@ -59,7 +60,7 @@ struct TesseraCanvasTile: View {
       ]
 
       for placedSymbol in placedSymbolDescriptors {
-        guard let symbol = context.resolveSymbol(id: placedSymbol.symbolId) else { continue }
+        guard let symbol = context.resolveSymbol(id: placedSymbol.renderSymbolId) else { continue }
 
         for offset in offsets {
           var symbolContext = context
@@ -70,13 +71,13 @@ struct TesseraCanvasTile: View {
           symbolContext.draw(symbol, at: .zero, anchor: .center)
 
           if isCollisionOverlayEnabled,
-             let overlayShape = overlayShapesBySymbolId[placedSymbol.symbolId] {
+             let overlayShape = overlayShapesBySymbolId[placedSymbol.renderSymbolId] {
             CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
           }
         }
       }
     } symbols: {
-      ForEach(configuration.symbols) { symbol in
+      ForEach(renderableLeafSymbols) { symbol in
         symbol.makeView().tag(symbol.id)
       }
     }
@@ -105,15 +106,7 @@ private extension TesseraCanvasTile {
     var tileSize: CGSize
     var placement: TesseraPlacement
     var patternOffset: CGSize
-    var symbolKeys: [SymbolKey]
-
-    struct SymbolKey: Hashable, Sendable {
-      var id: UUID
-      var weight: Double
-      var allowedRotationRangeDegrees: ClosedRange<Double>
-      var resolvedScaleRange: ClosedRange<Double>
-      var collisionShape: CollisionShape
-    }
+    var symbolDescriptors: [ShapePlacementEngine.PlacementSymbolDescriptor]
   }
 
   struct ComputationSnapshot: Sendable {
@@ -133,57 +126,30 @@ private extension TesseraCanvasTile {
   }
 
   var currentComputationKey: ComputationKey {
-    let symbolKeys: [ComputationKey.SymbolKey] = configuration.symbols.map { symbol in
-      let scaleRange = resolvedScaleRange(for: symbol, placement: resolvedPlacement)
-      return ComputationKey.SymbolKey(
-        id: symbol.id,
-        weight: symbol.weight,
-        allowedRotationRangeDegrees: symbol.allowedRotationRange.lowerBound.degrees...symbol.allowedRotationRange
-          .upperBound
-          .degrees,
-        resolvedScaleRange: scaleRange,
-        collisionShape: symbol.collisionShape,
-      )
-    }
-
-    return ComputationKey(
+    ComputationKey(
       tileSize: tileSize,
       placement: resolvedPlacement,
       patternOffset: configuration.patternOffset,
-      symbolKeys: symbolKeys,
+      symbolDescriptors: makeSymbolDescriptors(using: resolvedPlacement),
     )
   }
 
   func makeComputationSnapshot() -> ComputationSnapshot {
-    let symbolDescriptors: [ShapePlacementEngine.PlacementSymbolDescriptor] = configuration.symbols.map { symbol in
-      let scaleRange = resolvedScaleRange(for: symbol, placement: resolvedPlacement)
-      return ShapePlacementEngine.PlacementSymbolDescriptor(
-        id: symbol.id,
-        weight: symbol.weight,
-        allowedRotationRangeDegrees: symbol.allowedRotationRange.lowerBound.degrees...symbol.allowedRotationRange
-          .upperBound
-          .degrees,
-        resolvedScaleRange: scaleRange,
-        collisionShape: symbol.collisionShape,
-      )
-    }
+    let key = currentComputationKey
 
     return ComputationSnapshot(
-      key: currentComputationKey,
-      symbolDescriptors: symbolDescriptors,
+      key: key,
+      symbolDescriptors: key.symbolDescriptors,
     )
   }
 
-  func resolvedScaleRange(
-    for symbol: TesseraSymbol,
-    placement: TesseraPlacement,
-  ) -> ClosedRange<Double> {
-    switch placement {
-    case let .organic(organicPlacement):
-      symbol.scaleRange ?? organicPlacement.baseScaleRange
-    case .grid:
-      symbol.scaleRange ?? 1...1
-    }
+  func makeSymbolDescriptors(
+    using placement: TesseraPlacement,
+  ) -> [ShapePlacementEngine.PlacementSymbolDescriptor] {
+    ShapePlacementEngine.makeSymbolDescriptors(
+      from: configuration.symbols,
+      placement: placement,
+    )
   }
 
   func seed(for placement: TesseraPlacement) -> UInt64 {

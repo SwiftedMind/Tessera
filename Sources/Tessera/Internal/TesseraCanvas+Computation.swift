@@ -29,17 +29,9 @@ extension TesseraCanvas {
     var edgeBehavior: TesseraEdgeBehavior
     var placement: TesseraPlacement
     var patternOffset: CGSize
-    var symbolKeys: [SymbolKey]
+    var symbolDescriptors: [ShapePlacementEngine.PlacementSymbolDescriptor]
     var pinnedSymbolKeys: [PinnedSymbolKey]
     var region: TesseraCanvasRegion
-
-    struct SymbolKey: Hashable, Sendable {
-      var id: UUID
-      var weight: Double
-      var allowedRotationRangeDegrees: ClosedRange<Double>
-      var resolvedScaleRange: ClosedRange<Double>
-      var collisionShape: CollisionShape
-    }
 
     struct PinnedSymbolKey: Hashable, Sendable {
       enum PositionKind: Hashable, Sendable {
@@ -88,7 +80,7 @@ extension TesseraCanvas {
     let resolvedRegion = region.resolvedPolygon(in: canvasSize)
     return ComputationSnapshot(
       key: key,
-      symbolDescriptors: makeSymbolDescriptors(using: key.placement),
+      symbolDescriptors: key.symbolDescriptors,
       pinnedSymbolDescriptors: makePinnedSymbolDescriptors(
         for: canvasSize,
         region: resolvedRegion,
@@ -165,18 +157,10 @@ extension TesseraCanvas {
   }
 
   func makeSymbolDescriptors(using placement: TesseraPlacement) -> [ShapePlacementEngine.PlacementSymbolDescriptor] {
-    configuration.symbols.map { symbol in
-      let scaleRange = resolvedScaleRange(for: symbol, placement: placement)
-      return ShapePlacementEngine.PlacementSymbolDescriptor(
-        id: symbol.id,
-        weight: symbol.weight,
-        allowedRotationRangeDegrees: symbol.allowedRotationRange.lowerBound.degrees...symbol.allowedRotationRange
-          .upperBound
-          .degrees,
-        resolvedScaleRange: scaleRange,
-        collisionShape: symbol.collisionShape,
-      )
-    }
+    ShapePlacementEngine.makeSymbolDescriptors(
+      from: configuration.symbols,
+      placement: placement,
+    )
   }
 
   func makePinnedSymbolDescriptors(
@@ -230,18 +214,6 @@ extension TesseraCanvas {
     return samplePoints.contains(where: alphaMask.contains)
   }
 
-  func resolvedScaleRange(
-    for symbol: TesseraSymbol,
-    placement: TesseraPlacement,
-  ) -> ClosedRange<Double> {
-    switch placement {
-    case let .organic(organicPlacement):
-      symbol.scaleRange ?? organicPlacement.baseScaleRange
-    case .grid:
-      symbol.scaleRange ?? 1...1
-    }
-  }
-
   func seed(for placement: TesseraPlacement) -> UInt64 {
     switch placement {
     case let .organic(organicPlacement):
@@ -253,18 +225,7 @@ extension TesseraCanvas {
 
   func makeComputationKey(for canvasSize: CGSize) -> ComputationKey {
     let placement = resolvedPlacement
-    let symbolKeys: [ComputationKey.SymbolKey] = configuration.symbols.map { symbol in
-      let scaleRange = resolvedScaleRange(for: symbol, placement: placement)
-      return ComputationKey.SymbolKey(
-        id: symbol.id,
-        weight: symbol.weight,
-        allowedRotationRangeDegrees: symbol.allowedRotationRange.lowerBound.degrees...symbol.allowedRotationRange
-          .upperBound
-          .degrees,
-        resolvedScaleRange: scaleRange,
-        collisionShape: symbol.collisionShape,
-      )
-    }
+    let symbolDescriptors = makeSymbolDescriptors(using: placement)
 
     let pinnedSymbolKeys: [ComputationKey.PinnedSymbolKey] = pinnedSymbols.map { pinnedSymbol in
       let positionKey = makePinnedSymbolPositionKey(from: pinnedSymbol.position)
@@ -288,7 +249,7 @@ extension TesseraCanvas {
       edgeBehavior: effectiveEdgeBehavior,
       placement: placement,
       patternOffset: configuration.patternOffset,
-      symbolKeys: symbolKeys,
+      symbolDescriptors: symbolDescriptors,
       pinnedSymbolKeys: pinnedSymbolKeys,
       region: region,
     )

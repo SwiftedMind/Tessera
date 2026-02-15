@@ -93,7 +93,8 @@ enum OrganicShapePlacementEngine {
     let gridColumnCount = max(1, Int(ceil(size.width / cellSize)))
     let gridRowCount = max(1, Int(ceil(size.height / cellSize)))
 
-    let polygonCache: [UUID: [CollisionPolygon]] = symbolDescriptors.reduce(into: [:]) { cache, symbol in
+    let renderableLeafDescriptors = symbolDescriptors.flatMap(\.renderableLeafDescriptors)
+    let polygonCache: [UUID: [CollisionPolygon]] = renderableLeafDescriptors.reduce(into: [:]) { cache, symbol in
       cache[symbol.id] = CollisionMath.polygons(for: symbol.collisionShape)
     }
 
@@ -116,19 +117,34 @@ enum OrganicShapePlacementEngine {
 
     var placedDescriptors: [PlacedSymbolDescriptor] = []
     placedDescriptors.reserveCapacity(remainingTargetCount)
+    var choiceSequenceState = ShapePlacementEngine.ChoiceSequenceState()
 
-    for _ in 0..<remainingTargetCount {
+    for placementAttemptIndex in 0..<remainingTargetCount {
       if Task.isCancelled { return placedDescriptors }
 
       guard let selectedSymbol = pickSymbol(from: symbolDescriptors, using: &randomGenerator) else { break }
 
-      let baseScale = Double.random(in: selectedSymbol.resolvedScaleRange, using: &randomGenerator)
+      let choiceSeed = organicChoiceSeed(
+        baseSeed: configuration.seed,
+        placementAttemptIndex: placementAttemptIndex,
+        symbolID: selectedSymbol.id,
+        symbolChoiceSeed: selectedSymbol.choiceSeed,
+      )
+      var choiceRandomGenerator = SeededGenerator(seed: choiceSeed)
+      var tentativeChoiceSequenceState = choiceSequenceState
+      guard let selectedRenderSymbol = ShapePlacementEngine.resolveLeafSymbolDescriptor(
+        from: selectedSymbol,
+        randomGenerator: &choiceRandomGenerator,
+        sequenceState: &tentativeChoiceSequenceState,
+      ) else { continue }
+
+      let baseScale = Double.random(in: selectedRenderSymbol.resolvedScaleRange, using: &randomGenerator)
       let baseRotationRadians = randomAngleRadians(
-        in: selectedSymbol.allowedRotationRangeDegrees,
+        in: selectedRenderSymbol.allowedRotationRangeDegrees,
         using: &randomGenerator,
       )
 
-      guard let selectedPolygons = polygonCache[selectedSymbol.id] else { continue }
+      guard let selectedPolygons = polygonCache[selectedRenderSymbol.id] else { continue }
 
       let maximumAttempts = 20
       var didPlaceSymbol = false
@@ -183,10 +199,11 @@ enum OrganicShapePlacementEngine {
 
         let candidate = PlacedSymbolDescriptor(
           symbolId: selectedSymbol.id,
+          renderSymbolId: selectedRenderSymbol.id,
           position: position,
           rotationRadians: rotationRadians,
           scale: CGFloat(scale),
-          collisionShape: selectedSymbol.collisionShape,
+          collisionShape: selectedRenderSymbol.collisionShape,
         )
 
         let candidateCoordinate = cellCoordinate(
@@ -222,14 +239,15 @@ enum OrganicShapePlacementEngine {
           candidateMinimumSpacing: candidateMinimumSpacing,
         ) else { continue }
 
+        choiceSequenceState = tentativeChoiceSequenceState
         placedDescriptors.append(candidate)
         let candidateTransform = candidate.collisionTransform
         colliders.append(
           PlacedCollider(
-            collisionShape: selectedSymbol.collisionShape,
+            collisionShape: selectedRenderSymbol.collisionShape,
             collisionTransform: candidateTransform,
             polygons: selectedPolygons,
-            boundingRadius: selectedSymbol.collisionShape.boundingRadius(atScale: candidateTransform.scale),
+            boundingRadius: selectedRenderSymbol.collisionShape.boundingRadius(atScale: candidateTransform.scale),
             minimumSpacing: candidateMinimumSpacing,
           ),
         )
@@ -247,12 +265,35 @@ enum OrganicShapePlacementEngine {
     return placedDescriptors
   }
 
+  private static func organicChoiceSeed(
+    baseSeed: UInt64,
+    placementAttemptIndex: Int,
+    symbolID: UUID,
+    symbolChoiceSeed: UInt64?,
+  ) -> UInt64 {
+    let bytes = symbolID.uuid
+    let upper = UInt64(bytes.0) << 56 | UInt64(bytes.1) << 48 | UInt64(bytes.2) << 40 | UInt64(bytes.3) << 32 |
+      UInt64(bytes.4) << 24 | UInt64(bytes.5) << 16 | UInt64(bytes.6) << 8 | UInt64(bytes.7)
+    let lower = UInt64(bytes.8) << 56 | UInt64(bytes.9) << 48 | UInt64(bytes.10) << 40 | UInt64(bytes.11) << 32 |
+      UInt64(bytes.12) << 24 | UInt64(bytes.13) << 16 | UInt64(bytes.14) << 8 | UInt64(bytes.15)
+
+    var seed = baseSeed &* 0xA076_1D64_78BD_642F
+    seed ^= UInt64(truncatingIfNeeded: placementAttemptIndex) &* 0x94D0_49BB_1331_11EB
+    seed ^= upper
+    seed ^= lower &* 0xE703_7ED1_A0B4_28DB
+    if let symbolChoiceSeed {
+      seed ^= symbolChoiceSeed &* 0xD1B5_4A32_D192_ED03
+    }
+    seed ^= seed >> 31
+    return seed
+  }
+
   private static func maximumBoundingRadius(
     for symbols: [PlacementSymbolDescriptor],
     maximumScaleMultiplier: CGFloat,
   ) -> CGFloat {
     var maximumRadius: CGFloat = 0
-    for symbol in symbols {
+    for symbol in symbols.flatMap(\.renderableLeafDescriptors) {
       let maximumScale = max(0, symbol.resolvedScaleRange.upperBound) * Double(maximumScaleMultiplier)
       let radius = symbol.collisionShape.boundingRadius(atScale: CGFloat(maximumScale))
       maximumRadius = max(maximumRadius, radius)
@@ -344,14 +385,17 @@ enum OrganicShapePlacementEngine {
     using randomGenerator: inout some RandomNumberGenerator,
   ) -> PlacementSymbolDescriptor? {
     // Weighted pick to preserve caller-defined symbol frequencies.
-    let totalWeight = symbols.reduce(0) { $0 + $1.weight }
+    let normalizedWeights: [Double] = symbols.map { symbol in
+      symbol.weight.isFinite ? max(0, symbol.weight) : 0
+    }
+    let totalWeight = normalizedWeights.reduce(0, +)
     guard totalWeight > 0 else { return symbols.randomElement(using: &randomGenerator) }
 
     let randomValue = Double.random(in: 0..<totalWeight, using: &randomGenerator)
     var accumulator = 0.0
 
-    for symbol in symbols {
-      accumulator += symbol.weight
+    for (index, symbol) in symbols.enumerated() {
+      accumulator += normalizedWeights[index]
       if randomValue < accumulator { return symbol }
     }
 

@@ -6,6 +6,9 @@
 - **Grid Seed**: `TesseraPlacement.Grid` now includes `seed` to drive deterministic grid symbol assignment.
 - **Per-Symbol Grid Phases**: `TesseraPlacement.Grid.symbolPhases` allows deterministic per-symbol phase offsets in
   grid cell units (for interleaved lattices and phase-shifted symbol families).
+- **Choice Symbols**: `TesseraSymbol`/`Symbol` now support nested `choices` plus `choiceStrategy`
+  (`.weightedRandom`, `.sequence`) so one top-level symbol can resolve controlled per-placement variation while staying
+  seed-stable.
 - **Spatial Steering Fields**: Added `TesseraPlacement.SteeringField` with value range, easing
   (`linear`, `smoothStep`, `easeIn`, `easeOut`, `easeInOut`), and shape selection (`linear`, `radial`) for
   position-based interpolation.

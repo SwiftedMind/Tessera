@@ -36,6 +36,15 @@ struct TesseraDemoView: View {
             )
           }
           NavigationLink {
+            ChoiceSymbolsExampleView()
+          } label: {
+            ExampleRow(
+              title: "Choice Symbols",
+              subtitle: "One symbol resolves weighted variants",
+              systemImage: "dice",
+            )
+          }
+          NavigationLink {
             PolygonRegionExampleView()
           } label: {
             ExampleRow(

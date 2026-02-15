@@ -14,6 +14,7 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 - Declarative configuration: describe symbols and placement; provide a size at render time.
 - Even spacing: shape-aware placement that avoids clustering.
 - Grid placement: place symbols on a regular grid with configurable offsets.
+- Choice symbols: let one symbol resolve to multiple child variants per placement.
 - Spatial steering: modulate spacing, scale, and rotation from position-based fields.
 - Seamless wrapping: tile edges wrap toroidally so patterns repeat without seams.
 - Deterministic output: provide a seed for reproducible layouts; omit to randomize.
@@ -27,6 +28,7 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 - [Get Started](#get-started)
 - [Migration Guide (3.x → 4.0)](MIGRATION.md)
 - [Grid Placement](#grid-placement)
+- [Choice Symbols](#choice-symbols)
 - [Spatial Steering](#spatial-steering)
 - [Pinned Symbols](#pinned-symbols)
 - [Polygon Regions](#polygon-regions)
@@ -314,6 +316,64 @@ Typical uses:
 Important: a single grid pass still places one symbol per cell.
 If you need two complete lattices overlaid (both fully populated), render two Tessera layers (one per symbol family)
 and phase-shift one of the layers.
+
+## Choice Symbols
+
+Choice symbols let one top-level `Symbol` resolve one child symbol per accepted placement.
+
+- Use `choiceStrategy` to control resolution:
+  - `.weightedRandom`: pick a child by child `weight`.
+  - `.sequence`: cycle children deterministically (`first`, `second`, ... then wrap).
+- Child `weight` values are relative probabilities for `.weightedRandom`.
+- `choiceSeed` is an optional per-symbol seed salt mixed with the placement seed.
+  - Keep it `nil` to use only the global seed.
+  - Set it when you want stable, per-symbol variation control.
+
+```swift
+let sparkle = Symbol(
+  id: UUID(uuidString: "80A33AD9-7BC5-4C69-A0A0-511DD6CBEE71")!,
+  weight: 2,
+  collider: .automatic(size: CGSize(width: 26, height: 26))
+) {
+  Image(systemName: "sparkles")
+}
+
+let slashedCircle = Symbol(
+  id: UUID(uuidString: "4D51AD6A-0B07-478C-B053-95B380EC2EA4")!,
+  weight: 1,
+  collider: .automatic(size: CGSize(width: 26, height: 26))
+) {
+  Image(systemName: "circle.slash")
+}
+
+let choice = Symbol(
+  id: UUID(uuidString: "F9514DB4-50B4-4F17-8BE3-26E2A48D6C38")!,
+  choiceStrategy: .weightedRandom,
+  choiceSeed: 302,
+  choices: [sparkle, slashedCircle]
+)
+
+let pattern = Pattern(
+  symbols: [choice],
+  placement: .grid(columns: 8, rows: 8, seed: 42)
+)
+```
+
+When using grid `symbolPhases` with choice symbols, phase keys should reference the resolved child symbol IDs:
+
+```swift
+let pattern = Pattern(
+  symbols: [choice],
+  placement: .grid(
+    columns: 8,
+    rows: 8,
+    seed: 42,
+    symbolPhases: [
+      slashedCircle.id: .init(x: 0.5, y: 0.5)
+    ]
+  )
+)
+```
 
 ## Spatial Steering
 

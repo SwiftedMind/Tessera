@@ -92,6 +92,28 @@ import Testing
   }
 }
 
+@Test func symbolChoiceInitializerStoresStrategyAndChildren() async throws {
+  let first = Symbol(collider: .automatic(size: CGSize(width: 8, height: 8))) {
+    Circle().frame(width: 8, height: 8)
+  }
+  let second = Symbol(collider: .automatic(size: CGSize(width: 10, height: 10))) {
+    Rectangle().frame(width: 10, height: 10)
+  }
+  let choice = Symbol(
+    id: UUID(uuidString: "00000000-0000-0000-0000-0000000000AA")!,
+    weight: 2,
+    choiceStrategy: .sequence,
+    choiceSeed: 77,
+    choices: [first, second],
+  )
+
+  #expect(choice.weight == 2)
+  #expect(choice.choiceStrategy == .sequence)
+  #expect(choice.choiceSeed == 77)
+  #expect(choice.choices.count == 2)
+  #expect(choice.renderableLeafSymbols.map(\.id) == [first.id, second.id])
+}
+
 @Test @MainActor func canvasModeExportRequiresCanvasSize() async throws {
   let symbol = Symbol(collider: .automatic(size: CGSize(width: 12, height: 12))) {
     Circle().frame(width: 12, height: 12)

@@ -11,6 +11,9 @@ public enum Collider: Hashable, Sendable {
   case shape(CollisionShape)
 }
 
+/// Public alias for symbol choice strategies.
+public typealias SymbolChoiceStrategy = TesseraSymbolChoiceStrategy
+
 /// Primary symbol API alias for Tessera v4.
 public typealias Symbol = TesseraSymbol
 

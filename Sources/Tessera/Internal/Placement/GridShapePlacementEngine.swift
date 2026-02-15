@@ -72,12 +72,14 @@ enum GridShapePlacementEngine {
     }
     let pinnedIndices = Array(pinnedColliders.indices)
 
-    let polygonCache: [UUID: [CollisionPolygon]] = symbolDescriptors.reduce(into: [:]) { cache, symbol in
+    let renderableLeafDescriptors = symbolDescriptors.flatMap(\.renderableLeafDescriptors)
+    let polygonCache: [UUID: [CollisionPolygon]] = renderableLeafDescriptors.reduce(into: [:]) { cache, symbol in
       cache[symbol.id] = CollisionMath.polygons(for: symbol.collisionShape)
     }
 
     var placedDescriptors: [PlacedSymbolDescriptor] = []
     placedDescriptors.reserveCapacity(resolvedGrid.totalCellCount)
+    var choiceSequenceState = ShapePlacementEngine.ChoiceSequenceState()
 
     for rowIndex in 0..<resolvedGrid.rowCount {
       for columnIndex in 0..<resolvedGrid.columnCount {
@@ -113,16 +115,31 @@ enum GridShapePlacementEngine {
           )
         }
         let selectedSymbol = symbolDescriptors[resolvedSymbolIndex % symbolCount]
+        let choiceSeed = GridSymbolAssignment.choiceSeed(
+          baseSeed: configuration.seed,
+          rowIndex: rowIndex,
+          columnIndex: columnIndex,
+          cellIndex: cellIndex,
+          symbolID: selectedSymbol.id,
+          symbolChoiceSeed: selectedSymbol.choiceSeed,
+        )
+        var choiceRandomGenerator = SeededGenerator(seed: choiceSeed)
+        var tentativeChoiceSequenceState = choiceSequenceState
+        guard let selectedRenderSymbol = ShapePlacementEngine.resolveLeafSymbolDescriptor(
+          from: selectedSymbol,
+          randomGenerator: &choiceRandomGenerator,
+          sequenceState: &tentativeChoiceSequenceState,
+        ) else { continue }
 
         let baseRotationRadians = rotationRadiansForGrid(
-          rangeDegrees: selectedSymbol.allowedRotationRangeDegrees,
+          rangeDegrees: selectedRenderSymbol.allowedRotationRangeDegrees,
           baseSeed: configuration.seed,
           rowIndex: rowIndex,
           columnIndex: columnIndex,
           cellIndex: cellIndex,
         )
 
-        guard let selectedPolygons = polygonCache[selectedSymbol.id] else { continue }
+        guard let selectedPolygons = polygonCache[selectedRenderSymbol.id] else { continue }
 
         let basePosition = gridCellCenter(
           columnIndex: columnIndex,
@@ -136,8 +153,11 @@ enum GridShapePlacementEngine {
           rowIndex: rowIndex,
           cellSize: resolvedGrid.cellSize,
         )
+        let phaseSymbolID = configuration.symbolPhases[selectedRenderSymbol.id] == nil
+          ? selectedSymbol.id
+          : selectedRenderSymbol.id
         let symbolPhaseOffset = symbolPhaseOffset(
-          for: selectedSymbol.id,
+          for: phaseSymbolID,
           symbolPhases: configuration.symbolPhases,
           cellSize: resolvedGrid.cellSize,
         )
@@ -173,7 +193,7 @@ enum GridShapePlacementEngine {
             defaultValue: 1,
           ),
         )
-        let scale = max(0, selectedSymbol.resolvedScaleRange.lowerBound * scaleMultiplier)
+        let scale = max(0, selectedRenderSymbol.resolvedScaleRange.lowerBound * scaleMultiplier)
         let rotationMultiplier = max(
           0,
           ShapePlacementSteering.value(
@@ -194,10 +214,11 @@ enum GridShapePlacementEngine {
 
         let candidate = PlacedSymbolDescriptor(
           symbolId: selectedSymbol.id,
+          renderSymbolId: selectedRenderSymbol.id,
           position: position,
           rotationRadians: rotationRadians,
           scale: CGFloat(scale),
-          collisionShape: selectedSymbol.collisionShape,
+          collisionShape: selectedRenderSymbol.collisionShape,
         )
 
         if pinnedColliders.isEmpty == false {
@@ -215,6 +236,7 @@ enum GridShapePlacementEngine {
           guard isValid else { continue }
         }
 
+        choiceSequenceState = tentativeChoiceSequenceState
         placedDescriptors.append(candidate)
       }
     }

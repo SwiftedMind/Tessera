@@ -27,18 +27,10 @@ enum ShapePlacementEngine {
   ) -> [PlacedSymbol] {
     guard !configuration.symbols.isEmpty else { return [] }
 
-    let symbolDescriptors = configuration.symbols.map { symbol in
-      let scaleRange = resolvedScaleRange(for: symbol, placement: configuration.placement)
-      return PlacementSymbolDescriptor(
-        id: symbol.id,
-        weight: symbol.weight,
-        allowedRotationRangeDegrees: symbol.allowedRotationRange.lowerBound.degrees...symbol.allowedRotationRange
-          .upperBound
-          .degrees,
-        resolvedScaleRange: scaleRange,
-        collisionShape: symbol.collisionShape,
-      )
-    }
+    let symbolDescriptors = makeSymbolDescriptors(
+      from: configuration.symbols,
+      placement: configuration.placement,
+    )
 
     let pinnedSymbolDescriptors = pinnedSymbols.map { pinnedSymbol in
       PinnedSymbolDescriptor(
@@ -61,12 +53,10 @@ enum ShapePlacementEngine {
       randomGenerator: &randomGenerator,
     )
 
-    let symbolLookup: [UUID: TesseraSymbol] = configuration.symbols.reduce(into: [:]) { cache, symbol in
-      cache[symbol.id] = symbol
-    }
+    let symbolLookup = configuration.symbols.renderableLeafLookupByID
 
     return placedDescriptors.compactMap { descriptor in
-      guard let symbol = symbolLookup[descriptor.symbolId] else { return nil }
+      guard let symbol = symbolLookup[descriptor.renderSymbolId] else { return nil }
 
       return PlacedSymbol(
         symbol: symbol,
@@ -74,6 +64,15 @@ enum ShapePlacementEngine {
         rotation: .radians(descriptor.rotationRadians),
         scale: descriptor.scale,
       )
+    }
+  }
+
+  static func makeSymbolDescriptors(
+    from symbols: [TesseraSymbol],
+    placement: TesseraPlacement,
+  ) -> [PlacementSymbolDescriptor] {
+    symbols.map { symbol in
+      makeSymbolDescriptor(from: symbol, placement: placement)
     }
   }
 
@@ -138,5 +137,36 @@ enum ShapePlacementEngine {
     case .grid:
       symbol.scaleRange ?? 1...1
     }
+  }
+
+  private static func makeSymbolDescriptor(
+    from symbol: TesseraSymbol,
+    placement: TesseraPlacement,
+  ) -> PlacementSymbolDescriptor {
+    let childDescriptors = symbol.choices.map { childSymbol in
+      makeSymbolDescriptor(
+        from: childSymbol,
+        placement: placement,
+      )
+    }
+    let renderDescriptor: PlacementSymbolDescriptor.RenderDescriptor? = childDescriptors.isEmpty
+      ? PlacementSymbolDescriptor.RenderDescriptor(
+        id: symbol.id,
+        allowedRotationRangeDegrees: symbol.allowedRotationRange.lowerBound.degrees...symbol.allowedRotationRange
+          .upperBound
+          .degrees,
+        resolvedScaleRange: resolvedScaleRange(for: symbol, placement: placement),
+        collisionShape: symbol.collisionShape,
+      )
+      : nil
+
+    return PlacementSymbolDescriptor(
+      id: symbol.id,
+      weight: symbol.weight,
+      choiceStrategy: symbol.choiceStrategy,
+      choiceSeed: symbol.choiceSeed,
+      renderDescriptor: renderDescriptor,
+      choices: childDescriptors,
+    )
   }
 }
