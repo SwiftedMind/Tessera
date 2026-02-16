@@ -10,14 +10,14 @@ import Testing
   let symbol = makeSymbolDescriptor(id: symbolID)
   let size = CGSize(width: 200, height: 200)
 
-  let configurationWithoutPhase = TesseraPlacement.Grid(
+  let configurationWithoutPhase = PlacementModel.Grid(
     columnCount: 2,
     rowCount: 2,
     offsetStrategy: .none,
     symbolOrder: .sequence,
     seed: 7,
   )
-  let configurationWithZeroPhase = TesseraPlacement.Grid(
+  let configurationWithZeroPhase = PlacementModel.Grid(
     columnCount: 2,
     rowCount: 2,
     offsetStrategy: .none,
@@ -49,7 +49,7 @@ import Testing
   let symbolA = makeSymbolDescriptor(id: UUID())
   let symbolB = makeSymbolDescriptor(id: UUID())
   let size = CGSize(width: 400, height: 400)
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 4,
     rowCount: 4,
     offsetStrategy: .none,
@@ -78,7 +78,7 @@ import Testing
 @Test func symbolPhaseSupportsValuesGreaterThanOne() async throws {
   let symbolID = UUID()
   let size = CGSize(width: 400, height: 100)
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 4,
     rowCount: 1,
     offsetStrategy: .none,
@@ -102,17 +102,17 @@ import Testing
 @Test func symbolPhaseNaNAndInfinityActAsZero() async throws {
   let symbolID = UUID()
   let size = CGSize(width: 200, height: 200)
-  var phase = TesseraPlacement.Grid.SymbolPhase(x: 0.2, y: 0.3)
+  var phase = PlacementModel.Grid.SymbolPhase(x: 0.2, y: 0.3)
   phase.x = .nan
   phase.y = .infinity
-  let defaultConfiguration = TesseraPlacement.Grid(
+  let defaultConfiguration = PlacementModel.Grid(
     columnCount: 2,
     rowCount: 2,
     offsetStrategy: .none,
     symbolOrder: .sequence,
     seed: 3,
   )
-  let nonFinitePhaseConfiguration = TesseraPlacement.Grid(
+  let nonFinitePhaseConfiguration = PlacementModel.Grid(
     columnCount: 2,
     rowCount: 2,
     offsetStrategy: .none,
@@ -145,7 +145,7 @@ import Testing
 @Test func largeSymbolPhaseCullsInFiniteButWrapsInSeamlessMode() async throws {
   let symbolID = UUID()
   let size = CGSize(width: 400, height: 100)
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 4,
     rowCount: 1,
     offsetStrategy: .none,
@@ -173,6 +173,34 @@ import Testing
   #expect(placedFinite.count == 3)
   #expect(placedWrapped.count == 4)
   #expect(placedWrapped.map(\.position.x) == [175, 275, 375, 75])
+}
+
+@Test func symbolPhaseWithMergedCellsUsesBaseCellUnits() async throws {
+  let symbolID = UUID()
+  let size = CGSize(width: 400, height: 200)
+  let configuration = PlacementModel.Grid(
+    columnCount: 4,
+    rowCount: 2,
+    offsetStrategy: .none,
+    symbolOrder: .sequence,
+    seed: 31,
+    symbolPhases: [symbolID: .init(x: 0.25, y: 0)],
+    mergedCells: [
+      .init(origin: .init(row: 0, column: 0), span: .init(rows: 1, columns: 2)),
+    ],
+  )
+
+  let placed = GridShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: [makeSymbolDescriptor(id: symbolID)],
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .finite,
+    configuration: configuration,
+  )
+
+  #expect(placed.count == 7)
+  #expect(placed.contains { $0.position == CGPoint(x: 125, y: 50) })
+  #expect(placed.contains { $0.position == CGPoint(x: 150, y: 50) } == false)
 }
 
 private func makeSymbolDescriptor(id: UUID) -> ShapePlacementEngine.PlacementSymbolDescriptor {

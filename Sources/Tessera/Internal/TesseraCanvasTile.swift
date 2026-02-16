@@ -33,6 +33,8 @@ struct TesseraCanvasTile: View {
     let onComputationStateChange = onComputationStateChange
     let rendersAsynchronously = rendersAsynchronously
     let renderableLeafSymbols = configuration.symbols.uniqueRenderableLeafSymbols
+    let gridPlacement = configuration.gridPlacement
+    let isGridOverlayEnabled = gridPlacement?.showsGridOverlay == true
     let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
     let overlayShapesBySymbolId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
       ? renderableLeafSymbols.reduce(into: [:]) { cache, symbol in
@@ -76,6 +78,16 @@ struct TesseraCanvasTile: View {
           }
         }
       }
+
+      if isGridOverlayEnabled, let gridPlacement {
+        GridDebugOverlayRenderer.draw(
+          in: &context,
+          size: size,
+          configuration: gridPlacement,
+          edgeBehavior: .seamlessWrapping,
+          patternOffset: configuration.patternOffset,
+        )
+      }
     } symbols: {
       ForEach(renderableLeafSymbols) { symbol in
         symbol.makeView().tag(symbol.id)
@@ -104,7 +116,7 @@ struct TesseraCanvasTile: View {
 private extension TesseraCanvasTile {
   struct ComputationKey: Hashable, Sendable {
     var tileSize: CGSize
-    var placement: TesseraPlacement
+    var placement: PlacementModel
     var patternOffset: CGSize
     var symbolDescriptors: [ShapePlacementEngine.PlacementSymbolDescriptor]
   }
@@ -114,7 +126,7 @@ private extension TesseraCanvasTile {
     var symbolDescriptors: [ShapePlacementEngine.PlacementSymbolDescriptor]
   }
 
-  var resolvedPlacement: TesseraPlacement {
+  var resolvedPlacement: PlacementModel {
     switch configuration.placement {
     case var .organic(organicPlacement):
       organicPlacement.seed = seed
@@ -144,7 +156,7 @@ private extension TesseraCanvasTile {
   }
 
   func makeSymbolDescriptors(
-    using placement: TesseraPlacement,
+    using placement: PlacementModel,
   ) -> [ShapePlacementEngine.PlacementSymbolDescriptor] {
     ShapePlacementEngine.makeSymbolDescriptors(
       from: configuration.symbols,
@@ -152,7 +164,7 @@ private extension TesseraCanvasTile {
     )
   }
 
-  func seed(for placement: TesseraPlacement) -> UInt64 {
+  func seed(for placement: PlacementModel) -> UInt64 {
     switch placement {
     case let .organic(organicPlacement):
       organicPlacement.seed

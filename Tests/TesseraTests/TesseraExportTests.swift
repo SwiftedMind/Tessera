@@ -11,7 +11,13 @@ import Testing
   let temporaryDirectory = FileManager.default.temporaryDirectory
   let fileName = UUID().uuidString
 
-  let exportedURL = try tile.renderPNG(to: temporaryDirectory, fileName: fileName)
+  let exportedURL = try tile.export(
+    .png,
+    options: .init(
+      directory: temporaryDirectory,
+      fileName: fileName,
+    ),
+  )
   defer { try? FileManager.default.removeItem(at: exportedURL) }
 
   let cgImage = try cgImageFromPNGFile(at: exportedURL)
@@ -23,7 +29,13 @@ import Testing
   let temporaryDirectory = FileManager.default.temporaryDirectory
   let fileName = UUID().uuidString
 
-  let exportedURL = try tile.renderPDF(to: temporaryDirectory, fileName: fileName)
+  let exportedURL = try tile.export(
+    .pdf,
+    options: .init(
+      directory: temporaryDirectory,
+      fileName: fileName,
+    ),
+  )
   defer { try? FileManager.default.removeItem(at: exportedURL) }
 
   let cgImage = try cgImageFromPDFFile(at: exportedURL)
@@ -97,7 +109,7 @@ import Testing
   let configuration = TesseraConfiguration(
     symbols: [generatedSymbol],
     placement: .grid(
-      TesseraPlacement.Grid(
+      PlacementModel.Grid(
         columnCount: 1,
         rowCount: 1,
       ),
@@ -151,7 +163,7 @@ import Testing
   let configuration = TesseraConfiguration(
     symbols: [generatedSymbol],
     placement: .grid(
-      TesseraPlacement.Grid(
+      PlacementModel.Grid(
         columnCount: 1,
         rowCount: 1,
       ),

@@ -261,7 +261,8 @@ let pattern = Pattern(
     rows: 6,
     offset: .rowShift(fraction: 0.5),
     symbolOrder: .randomWeightedPerCell,
-    seed: 42
+    seed: 42,
+    showsGridOverlay: true
   )
 )
 ```
@@ -298,7 +299,63 @@ Typical uses:
 - Nudging only one symbol family without changing all grid cells.
 - Building offset motifs while keeping deterministic assignment via `seed`.
 
-Important: a single grid pass still places one symbol per cell.
+Use `mergedCells` to turn multiple base cells into one larger placement cell.
+Each merged cell can provide its own override symbol inline:
+
+```swift
+let hero = Symbol(collider: .automatic(size: CGSize(width: 60, height: 60))) {
+  Image(systemName: "sparkles")
+}
+
+let pattern = Pattern(
+  symbols: regularSymbols,
+  placement: .grid(
+    columns: 10,
+    rows: 10,
+    mergedCells: [
+      .init(
+        at: .init(row: 4, column: 3),
+        spanning: .init(rows: 2, columns: 2),
+        symbol: hero,
+        symbolSizing: .fitMergedCell
+      ),
+      .init(
+        at: .init(row: 4, column: 5),
+        spanning: .init(rows: 2, columns: 1)
+      ),
+    ]
+  )
+)
+```
+
+If you need explicit ID wiring, use `symbolOverride: .existing(...)`:
+
+```swift
+.init(
+  at: .init(row: 4, column: 3),
+  spanning: .init(rows: 2, columns: 2),
+  symbolOverride: .existing(hero.id),
+  symbolSizing: .fitMergedCell
+)
+```
+
+`mergedCells` behavior:
+
+- Coordinate space: zero-based base grid row/column indices.
+- Rectangle shape: `origin` + `span` (`rows x columns`).
+- Validation: invalid or overlapping merges are ignored; first valid merge wins.
+- `symbolOverride`: explicit override mode (`.none`, `.inline(symbol)`, `.existing(symbolID)`).
+- `symbol`: convenience for inline overrides (recommended).
+- `symbolSizing`: `.natural` or `.fitMergedCell`.
+- By default, symbols used as merged-cell overrides are excluded from regular-cell assignment.
+  - Set `excludeMergedSymbolsFromRegularCells: false` to opt out.
+- In debug builds, Tessera asserts if a merged-cell override references an unknown symbol ID.
+- For seamless wrapping + non-zero offset strategies, Tessera may resolve to adjusted row/column counts (for example
+  rounding to even counts). Merge validation is performed against those resolved counts.
+
+Use `showsGridOverlay: true` while iterating on layouts to render a debug grid overlay.
+
+Important: a single grid pass still places one symbol per resolved placement cell.
 If you need two complete lattices overlaid (both fully populated), render two Tessera layers (one per symbol family)
 and phase-shift one of the layers.
 
@@ -630,10 +687,8 @@ Use `Symbol.collisionShapeEditor()` to open an interactive editor and export col
 
 ### Terminology
 
-Compatibility note: legacy names (`TesseraConfiguration`, `TesseraSymbol`, `TesseraPlacement`, `TesseraPinnedSymbol`) are still available as shims.
-
 - `Pattern` - Describes how symbols are generated.
-- `Placement` - Defines organic or grid placement behavior.
+- `TesseraPlacement` - Defines organic or grid placement behavior.
 - `Symbol` - A drawable symbol used to fill a repeatable tile or a finite canvas.
 - `CollisionShape` - Approximate local-space geometry used for collision checks of symbols.
 - `Tessera` - Primary rendering entry point with progressive modifiers (`mode`, `seed`, `region`, `pinnedSymbols`).
@@ -666,7 +721,7 @@ pattern.offset = CGSize(width: 40, height: 0)
   `.rendersAsynchronously(true)` on `Tessera` when you prefer async drawing.
 - Collision geometry is intentionally approximate; use `collisionShape` when a symbol needs a more accurate footprint.
   Complex polygons and multi-polygon shapes can dramatically reduce placement performance.
-- `Placement.OrganicOptions.maximumCount` is a safety cap. If you crank up `density` on large canvases, you may want to raise it.
+- `TesseraPlacement.Organic.maximumCount` is a safety cap. If you crank up `density` on large canvases, you may want to raise it.
 
 ## Tessera App
 

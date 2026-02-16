@@ -27,7 +27,7 @@ extension TesseraCanvas {
   struct ComputationKey: Hashable, Sendable {
     var canvasSize: CGSize
     var edgeBehavior: TesseraEdgeBehavior
-    var placement: TesseraPlacement
+    var placement: PlacementModel
     var patternOffset: CGSize
     var symbolDescriptors: [ShapePlacementEngine.PlacementSymbolDescriptor]
     var pinnedSymbolKeys: [PinnedSymbolKey]
@@ -61,7 +61,7 @@ extension TesseraCanvas {
     var resolvedAlphaMask: TesseraAlphaMask?
   }
 
-  var resolvedPlacement: TesseraPlacement {
+  var resolvedPlacement: PlacementModel {
     switch configuration.placement {
     case var .organic(organicPlacement):
       organicPlacement.seed = seed
@@ -156,7 +156,7 @@ extension TesseraCanvas {
     )
   }
 
-  func makeSymbolDescriptors(using placement: TesseraPlacement) -> [ShapePlacementEngine.PlacementSymbolDescriptor] {
+  func makeSymbolDescriptors(using placement: PlacementModel) -> [ShapePlacementEngine.PlacementSymbolDescriptor] {
     ShapePlacementEngine.makeSymbolDescriptors(
       from: configuration.symbols,
       placement: placement,
@@ -214,7 +214,7 @@ extension TesseraCanvas {
     return samplePoints.contains(where: alphaMask.contains)
   }
 
-  func seed(for placement: TesseraPlacement) -> UInt64 {
+  func seed(for placement: PlacementModel) -> UInt64 {
     switch placement {
     case let .organic(organicPlacement):
       organicPlacement.seed

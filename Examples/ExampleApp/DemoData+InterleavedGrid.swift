@@ -11,6 +11,7 @@ extension DemoConfigurations {
         columns: InterleavedGridConstants.columns,
         rows: InterleavedGridConstants.rows,
         seed: 42,
+        showsGridOverlay: true,
       ),
     )
   }
@@ -25,6 +26,7 @@ extension DemoConfigurations {
         symbolPhases: [
           InterleavedGridSymbolIDs.secondary: .init(x: 0.5, y: 0.5),
         ],
+        showsGridOverlay: true,
       ),
     )
   }

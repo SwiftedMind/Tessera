@@ -104,6 +104,8 @@ public struct TesseraCanvas: View {
     let onComputationStateChange = onComputationStateChange
     let rendersAsynchronously = rendersAsynchronously
     let renderableLeafSymbols = configuration.symbols.uniqueRenderableLeafSymbols
+    let gridPlacement = configuration.gridPlacement
+    let isGridOverlayEnabled = gridPlacement?.showsGridOverlay == true
     let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
     let overlayShapesBySymbolId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
       ? renderableLeafSymbols.reduce(into: [:]) { cache, symbol in
@@ -153,6 +155,16 @@ public struct TesseraCanvas: View {
             CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
           }
         }
+      }
+
+      if isGridOverlayEnabled, let gridPlacement {
+        GridDebugOverlayRenderer.draw(
+          in: &context,
+          size: size,
+          configuration: gridPlacement,
+          edgeBehavior: edgeBehavior,
+          patternOffset: configuration.patternOffset,
+        )
       }
     } symbols: {
       ForEach(renderableLeafSymbols) { symbol in

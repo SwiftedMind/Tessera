@@ -8,7 +8,7 @@ enum DemoConfigurations {
     Pattern(
       symbols: DemoSymbols.organic,
       placement: .organic(
-        Placement.OrganicOptions(
+        TesseraPlacement.Organic(
           seed: 0,
           minimumSpacing: 0,
           density: 0.8,
@@ -22,10 +22,52 @@ enum DemoConfigurations {
     Pattern(
       symbols: DemoSymbols.grid,
       placement: .grid(
-        Placement.GridOptions(
+        TesseraPlacement.Grid(
           columnCount: 6,
           rowCount: 6,
           offsetStrategy: .rowShift(fraction: 0.5),
+          showsGridOverlay: true,
+        ),
+      ),
+    )
+  }
+
+  static var gridMergedCells: Pattern {
+    Pattern(
+      symbols: DemoSymbols.gridMergedCells,
+      placement: .grid(
+        TesseraPlacement.Grid(
+          columnCount: 10,
+          rowCount: 10,
+          symbolOrder: .sequence,
+          seed: 222,
+          showsGridOverlay: true,
+          mergedCells: [
+            .init(
+              at: .init(row: 2, column: 2),
+              spanning: .init(rows: 2, columns: 2),
+              symbol: .mergedCellDiamond,
+              symbolSizing: .fitMergedCell,
+            ),
+            .init(
+              at: .init(row: 2, column: 4),
+              spanning: .init(rows: 2, columns: 3),
+              symbol: .mergedCellDiamond,
+              symbolSizing: .fitMergedCell,
+            ),
+            .init(
+              at: .init(row: 5, column: 1),
+              spanning: .init(rows: 3, columns: 2),
+              symbol: .mergedCellDiamond,
+              symbolSizing: .fitMergedCell,
+            ),
+            .init(
+              at: .init(row: 6, column: 6),
+              spanning: .init(rows: 3, columns: 3),
+              symbol: .mergedCellDiamond,
+              symbolSizing: .fitMergedCell,
+            ),
+          ],
         ),
       ),
     )
@@ -35,7 +77,7 @@ enum DemoConfigurations {
     Pattern(
       symbols: DemoSymbols.mosaic,
       placement: .organic(
-        Placement.OrganicOptions(
+        TesseraPlacement.Organic(
           seed: 14,
           minimumSpacing: 2,
           density: 0.7,
@@ -50,7 +92,7 @@ enum DemoConfigurations {
     Pattern(
       symbols: DemoSymbols.mosaic,
       placement: .organic(
-        Placement.OrganicOptions(
+        TesseraPlacement.Organic(
           seed: 7,
           minimumSpacing: 2,
           density: 0.75,
@@ -65,7 +107,7 @@ enum DemoConfigurations {
     Pattern(
       symbols: DemoSymbols.mosaic,
       placement: .organic(
-        Placement.OrganicOptions(
+        TesseraPlacement.Organic(
           seed: 21,
           minimumSpacing: 7,
           density: 0.85,
@@ -88,7 +130,7 @@ enum DemoConfigurations {
     Pattern(
       symbols: DemoSymbols.organic,
       placement: .organic(
-        Placement.OrganicOptions(
+        TesseraPlacement.Organic(
           seed: 34,
           minimumSpacing: 3,
           density: 0.85,
@@ -111,7 +153,7 @@ enum DemoConfigurations {
     Pattern(
       symbols: DemoSymbols.grid,
       placement: .grid(
-        Placement.GridOptions(
+        TesseraPlacement.Grid(
           columnCount: 8,
           rowCount: 8,
           seed: 55,
@@ -123,6 +165,7 @@ enum DemoConfigurations {
               easing: .smoothStep,
             ),
           ),
+          showsGridOverlay: true,
         ),
       ),
     )
@@ -132,7 +175,7 @@ enum DemoConfigurations {
     Pattern(
       symbols: DemoSymbols.rotationBars,
       placement: .organic(
-        Placement.OrganicOptions(
+        TesseraPlacement.Organic(
           seed: 89,
           minimumSpacing: 10,
           density: 0.7,
@@ -155,7 +198,7 @@ enum DemoConfigurations {
     Pattern(
       symbols: DemoSymbols.rotationBars,
       placement: .grid(
-        Placement.GridOptions(
+        TesseraPlacement.Grid(
           columnCount: 8,
           rowCount: 8,
           seed: 121,
@@ -167,6 +210,7 @@ enum DemoConfigurations {
               easing: .linear,
             ),
           ),
+          showsGridOverlay: true,
         ),
       ),
     )
@@ -180,6 +224,10 @@ enum DemoSymbols {
 
   static var grid: [Symbol] {
     [.gridPlus, .gridPlusRotated]
+  }
+
+  static var gridMergedCells: [Symbol] {
+    [.mergedCellDot]
   }
 
   static var mosaic: [Symbol] {
@@ -378,6 +426,28 @@ extension Symbol {
     }
   }
 
+  static var mergedCellDot: Symbol {
+    Symbol(
+      id: DemoSymbolIDs.gridMergedCellDot,
+      collider: .shape(.circle(center: .zero, radius: 8)),
+    ) {
+      Circle()
+        .fill(.mint.opacity(0.8))
+        .frame(width: 12, height: 12)
+    }
+  }
+
+  static var mergedCellDiamond: Symbol {
+    Symbol(
+      id: DemoSymbolIDs.gridMergedCellDiamond,
+      collider: .shape(.rectangle(center: .zero, size: CGSize(width: 46, height: 46))),
+    ) {
+      RoundedRectangle(cornerRadius: 9, style: .continuous)
+        .stroke(.white.opacity(0.7), lineWidth: 2)
+        .frame(width: 34, height: 34)
+    }
+  }
+
   private static func rectanglePoints(
     centeredAt center: CGPoint,
     size: CGSize,
@@ -392,6 +462,11 @@ extension Symbol {
       CGPoint(x: center.x - halfWidth, y: center.y + halfHeight),
     ]
   }
+}
+
+private enum DemoSymbolIDs {
+  static let gridMergedCellDot = UUID(uuidString: "8A945BCE-76A6-4F4B-B14B-7EF34B8EE25E")!
+  static let gridMergedCellDiamond = UUID(uuidString: "A17EBDBD-32A3-42E4-8D2F-790EAFA2EC6A")!
 }
 
 private struct ConcavePolygonShape: Shape {

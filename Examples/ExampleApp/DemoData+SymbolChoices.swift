@@ -12,6 +12,7 @@ extension DemoConfigurations {
         rows: ChoiceSymbolsConstants.rows,
         symbolOrder: .sequence,
         seed: ChoiceSymbolsConstants.seed,
+        showsGridOverlay: true,
       ),
     )
   }

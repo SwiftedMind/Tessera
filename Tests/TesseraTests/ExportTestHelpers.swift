@@ -7,19 +7,19 @@ import SwiftUI
 @testable import Tessera
 
 @MainActor
-func makeTestTile() -> TesseraTile {
-  let symbol = TesseraSymbol(
+func makeTestTile() -> Tessera {
+  let symbol = Symbol(
     weight: 1,
-    allowedRotationRange: .degrees(0)...(.degrees(0)),
-    scaleRange: 1...1,
-    collisionShape: .circle(center: .zero, radius: 10),
+    rotation: .degrees(0)...(.degrees(0)),
+    scale: 1...1,
+    collider: .shape(.circle(center: .zero, radius: 10)),
   ) {
     Circle()
       .fill(Color.red)
       .frame(width: 20, height: 20)
   }
 
-  let configuration = TesseraConfiguration(
+  let pattern = Pattern(
     symbols: [symbol],
     placement: .organic(
       TesseraPlacement.Organic(
@@ -32,7 +32,9 @@ func makeTestTile() -> TesseraTile {
     ),
   )
 
-  return TesseraTile(configuration, tileSize: CGSize(width: 128, height: 128))
+  return Tessera(pattern)
+    .mode(.tile(size: CGSize(width: 128, height: 128)))
+    .seed(.fixed(1))
 }
 
 @MainActor
@@ -40,7 +42,7 @@ func makeTestCanvasWithCenteredFixedCircle(canvasSize: CGSize) -> TesseraCanvas 
   let configuration = TesseraConfiguration(
     symbols: [],
     placement: .organic(
-      TesseraPlacement.Organic(
+      PlacementModel.Organic(
         seed: 1,
         minimumSpacing: 10,
         density: 0,

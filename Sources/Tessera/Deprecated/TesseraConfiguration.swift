@@ -10,7 +10,7 @@ public struct TesseraConfiguration {
   /// Symbols available for placement.
   public var symbols: [TesseraSymbol]
   /// Placement algorithm used to generate symbol positions.
-  public var placement: TesseraPlacement
+  public var placement: PlacementModel
   /// Offsets applied to all generated symbols before optional wrapping.
   public var patternOffset: CGSize
 
@@ -21,7 +21,7 @@ public struct TesseraConfiguration {
   ///   - patternOffset: Positional offset applied to all generated symbols.
   public init(
     symbols: [TesseraSymbol],
-    placement: TesseraPlacement,
+    placement: PlacementModel,
     patternOffset: CGSize = .zero,
   ) {
     self.symbols = symbols
@@ -36,14 +36,14 @@ public struct TesseraConfiguration {
 }
 
 extension TesseraConfiguration {
-  var organicPlacement: TesseraPlacement.Organic? {
+  var organicPlacement: PlacementModel.Organic? {
     if case let .organic(placement) = placement {
       return placement
     }
     return nil
   }
 
-  var gridPlacement: TesseraPlacement.Grid? {
+  var gridPlacement: PlacementModel.Grid? {
     if case let .grid(placement) = placement {
       return placement
     }

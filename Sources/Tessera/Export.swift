@@ -4,10 +4,54 @@ import CoreGraphics
 import Foundation
 import SwiftUI
 
-/// Primary render-options alias for Tessera v4.
-public typealias RenderOptions = TesseraRenderOptions
-/// Primary render-error alias for Tessera v4.
-public typealias RenderError = TesseraRenderError
+/// Rendering configuration used by PNG/PDF export.
+public struct RenderOptions {
+  /// Desired pixel dimensions for the exported image. When set, scale is derived from this size.
+  public var targetPixelSize: CGSize?
+  /// Explicit scale override. Ignored when `targetPixelSize` is set.
+  public var scale: CGFloat?
+  /// Whether collision overlays should be included in exports.
+  public var showsCollisionOverlay: Bool
+  /// Whether output should be rendered as opaque where possible.
+  public var isOpaque: Bool
+  /// Working color mode used for rendering.
+  public var colorMode: ColorRenderingMode
+
+  public init(
+    targetPixelSize: CGSize? = nil,
+    scale: CGFloat? = nil,
+    showsCollisionOverlay: Bool = false,
+    isOpaque: Bool = false,
+    colorMode: ColorRenderingMode = .extendedLinear,
+  ) {
+    self.targetPixelSize = targetPixelSize
+    self.scale = scale
+    self.showsCollisionOverlay = showsCollisionOverlay
+    self.isOpaque = isOpaque
+    self.colorMode = colorMode
+  }
+
+  func resolvedScale(contentSize: CGSize) -> CGFloat {
+    if let targetPixelSize {
+      let widthScale = targetPixelSize.width / contentSize.width
+      let heightScale = targetPixelSize.height / contentSize.height
+      return max(widthScale, heightScale)
+    }
+    return scale ?? 2
+  }
+}
+
+/// Errors that can occur while exporting rendered content.
+public enum RenderError: Error {
+  /// The renderer failed to create a raster image.
+  case failedToCreateImage
+  /// The output destination (file writer) could not be created.
+  case failedToCreateDestination
+  /// The output destination failed to finalize/write.
+  case failedToFinalizeDestination
+  /// Export requires an explicit canvas size but none was provided.
+  case missingCanvasSize
+}
 
 /// Export file format.
 public enum ExportFormat: Hashable, Sendable {

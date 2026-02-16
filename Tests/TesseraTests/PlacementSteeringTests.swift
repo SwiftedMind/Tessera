@@ -8,7 +8,7 @@ import Testing
 
 @Test func steeringFieldInterpolatesTopToBottomLinearly() async throws {
   let size = CGSize(width: 100, height: 100)
-  let field = TesseraPlacement.SteeringField(
+  let field = PlacementModel.SteeringField(
     values: 0...10,
     from: .top,
     to: .bottom,
@@ -38,7 +38,7 @@ import Testing
 
 @Test func steeringFieldHandlesDegenerateAxisByReturningLowerBound() async throws {
   let size = CGSize(width: 120, height: 80)
-  let field = TesseraPlacement.SteeringField(
+  let field = PlacementModel.SteeringField(
     values: 2...8,
     from: .center,
     to: .center,
@@ -56,7 +56,7 @@ import Testing
 
 @Test func steeringEasingIsMonotonicAlongAxis() async throws {
   let size = CGSize(width: 100, height: 100)
-  let easings: [TesseraPlacement.SteeringField.Easing] = [
+  let easings: [PlacementModel.SteeringField.Easing] = [
     .linear,
     .smoothStep,
     .easeIn,
@@ -65,7 +65,7 @@ import Testing
   ]
 
   for easing in easings {
-    let field = TesseraPlacement.SteeringField(
+    let field = PlacementModel.SteeringField(
       values: 0...1,
       from: .leading,
       to: .trailing,
@@ -91,7 +91,7 @@ import Testing
 
 @Test func organicSteeringIncreasesNearestNeighborDistanceTowardBottom() async throws {
   let size = CGSize(width: 300, height: 300)
-  let placement = TesseraPlacement.Organic(
+  let placement = PlacementModel.Organic(
     seed: 99,
     minimumSpacing: 6,
     density: 0.9,
@@ -137,7 +137,7 @@ import Testing
 
 @Test func organicScaleSteeringIncreasesAverageScaleTowardBottom() async throws {
   let size = CGSize(width: 240, height: 240)
-  let placement = TesseraPlacement.Organic(
+  let placement = PlacementModel.Organic(
     seed: 23,
     minimumSpacing: 3,
     density: 0.9,
@@ -183,7 +183,7 @@ import Testing
 
 @Test func organicRotationOffsetSteeringIncreasesRotationTowardBottom() async throws {
   let size = CGSize(width: 220, height: 220)
-  let placement = TesseraPlacement.Organic(
+  let placement = PlacementModel.Organic(
     seed: 88,
     minimumSpacing: 2,
     density: 0.9,
@@ -228,7 +228,7 @@ import Testing
 
 @Test func organicSteeringRemainsDeterministicForSameSeed() async throws {
   let size = CGSize(width: 160, height: 160)
-  let placement = TesseraPlacement.Organic(
+  let placement = PlacementModel.Organic(
     seed: 7,
     minimumSpacing: 5,
     density: 0.75,
@@ -270,7 +270,7 @@ import Testing
 
 @Test func gridScaleSteeringIncreasesScaleAcrossRows() async throws {
   let size = CGSize(width: 100, height: 100)
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 1,
     rowCount: 5,
     offsetStrategy: .none,
@@ -312,7 +312,7 @@ import Testing
 
 @Test func gridRotationMultiplierSteeringIncreasesRotationAcrossColumns() async throws {
   let size = CGSize(width: 120, height: 40)
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 5,
     rowCount: 1,
     offsetStrategy: .none,

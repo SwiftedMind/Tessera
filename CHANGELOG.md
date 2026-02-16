@@ -6,6 +6,10 @@
 - **Grid Seed**: `TesseraPlacement.Grid` now includes `seed` to drive deterministic grid symbol assignment.
 - **Per-Symbol Grid Phases**: `TesseraPlacement.Grid.symbolPhases` allows deterministic per-symbol phase offsets in
   grid cell units (for interleaved lattices and phase-shifted symbol families).
+- **Merged Grid Cells**: Grid placement now supports rectangular merged cells (`mergedCells`) with deterministic
+  resolution, optional merged-cell symbol overrides, and `.fitMergedCell` sizing behavior.
+- **Grid Debug Overlay**: Added `showsGridOverlay` for visualizing resolved grid lines and merged-cell bounds in
+  canvas/tile rendering.
 - **Choice Symbols**: `TesseraSymbol`/`Symbol` now support nested `choices` plus `choiceStrategy`
   (`.weightedRandom`, `.sequence`) so one top-level symbol can resolve controlled per-placement variation while staying
   seed-stable.
@@ -19,13 +23,13 @@
 - **Grid Steering Controls**: `TesseraPlacement.GridSteering` now supports `scaleMultiplier`, `rotationMultiplier`, and
   `rotationOffsetDegrees`.
 - **API v4 Progressive Facade**: New Apple-style primary surface with `Tessera`, `Pattern`, `Symbol`, `PinnedSymbol`,
-  `Placement`, `Region`, `Seed`, `Mode`, and unified `export(...)` options.
+  `TesseraPlacement`, `Region`, `Seed`, `Mode`, and unified `export(...)` options.
 - **Migration Documentation**: Added/expanded `3.x -> 4.0` migration guidance and before/after snippets in
   [MIGRATION.md](MIGRATION.md).
 
 ### Changed
-- **Seed Override Applies To Grid**: `TesseraCanvas(seed:)`, `TesseraTile(seed:)`, and `TesseraTiledCanvas(seed:)` now
-  override grid placement seeding as well.
+- **Seed Override Applies To Grid**: `Tessera.seed(.fixed(...))` now overrides grid placement seeding in all render
+  modes (`.tile`, `.tiled`, `.canvas`).
 - **Pairwise Organic Spacing**: Organic spacing checks now use per-symbol pairwise buffers (`max(lhs, rhs)`) so
   position-steered minimum spacing remains symmetric and collision-safe.
 - **Steering Space**: Spatial steering is evaluated in local tile/canvas coordinates. In tiled modes (`.tile` / `.tiled`),
@@ -40,14 +44,12 @@
   linear/radial field usage with tile-repeat behavior guidance for grid steering.
 
 ### Breaking Changes
-- **Primary API Renames**: Core public types now use concise names (`Pattern`, `Symbol`, `PinnedSymbol`, `Placement`,
+- **Primary API Renames**: Core public types now use concise names (`Pattern`, `Symbol`, `PinnedSymbol`, `TesseraPlacement`,
   `Region`, `RenderOptions`, `RenderError`) with `Tessera` as the main entry view.
+- **Placement Naming Finalized**: The v4 placement surface is now `TesseraPlacement`; the intermediate `Placement`
+  facade and related compatibility shims were removed before release.
 - **Mode Consolidation**: `TesseraTile`, `TesseraCanvas`, and `TesseraTiledCanvas` are superseded by
   `Tessera.mode(.tile|.canvas|.tiled)`.
-
-### Deprecated
-- **Legacy Surface Relocated**: Deprecated compatibility types are now grouped under
-  `Sources/Tessera/Deprecated/` and kept as forwarding shims for migration.
 
 
 

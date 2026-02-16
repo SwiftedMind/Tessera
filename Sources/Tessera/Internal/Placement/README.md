@@ -28,7 +28,7 @@ common collision and wrapping helpers.
 1. `ShapePlacementEngine.placeSymbols` resolves the public `TesseraSymbol` data into
    `PlacementSymbolDescriptor` values and builds pinned symbol descriptors.
 2. It calls `ShapePlacementEngine.placeSymbolDescriptors`, which selects a placement
-   engine based on `TesseraPlacement`.
+   engine based on `PlacementModel`.
 3. The chosen engine creates `PlacedSymbolDescriptor` values and relies on shared
    collision and wrapping helpers to validate placements.
 4. The entry point converts the placed descriptors back into `PlacedSymbol` values.

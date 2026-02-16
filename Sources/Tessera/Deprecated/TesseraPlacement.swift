@@ -3,7 +3,7 @@
 import SwiftUI
 
 /// Describes how Tessera chooses symbol positions.
-public enum TesseraPlacement: Hashable, Sendable {
+public enum PlacementModel: Hashable, Sendable {
   /// Evenly spaced, organic placement using wrap-aware rejection sampling.
   case organic(Organic)
   /// Grid-based placement with optional offsets between rows or columns.
@@ -87,48 +87,6 @@ public enum TesseraPlacement: Hashable, Sendable {
 
     /// Easing applied to interpolation progress.
     public var easing: Easing
-
-    /// Compatibility accessor for linear `from` anchor.
-    @available(*, deprecated, message: "Use `shape` to inspect or update steering geometry.")
-    public var from: Point {
-      get {
-        switch shape {
-        case let .linear(from: from, to: _):
-          from
-        case let .radial(center: center, radius: _):
-          center
-        }
-      }
-      set {
-        switch shape {
-        case let .linear(from: _, to: to):
-          shape = .linear(from: newValue, to: to)
-        case let .radial(center: _, radius: radius):
-          shape = .radial(center: newValue, radius: radius)
-        }
-      }
-    }
-
-    /// Compatibility accessor for linear `to` anchor.
-    @available(*, deprecated, message: "Use `shape` to inspect or update steering geometry.")
-    public var to: Point {
-      get {
-        switch shape {
-        case let .linear(from: _, to: to):
-          to
-        case let .radial(center: center, radius: _):
-          center
-        }
-      }
-      set {
-        switch shape {
-        case let .linear(from: from, to: _):
-          shape = .linear(from: from, to: newValue)
-        case let .radial(center: _, radius: radius):
-          shape = .radial(center: newValue, radius: radius)
-        }
-      }
-    }
 
     /// Creates a linear steering field.
     public init(
@@ -286,7 +244,7 @@ public enum TesseraPlacement: Hashable, Sendable {
     public var steering: OrganicSteering
     /// Whether to render a debug overlay for collision shapes in on-screen canvases.
     ///
-    /// Exported renders ignore this setting unless `TesseraRenderOptions.showsCollisionOverlay` is enabled.
+    /// Exported renders ignore this setting unless `RenderOptions.showsCollisionOverlay` is enabled.
     public var showsCollisionOverlay: Bool
 
     /// Creates an organic placement configuration.

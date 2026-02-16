@@ -1,6 +1,6 @@
 // By Dennis Müller
 
-public extension TesseraPlacement {
+public extension PlacementModel {
   /// Offset strategies for grid placement.
   enum GridOffsetStrategy: Hashable, Sendable {
     /// No grid offsets.

@@ -28,7 +28,7 @@ import Testing
     symbolDescriptors: [symbolDescriptor],
     pinnedSymbolDescriptors: [],
     edgeBehavior: .finite,
-    configuration: TesseraPlacement.Grid(columnCount: 6, rowCount: 6),
+    configuration: PlacementModel.Grid(columnCount: 6, rowCount: 6),
     region: resolvedRegion,
   )
 
@@ -51,7 +51,7 @@ import Testing
 
   #expect(resolvedRegion != nil)
 
-  let placement = TesseraPlacement.Organic(
+  let placement = PlacementModel.Organic(
     seed: 42,
     minimumSpacing: 4,
     density: 0.9,
@@ -106,7 +106,7 @@ import Testing
     symbolDescriptors: [symbolDescriptor],
     pinnedSymbolDescriptors: [],
     edgeBehavior: .finite,
-    configuration: TesseraPlacement.Grid(columnCount: 6, rowCount: 6),
+    configuration: PlacementModel.Grid(columnCount: 6, rowCount: 6),
     region: nil,
     alphaMask: resolvedAlphaMask,
   )
@@ -132,7 +132,7 @@ import Testing
 
   #expect(resolvedAlphaMask != nil)
 
-  let placement = TesseraPlacement.Organic(
+  let placement = PlacementModel.Organic(
     seed: 24,
     minimumSpacing: 4,
     density: 0.9,
@@ -205,7 +205,7 @@ import Testing
   let configuration = TesseraConfiguration(
     symbols: [],
     placement: .organic(
-      TesseraPlacement.Organic(
+      PlacementModel.Organic(
         seed: 1,
         minimumSpacing: 10,
         density: 0,
@@ -264,7 +264,7 @@ import Testing
   let configuration = TesseraConfiguration(
     symbols: [],
     placement: .organic(
-      TesseraPlacement.Organic(
+      PlacementModel.Organic(
         seed: 1,
         minimumSpacing: 10,
         density: 0,
@@ -324,7 +324,7 @@ import Testing
   let configuration = TesseraConfiguration(
     symbols: [],
     placement: .organic(
-      TesseraPlacement.Organic(
+      PlacementModel.Organic(
         seed: 1,
         minimumSpacing: 10,
         density: 0,
@@ -383,7 +383,7 @@ import Testing
   let configuration = TesseraConfiguration(
     symbols: [],
     placement: .organic(
-      TesseraPlacement.Organic(
+      PlacementModel.Organic(
         seed: 1,
         minimumSpacing: 10,
         density: 0,

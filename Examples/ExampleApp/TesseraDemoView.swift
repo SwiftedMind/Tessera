@@ -36,6 +36,15 @@ struct TesseraDemoView: View {
             )
           }
           NavigationLink {
+            MergedGridCellsExampleView()
+          } label: {
+            ExampleRow(
+              title: "Merged Grid Cells",
+              subtitle: "Rectangular grid cell spans",
+              systemImage: "square.grid.3x3",
+            )
+          }
+          NavigationLink {
             ChoiceSymbolsExampleView()
           } label: {
             ExampleRow(
@@ -200,6 +209,18 @@ private struct GridPlacementExampleView: View {
     InterleavedGridCanvas()
       .ignoresSafeArea()
       .navigationTitle("Grid Placement")
+      .navigationBarTitleDisplayMode(.inline)
+  }
+}
+
+private struct MergedGridCellsExampleView: View {
+  var body: some View {
+    Tessera(DemoConfigurations.gridMergedCells)
+      .mode(.canvas(edgeBehavior: .finite))
+      .seed(.fixed(222))
+      .background(.black)
+      .ignoresSafeArea()
+      .navigationTitle("Merged Grid Cells")
       .navigationBarTitleDisplayMode(.inline)
   }
 }

@@ -24,7 +24,7 @@ public extension TesseraCanvas {
     canvasSize: CGSize,
     backgroundColor: Color? = nil,
     colorScheme: ColorScheme? = nil,
-    options: TesseraRenderOptions = TesseraRenderOptions(),
+    options: RenderOptions = RenderOptions(),
   ) throws -> URL {
     var renderConfiguration = configuration
     if case var .organic(organicPlacement) = renderConfiguration.placement {
@@ -65,7 +65,7 @@ public extension TesseraCanvas {
     renderer.colorMode = options.colorMode
 
     guard let cgImage = renderer.cgImage else {
-      throw TesseraRenderError.failedToCreateImage
+      throw RenderError.failedToCreateImage
     }
     guard let destination = CGImageDestinationCreateWithURL(
       destinationURL as CFURL,
@@ -73,13 +73,13 @@ public extension TesseraCanvas {
       1,
       nil,
     ) else {
-      throw TesseraRenderError.failedToCreateDestination
+      throw RenderError.failedToCreateDestination
     }
 
     CGImageDestinationAddImage(destination, cgImage, nil)
 
     guard CGImageDestinationFinalize(destination) else {
-      throw TesseraRenderError.failedToFinalizeDestination
+      throw RenderError.failedToFinalizeDestination
     }
 
     return destinationURL
@@ -105,7 +105,7 @@ public extension TesseraCanvas {
     backgroundColor: Color? = nil,
     colorScheme: ColorScheme? = nil,
     pageSize: CGSize? = nil,
-    options: TesseraRenderOptions = TesseraRenderOptions(scale: 1),
+    options: RenderOptions = RenderOptions(scale: 1),
   ) throws -> URL {
     var renderConfiguration = configuration
     if case var .organic(organicPlacement) = renderConfiguration.placement {
@@ -120,7 +120,7 @@ public extension TesseraCanvas {
       let consumer = CGDataConsumer(url: destinationURL as CFURL),
       let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil)
     else {
-      throw TesseraRenderError.failedToCreateDestination
+      throw RenderError.failedToCreateDestination
     }
 
     let resolvedAlphaMask = region.resolvedAlphaMask(in: canvasSize)

@@ -5,7 +5,7 @@ import CoreGraphics
 /// Evaluates value-based steering fields in normalized tile space.
 enum ShapePlacementSteering {
   static func value(
-    for field: TesseraPlacement.SteeringField?,
+    for field: PlacementModel.SteeringField?,
     position: CGPoint,
     canvasSize: CGSize,
     defaultValue: Double = 1,
@@ -37,7 +37,7 @@ enum ShapePlacementSteering {
   }
 
   static func maximumValue(
-    for field: TesseraPlacement.SteeringField?,
+    for field: PlacementModel.SteeringField?,
     defaultValue: Double = 1,
   ) -> Double {
     guard let field else { return defaultValue }
@@ -51,8 +51,8 @@ enum ShapePlacementSteering {
   private static func linearProgress(
     position: CGPoint,
     canvasSize: CGSize,
-    from: TesseraPlacement.SteeringField.Point,
-    to: TesseraPlacement.SteeringField.Point,
+    from: PlacementModel.SteeringField.Point,
+    to: PlacementModel.SteeringField.Point,
   ) -> Double {
     let normalizedPoint = normalizedPosition(position, canvasSize: canvasSize)
     let axisX = to.x - from.x
@@ -72,8 +72,8 @@ enum ShapePlacementSteering {
   private static func radialProgress(
     position: CGPoint,
     canvasSize: CGSize,
-    center: TesseraPlacement.SteeringField.Point,
-    radius: TesseraPlacement.SteeringField.Radius,
+    center: PlacementModel.SteeringField.Point,
+    radius: PlacementModel.SteeringField.Radius,
   ) -> Double {
     let centerPoint = pointFromNormalized(center, canvasSize: canvasSize)
     let radiusPoints = resolvedRadius(
@@ -93,7 +93,7 @@ enum ShapePlacementSteering {
   }
 
   private static func resolvedRadius(
-    _ radius: TesseraPlacement.SteeringField.Radius,
+    _ radius: PlacementModel.SteeringField.Radius,
     center: CGPoint,
     canvasSize: CGSize,
   ) -> Double {
@@ -145,26 +145,26 @@ enum ShapePlacementSteering {
   private static func normalizedPosition(
     _ position: CGPoint,
     canvasSize: CGSize,
-  ) -> TesseraPlacement.SteeringField.Point {
+  ) -> PlacementModel.SteeringField.Point {
     let x = canvasSize.width > 0 ? Double(position.x / canvasSize.width) : 0
     let y = canvasSize.height > 0 ? Double(position.y / canvasSize.height) : 0
-    return TesseraPlacement.SteeringField.Point(
+    return PlacementModel.SteeringField.Point(
       x: clamp(x, min: 0, max: 1),
       y: clamp(y, min: 0, max: 1),
     )
   }
 
   private static func normalizedFieldPoint(
-    _ point: TesseraPlacement.SteeringField.Point,
-  ) -> TesseraPlacement.SteeringField.Point {
-    TesseraPlacement.SteeringField.Point(
+    _ point: PlacementModel.SteeringField.Point,
+  ) -> PlacementModel.SteeringField.Point {
+    PlacementModel.SteeringField.Point(
       x: clamp(sanitize(point.x, fallback: 0), min: 0, max: 1),
       y: clamp(sanitize(point.y, fallback: 0), min: 0, max: 1),
     )
   }
 
   private static func pointFromNormalized(
-    _ point: TesseraPlacement.SteeringField.Point,
+    _ point: PlacementModel.SteeringField.Point,
     canvasSize: CGSize,
   ) -> CGPoint {
     let width = max(0, canvasSize.width)
@@ -177,7 +177,7 @@ enum ShapePlacementSteering {
 
   private static func easedProgress(
     _ progress: Double,
-    easing: TesseraPlacement.SteeringField.Easing,
+    easing: PlacementModel.SteeringField.Easing,
   ) -> Double {
     switch easing {
     case .linear:

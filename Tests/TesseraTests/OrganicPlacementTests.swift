@@ -7,7 +7,7 @@ import Testing
 
 @Test func organicPlacementIsDeterministicForSameSeed() async throws {
   let size = CGSize(width: 100, height: 100)
-  let placement = TesseraPlacement.Organic(
+  let placement = PlacementModel.Organic(
     seed: 1,
     minimumSpacing: 0,
     density: 1,
@@ -44,7 +44,7 @@ import Testing
 
 @Test func organicPlacementDiffersForDifferentSeeds() async throws {
   let size = CGSize(width: 100, height: 100)
-  let placement = TesseraPlacement.Organic(
+  let placement = PlacementModel.Organic(
     seed: 1,
     minimumSpacing: 0,
     density: 1,
@@ -81,7 +81,7 @@ import Testing
 
 @Test func organicSequenceChoiceCyclesAcrossAcceptedPlacements() async throws {
   let size = CGSize(width: 100, height: 100)
-  let placement = TesseraPlacement.Organic(
+  let placement = PlacementModel.Organic(
     seed: 5,
     minimumSpacing: 0,
     density: 1,
@@ -126,7 +126,7 @@ import Testing
 
 @Test func organicChoiceSeedChangesChoiceResolutionForSamePlacementSeed() async throws {
   let size = CGSize(width: 100, height: 100)
-  let placement = TesseraPlacement.Organic(
+  let placement = PlacementModel.Organic(
     seed: 5,
     minimumSpacing: 0,
     density: 1,
@@ -200,7 +200,7 @@ import Testing
 
 @Test func organicPlacementDoesNotOverlapSymbols() async throws {
   let size = CGSize(width: 256, height: 256)
-  let placement = TesseraPlacement.Organic(
+  let placement = PlacementModel.Organic(
     seed: 123,
     minimumSpacing: 5,
     density: 0.5,
@@ -242,7 +242,7 @@ import Testing
 
 @Test func organicPlacementAvoidsPinnedSymbolCollisions() async throws {
   let size = CGSize(width: 256, height: 256)
-  let placement = TesseraPlacement.Organic(
+  let placement = PlacementModel.Organic(
     seed: 123,
     minimumSpacing: 0,
     density: 0.8,

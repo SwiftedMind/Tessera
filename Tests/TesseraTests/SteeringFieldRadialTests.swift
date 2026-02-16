@@ -7,12 +7,12 @@ import SwiftUI
 import Testing
 
 @Test func steeringFieldConvenienceConstructorsSetExpectedShapes() async throws {
-  let linear = TesseraPlacement.SteeringField.linear(
+  let linear = PlacementModel.SteeringField.linear(
     values: 0...1,
     from: .leading,
     to: .trailing,
   )
-  let radial = TesseraPlacement.SteeringField.radial(
+  let radial = PlacementModel.SteeringField.radial(
     values: 0...1,
     center: .center,
     radius: .shortestSideFraction(0.5),
@@ -37,7 +37,7 @@ import Testing
 }
 
 @Test func steeringFieldCanonicalizesNonFiniteInputsForHashableSafety() async throws {
-  var field = TesseraPlacement.SteeringField.linear(
+  var field = PlacementModel.SteeringField.linear(
     values: 0...1,
     from: .leading,
     to: .trailing,
@@ -61,13 +61,13 @@ import Testing
   #expect(field.values.lowerBound == 0)
   #expect(field.values.upperBound == 0)
 
-  let set: Set<TesseraPlacement.SteeringField> = [field]
+  let set: Set<PlacementModel.SteeringField> = [field]
   #expect(set.contains(field))
 }
 
 @Test func radialFieldAutoRadiusInterpolatesCenterToCorner() async throws {
   let size = CGSize(width: 120, height: 120)
-  let field = TesseraPlacement.SteeringField.radial(
+  let field = PlacementModel.SteeringField.radial(
     values: 0...10,
     center: .center,
     easing: .linear,
@@ -90,7 +90,7 @@ import Testing
 
 @Test func radialFieldAutoRadiusUsesFarthestCornerForOffCenterOrigin() async throws {
   let size = CGSize(width: 200, height: 100)
-  let field = TesseraPlacement.SteeringField.radial(
+  let field = PlacementModel.SteeringField.radial(
     values: 0...10,
     center: .topLeading,
     radius: .autoFarthestCorner,
@@ -114,7 +114,7 @@ import Testing
 
 @Test func radialFieldShortestSideFractionRadiusInterpolatesByDistance() async throws {
   let size = CGSize(width: 200, height: 100)
-  let field = TesseraPlacement.SteeringField.radial(
+  let field = PlacementModel.SteeringField.radial(
     values: 0...1,
     center: .center,
     radius: .shortestSideFraction(0.5),
@@ -139,14 +139,14 @@ import Testing
 @Test func radialFieldInvalidExplicitRadiusFallsBackToAuto() async throws {
   let size = CGSize(width: 180, height: 120)
   let position = CGPoint(x: 0, y: 0)
-  let auto = TesseraPlacement.SteeringField.radial(
+  let auto = PlacementModel.SteeringField.radial(
     values: 2...8,
     center: .center,
     radius: .autoFarthestCorner,
     easing: .linear,
   )
 
-  let invalidFields: [TesseraPlacement.SteeringField] = [
+  let invalidFields: [PlacementModel.SteeringField] = [
     .radial(values: 2...8, center: .center, radius: .shortestSideFraction(.nan), easing: .linear),
     .radial(values: 2...8, center: .center, radius: .shortestSideFraction(0), easing: .linear),
     .radial(values: 2...8, center: .center, radius: .shortestSideFraction(-0.5), easing: .linear),
@@ -169,7 +169,7 @@ import Testing
 
 @Test func radialEasingIsMonotonicAlongRadius() async throws {
   let size = CGSize(width: 100, height: 100)
-  let easings: [TesseraPlacement.SteeringField.Easing] = [
+  let easings: [PlacementModel.SteeringField.Easing] = [
     .linear,
     .smoothStep,
     .easeIn,
@@ -178,7 +178,7 @@ import Testing
   ]
 
   for easing in easings {
-    let field = TesseraPlacement.SteeringField.radial(
+    let field = PlacementModel.SteeringField.radial(
       values: 0...1,
       center: .center,
       radius: .shortestSideFraction(0.5),
@@ -204,7 +204,7 @@ import Testing
 
 @Test func organicRadialScaleSteeringChangesCenterVsEdgeAverage() async throws {
   let size = CGSize(width: 260, height: 260)
-  let placement = TesseraPlacement.Organic(
+  let placement = PlacementModel.Organic(
     seed: 401,
     minimumSpacing: 2,
     density: 0.95,
@@ -257,7 +257,7 @@ import Testing
 
 @Test func gridRadialRotationOffsetSteeringChangesCenterVsEdgeAverage() async throws {
   let size = CGSize(width: 240, height: 240)
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 9,
     rowCount: 9,
     offsetStrategy: .none,
@@ -306,7 +306,7 @@ import Testing
 
 @Test func organicRadialSteeringRemainsDeterministicForSameSeed() async throws {
   let size = CGSize(width: 170, height: 170)
-  let placement = TesseraPlacement.Organic(
+  let placement = PlacementModel.Organic(
     seed: 409,
     minimumSpacing: 4,
     density: 0.8,

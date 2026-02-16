@@ -11,7 +11,7 @@ import Testing
   let ids = [UUID(), UUID(), UUID()]
   let symbols = ids.map { makeSymbolDescriptor(id: $0) }
 
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 2,
     rowCount: 2,
     offsetStrategy: .none,
@@ -36,7 +36,7 @@ import Testing
   let ids = [UUID(), UUID(), UUID()]
   let symbols = ids.map { makeSymbolDescriptor(id: $0) }
 
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 3,
     rowCount: 3,
     offsetStrategy: .none,
@@ -64,7 +64,7 @@ import Testing
   let ids = [UUID(), UUID(), UUID(), UUID()]
   let symbols = ids.map { makeSymbolDescriptor(id: $0) }
 
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 4,
     rowCount: 2,
     offsetStrategy: .none,
@@ -89,7 +89,7 @@ import Testing
   let ids = [UUID(), UUID(), UUID()]
   let symbols = ids.map { makeSymbolDescriptor(id: $0) }
 
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 4,
     rowCount: 2,
     offsetStrategy: .none,
@@ -138,7 +138,7 @@ import Testing
     makeSymbolDescriptor(id: ids[2], weight: 10),
   ]
 
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 3,
     rowCount: 3,
     offsetStrategy: .none,
@@ -160,7 +160,7 @@ import Testing
     makeSymbolDescriptor(id: ids[0], weight: 1),
     makeSymbolDescriptor(id: ids[1], weight: 2),
   ]
-  let deterministicConfiguration = TesseraPlacement.Grid(
+  let deterministicConfiguration = PlacementModel.Grid(
     columnCount: 3,
     rowCount: 3,
     offsetStrategy: .none,

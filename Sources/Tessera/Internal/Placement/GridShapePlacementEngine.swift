@@ -11,6 +11,16 @@ enum GridShapePlacementEngine {
   typealias PlacedCollider = ShapePlacementEngine.PlacedCollider
   typealias ResolvedGrid = ShapePlacementEngine.ResolvedGrid
 
+  struct ResolvedPlacementCell: Sendable {
+    var rowIndex: Int
+    var columnIndex: Int
+    var rowSpan: Int
+    var columnSpan: Int
+    var placementIndex: Int
+    var mergeSymbolID: UUID?
+    var mergeSymbolSizing: PlacementModel.Grid.MergedCellSymbolSizing
+  }
+
   /// Generates placed symbol descriptors using the grid placement configuration.
   ///
   /// - Parameters:
@@ -27,7 +37,7 @@ enum GridShapePlacementEngine {
     symbolDescriptors: [PlacementSymbolDescriptor],
     pinnedSymbolDescriptors: [PinnedSymbolDescriptor],
     edgeBehavior: TesseraEdgeBehavior,
-    configuration: TesseraPlacement.Grid,
+    configuration: PlacementModel.Grid,
     region: TesseraResolvedPolygonRegion? = nil,
     alphaMask: TesseraAlphaMask? = nil,
   ) -> [PlacedSymbolDescriptor] {
@@ -41,18 +51,60 @@ enum GridShapePlacementEngine {
       configuration: configuration,
       edgeBehavior: edgeBehavior,
     )
+    let resolvedPlacementCells = resolvePlacementCells(
+      mergedCells: configuration.mergedCells,
+      grid: resolvedGrid,
+    )
+    let totalPlacementCount = resolvedPlacementCells.count
+    let renderableLeafDescriptors = symbolDescriptors.flatMap(\.renderableLeafDescriptors)
+    let topLevelSymbolDescriptorsByID: [UUID: PlacementSymbolDescriptor] = symbolDescriptors.reduce(into: [:]) {
+      cache,
+        descriptor in
+      cache[descriptor.id] = descriptor
+    }
+    let leafSymbolDescriptorsByID: [UUID: PlacementSymbolDescriptor] = renderableLeafDescriptors.reduce(into: [:]) {
+      cache,
+        descriptor in
+      guard cache[descriptor.id] == nil else { return }
+
+      cache[descriptor.id] = PlacementSymbolDescriptor(
+        id: descriptor.id,
+        weight: 1,
+        allowedRotationRangeDegrees: descriptor.allowedRotationRangeDegrees,
+        resolvedScaleRange: descriptor.resolvedScaleRange,
+        collisionShape: descriptor.collisionShape,
+      )
+    }
+    let fixedSymbolsByPlacementIndex: [Int: PlacementSymbolDescriptor] = resolvedPlacementCells.reduce(into: [:]) {
+      cache,
+        cell in
+      guard let mergeSymbolID = cell.mergeSymbolID else { return }
+
+      if let descriptor = topLevelSymbolDescriptorsByID[mergeSymbolID] ?? leafSymbolDescriptorsByID[mergeSymbolID] {
+        cache[cell.placementIndex] = descriptor
+      }
+    }
+    let regularSymbolDescriptors: [PlacementSymbolDescriptor] = {
+      guard configuration.excludeMergedSymbolsFromRegularCells else { return symbolDescriptors }
+
+      let fixedMergeSymbolIDs = Set(resolvedPlacementCells.compactMap(\.mergeSymbolID))
+      let filteredDescriptors = symbolDescriptors.filter { fixedMergeSymbolIDs.contains($0.id) == false }
+      return filteredDescriptors.isEmpty ? symbolDescriptors : filteredDescriptors
+    }()
+    let regularSymbolCount = regularSymbolDescriptors.count
+    let regularPlacementCount = max(0, totalPlacementCount - fixedSymbolsByPlacementIndex.count)
     let normalizedOffset = normalizedOffsetAmount(from: configuration.offsetStrategy)
     let wrapOffsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: edgeBehavior)
     let shuffledSymbolIndices = configuration.symbolOrder == .shuffle
       ? GridSymbolAssignment.shuffledSymbolIndices(
-        symbolCount: symbolCount,
-        totalCellCount: resolvedGrid.totalCellCount,
+        symbolCount: regularSymbolCount,
+        totalCellCount: regularPlacementCount,
         seed: configuration.seed,
       )
       : nil
 
     let cumulativeWeights = configuration.symbolOrder == .randomWeightedPerCell
-      ? GridSymbolAssignment.cumulativeWeights(for: symbolDescriptors)
+      ? GridSymbolAssignment.cumulativeWeights(for: regularSymbolDescriptors)
       : []
     let totalWeight = cumulativeWeights.last ?? 0
 
@@ -72,173 +124,199 @@ enum GridShapePlacementEngine {
     }
     let pinnedIndices = Array(pinnedColliders.indices)
 
-    let renderableLeafDescriptors = symbolDescriptors.flatMap(\.renderableLeafDescriptors)
     let polygonCache: [UUID: [CollisionPolygon]] = renderableLeafDescriptors.reduce(into: [:]) { cache, symbol in
       cache[symbol.id] = CollisionMath.polygons(for: symbol.collisionShape)
     }
 
     var placedDescriptors: [PlacedSymbolDescriptor] = []
-    placedDescriptors.reserveCapacity(resolvedGrid.totalCellCount)
+    placedDescriptors.reserveCapacity(totalPlacementCount)
     var choiceSequenceState = ShapePlacementEngine.ChoiceSequenceState()
+    var regularAssignmentIndex = 0
 
-    for rowIndex in 0..<resolvedGrid.rowCount {
-      for columnIndex in 0..<resolvedGrid.columnCount {
-        if Task.isCancelled { return placedDescriptors }
+    for resolvedCell in resolvedPlacementCells {
+      if Task.isCancelled { return placedDescriptors }
 
-        let cellIndex = rowIndex * resolvedGrid.columnCount + columnIndex
+      let rowIndex = resolvedCell.rowIndex
+      let columnIndex = resolvedCell.columnIndex
+      let placementIndex = resolvedCell.placementIndex
+
+      let selectedSymbol: PlacementSymbolDescriptor
+      let symbolAssignmentIndex: Int
+      if let fixedSymbol = fixedSymbolsByPlacementIndex[placementIndex] {
+        selectedSymbol = fixedSymbol
+        symbolAssignmentIndex = placementIndex
+      } else {
+        let currentRegularAssignmentIndex = regularAssignmentIndex
+        regularAssignmentIndex += 1
 
         let resolvedSymbolIndex: Int
         switch configuration.symbolOrder {
         case .sequence:
-          resolvedSymbolIndex = cellIndex
+          resolvedSymbolIndex = currentRegularAssignmentIndex
         case .diagonal:
           resolvedSymbolIndex = rowIndex + columnIndex
         case .snake:
           let snakeColumn = rowIndex.isMultiple(of: 2) ? columnIndex : (resolvedGrid.columnCount - 1 - columnIndex)
           resolvedSymbolIndex = rowIndex * resolvedGrid.columnCount + snakeColumn
         case .shuffle:
-          resolvedSymbolIndex = shuffledSymbolIndices?[cellIndex] ?? cellIndex
+          resolvedSymbolIndex = shuffledSymbolIndices?[currentRegularAssignmentIndex] ?? currentRegularAssignmentIndex
         case .randomWeightedPerCell:
           var randomGenerator = SeededGenerator(
             seed: GridSymbolAssignment.symbolSeed(
               baseSeed: configuration.seed,
               rowIndex: rowIndex,
               columnIndex: columnIndex,
-              cellIndex: cellIndex,
+              cellIndex: currentRegularAssignmentIndex,
             ),
           )
           resolvedSymbolIndex = GridSymbolAssignment.randomWeightedSymbolIndex(
-            symbolCount: symbolCount,
+            symbolCount: regularSymbolCount,
             cumulativeWeights: cumulativeWeights,
             totalWeight: totalWeight,
             randomGenerator: &randomGenerator,
           )
         }
-        let selectedSymbol = symbolDescriptors[resolvedSymbolIndex % symbolCount]
-        let choiceSeed = GridSymbolAssignment.choiceSeed(
-          baseSeed: configuration.seed,
-          rowIndex: rowIndex,
-          columnIndex: columnIndex,
-          cellIndex: cellIndex,
-          symbolID: selectedSymbol.id,
-          symbolChoiceSeed: selectedSymbol.choiceSeed,
-        )
-        var choiceRandomGenerator = SeededGenerator(seed: choiceSeed)
-        var tentativeChoiceSequenceState = choiceSequenceState
-        guard let selectedRenderSymbol = ShapePlacementEngine.resolveLeafSymbolDescriptor(
-          from: selectedSymbol,
-          randomGenerator: &choiceRandomGenerator,
-          sequenceState: &tentativeChoiceSequenceState,
-        ) else { continue }
 
-        let baseRotationRadians = rotationRadiansForGrid(
-          rangeDegrees: selectedRenderSymbol.allowedRotationRangeDegrees,
-          baseSeed: configuration.seed,
-          rowIndex: rowIndex,
-          columnIndex: columnIndex,
-          cellIndex: cellIndex,
-        )
+        selectedSymbol = regularSymbolDescriptors[resolvedSymbolIndex % regularSymbolCount]
+        symbolAssignmentIndex = currentRegularAssignmentIndex
+      }
+      let choiceSeed = GridSymbolAssignment.choiceSeed(
+        baseSeed: configuration.seed,
+        rowIndex: rowIndex,
+        columnIndex: columnIndex,
+        cellIndex: symbolAssignmentIndex,
+        symbolID: selectedSymbol.id,
+        symbolChoiceSeed: selectedSymbol.choiceSeed,
+      )
+      var choiceRandomGenerator = SeededGenerator(seed: choiceSeed)
+      var tentativeChoiceSequenceState = choiceSequenceState
+      guard let selectedRenderSymbol = ShapePlacementEngine.resolveLeafSymbolDescriptor(
+        from: selectedSymbol,
+        randomGenerator: &choiceRandomGenerator,
+        sequenceState: &tentativeChoiceSequenceState,
+      ) else { continue }
 
-        guard let selectedPolygons = polygonCache[selectedRenderSymbol.id] else { continue }
+      let baseRotationRadians = rotationRadiansForGrid(
+        rangeDegrees: selectedRenderSymbol.allowedRotationRangeDegrees,
+        baseSeed: configuration.seed,
+        rowIndex: rowIndex,
+        columnIndex: columnIndex,
+        cellIndex: symbolAssignmentIndex,
+      )
 
-        let basePosition = gridCellCenter(
-          columnIndex: columnIndex,
-          rowIndex: rowIndex,
-          cellSize: resolvedGrid.cellSize,
-        )
-        let offset = gridOffset(
-          for: configuration.offsetStrategy,
-          normalizedOffset: normalizedOffset,
-          columnIndex: columnIndex,
-          rowIndex: rowIndex,
-          cellSize: resolvedGrid.cellSize,
-        )
-        let phaseSymbolID = configuration.symbolPhases[selectedRenderSymbol.id] == nil
-          ? selectedSymbol.id
-          : selectedRenderSymbol.id
-        let symbolPhaseOffset = symbolPhaseOffset(
-          for: phaseSymbolID,
-          symbolPhases: configuration.symbolPhases,
-          cellSize: resolvedGrid.cellSize,
-        )
-        var position = CGPoint(
-          x: basePosition.x + offset.width + symbolPhaseOffset.width,
-          y: basePosition.y + offset.height + symbolPhaseOffset.height,
-        )
+      guard let selectedPolygons = polygonCache[selectedRenderSymbol.id] else { continue }
 
-        switch edgeBehavior {
-        case .finite:
-          guard (0..<size.width).contains(position.x),
-                (0..<size.height).contains(position.y)
-          else { continue }
+      let basePosition = gridCellCenter(
+        columnIndex: columnIndex,
+        rowIndex: rowIndex,
+        columnSpan: resolvedCell.columnSpan,
+        rowSpan: resolvedCell.rowSpan,
+        cellSize: resolvedGrid.cellSize,
+      )
+      let offset = gridOffset(
+        for: configuration.offsetStrategy,
+        normalizedOffset: normalizedOffset,
+        columnIndex: columnIndex,
+        rowIndex: rowIndex,
+        cellSize: resolvedGrid.cellSize,
+      )
+      let phaseSymbolID = configuration.symbolPhases[selectedRenderSymbol.id] == nil
+        ? selectedSymbol.id
+        : selectedRenderSymbol.id
+      let symbolPhaseOffset = symbolPhaseOffset(
+        for: phaseSymbolID,
+        symbolPhases: configuration.symbolPhases,
+        cellSize: resolvedGrid.cellSize,
+      )
+      var position = CGPoint(
+        x: basePosition.x + offset.width + symbolPhaseOffset.width,
+        y: basePosition.y + offset.height + symbolPhaseOffset.height,
+      )
 
-        case .seamlessWrapping:
-          position = ShapePlacementWrapping.wrappedPosition(position, in: size)
-        }
+      switch edgeBehavior {
+      case .finite:
+        guard (0..<size.width).contains(position.x),
+              (0..<size.height).contains(position.y)
+        else { continue }
 
-        if let region, region.contains(position) == false {
-          continue
-        }
+      case .seamlessWrapping:
+        position = ShapePlacementWrapping.wrappedPosition(position, in: size)
+      }
 
-        if let alphaMask, alphaMask.contains(position) == false {
-          continue
-        }
+      if let region, region.contains(position) == false {
+        continue
+      }
 
-        let scaleMultiplier = max(
-          0,
-          ShapePlacementSteering.value(
-            for: configuration.steering.scaleMultiplier,
-            position: position,
-            canvasSize: size,
-            defaultValue: 1,
-          ),
-        )
-        let scale = max(0, selectedRenderSymbol.resolvedScaleRange.lowerBound * scaleMultiplier)
-        let rotationMultiplier = max(
-          0,
-          ShapePlacementSteering.value(
-            for: configuration.steering.rotationMultiplier,
-            position: position,
-            canvasSize: size,
-            defaultValue: 1,
-          ),
-        )
-        let rotationOffsetDegrees = ShapePlacementSteering.value(
-          for: configuration.steering.rotationOffsetDegrees,
+      if let alphaMask, alphaMask.contains(position) == false {
+        continue
+      }
+
+      let scaleMultiplier = max(
+        0,
+        ShapePlacementSteering.value(
+          for: configuration.steering.scaleMultiplier,
           position: position,
           canvasSize: size,
-          defaultValue: 0,
+          defaultValue: 1,
+        ),
+      )
+      let baseScale = selectedRenderSymbol.resolvedScaleRange.lowerBound
+      let mergeSizingMultiplier: Double = switch resolvedCell.mergeSymbolSizing {
+      case .natural:
+        1
+      case .fitMergedCell:
+        mergedCellFitScaleMultiplier(
+          polygons: selectedPolygons,
+          rowSpan: resolvedCell.rowSpan,
+          columnSpan: resolvedCell.columnSpan,
+          baseCellSize: resolvedGrid.cellSize,
         )
-        let rotationOffsetRadians = rotationOffsetDegrees * Double.pi / 180
-        let rotationRadians = baseRotationRadians * rotationMultiplier + rotationOffsetRadians
-
-        let candidate = PlacedSymbolDescriptor(
-          symbolId: selectedSymbol.id,
-          renderSymbolId: selectedRenderSymbol.id,
-          position: position,
-          rotationRadians: rotationRadians,
-          scale: CGFloat(scale),
-          collisionShape: selectedRenderSymbol.collisionShape,
-        )
-
-        if pinnedColliders.isEmpty == false {
-          let isValid = ShapePlacementCollision.isPlacementValid(
-            candidate: candidate,
-            candidatePolygons: selectedPolygons,
-            existingColliderIndices: pinnedIndices,
-            allColliders: pinnedColliders,
-            tileSize: size,
-            edgeBehavior: edgeBehavior,
-            wrapOffsets: wrapOffsets,
-            candidateMinimumSpacing: 0,
-          )
-
-          guard isValid else { continue }
-        }
-
-        choiceSequenceState = tentativeChoiceSequenceState
-        placedDescriptors.append(candidate)
       }
+      let scale = max(0, baseScale * mergeSizingMultiplier * scaleMultiplier)
+      let rotationMultiplier = max(
+        0,
+        ShapePlacementSteering.value(
+          for: configuration.steering.rotationMultiplier,
+          position: position,
+          canvasSize: size,
+          defaultValue: 1,
+        ),
+      )
+      let rotationOffsetDegrees = ShapePlacementSteering.value(
+        for: configuration.steering.rotationOffsetDegrees,
+        position: position,
+        canvasSize: size,
+        defaultValue: 0,
+      )
+      let rotationOffsetRadians = rotationOffsetDegrees * Double.pi / 180
+      let rotationRadians = baseRotationRadians * rotationMultiplier + rotationOffsetRadians
+
+      let candidate = PlacedSymbolDescriptor(
+        symbolId: selectedSymbol.id,
+        renderSymbolId: selectedRenderSymbol.id,
+        position: position,
+        rotationRadians: rotationRadians,
+        scale: CGFloat(scale),
+        collisionShape: selectedRenderSymbol.collisionShape,
+      )
+
+      if pinnedColliders.isEmpty == false {
+        let isValid = ShapePlacementCollision.isPlacementValid(
+          candidate: candidate,
+          candidatePolygons: selectedPolygons,
+          existingColliderIndices: pinnedIndices,
+          allColliders: pinnedColliders,
+          tileSize: size,
+          edgeBehavior: edgeBehavior,
+          wrapOffsets: wrapOffsets,
+          candidateMinimumSpacing: 0,
+        )
+
+        guard isValid else { continue }
+      }
+
+      choiceSequenceState = tentativeChoiceSequenceState
+      placedDescriptors.append(candidate)
     }
 
     return placedDescriptors
@@ -282,9 +360,9 @@ enum GridShapePlacementEngine {
     return seed
   }
 
-  private static func resolveGrid(
+  static func resolveGrid(
     for size: CGSize,
-    configuration: TesseraPlacement.Grid,
+    configuration: PlacementModel.Grid,
     edgeBehavior: TesseraEdgeBehavior,
   ) -> ResolvedGrid {
     let baseColumnCount = max(1, configuration.columnCount)
@@ -316,6 +394,100 @@ enum GridShapePlacementEngine {
     )
   }
 
+  static func resolvePlacementCells(
+    mergedCells: [PlacementModel.Grid.CellMerge],
+    grid: ResolvedGrid,
+  ) -> [ResolvedPlacementCell] {
+    let columnCount = grid.columnCount
+    let rowCount = grid.rowCount
+    guard columnCount > 0, rowCount > 0 else { return [] }
+
+    var occupied = Array(repeating: false, count: rowCount * columnCount)
+    var cells: [ResolvedPlacementCell] = []
+    cells.reserveCapacity(grid.totalCellCount)
+
+    for merge in mergedCells {
+      let origin = merge.origin
+      let span = merge.span
+      guard origin.row >= 0, origin.column >= 0, span.rows > 0, span.columns > 0 else {
+        continue
+      }
+      guard origin.row + span.rows <= rowCount, origin.column + span.columns <= columnCount else {
+        continue
+      }
+
+      var overlapsExistingCell = false
+      for row in origin.row..<(origin.row + span.rows) {
+        for column in origin.column..<(origin.column + span.columns) {
+          if occupied[cellIndexInGrid(row: row, column: column, columnCount: columnCount)] {
+            overlapsExistingCell = true
+            break
+          }
+        }
+        if overlapsExistingCell {
+          break
+        }
+      }
+
+      guard overlapsExistingCell == false else { continue }
+
+      for row in origin.row..<(origin.row + span.rows) {
+        for column in origin.column..<(origin.column + span.columns) {
+          occupied[cellIndexInGrid(row: row, column: column, columnCount: columnCount)] = true
+        }
+      }
+
+      cells.append(ResolvedPlacementCell(
+        rowIndex: origin.row,
+        columnIndex: origin.column,
+        rowSpan: span.rows,
+        columnSpan: span.columns,
+        placementIndex: 0,
+        mergeSymbolID: merge.symbolID,
+        mergeSymbolSizing: merge.symbolSizing,
+      ))
+    }
+
+    for rowIndex in 0..<rowCount {
+      for columnIndex in 0..<columnCount {
+        let index = cellIndexInGrid(row: rowIndex, column: columnIndex, columnCount: columnCount)
+        guard occupied[index] == false else { continue }
+
+        occupied[index] = true
+        cells.append(ResolvedPlacementCell(
+          rowIndex: rowIndex,
+          columnIndex: columnIndex,
+          rowSpan: 1,
+          columnSpan: 1,
+          placementIndex: 0,
+          mergeSymbolID: nil,
+          mergeSymbolSizing: .natural,
+        ))
+      }
+    }
+
+    cells.sort { lhs, rhs in
+      if lhs.rowIndex == rhs.rowIndex {
+        return lhs.columnIndex < rhs.columnIndex
+      }
+      return lhs.rowIndex < rhs.rowIndex
+    }
+
+    return cells.enumerated().map { offset, cell in
+      var updatedCell = cell
+      updatedCell.placementIndex = offset
+      return updatedCell
+    }
+  }
+
+  private static func cellIndexInGrid(
+    row: Int,
+    column: Int,
+    columnCount: Int,
+  ) -> Int {
+    row * columnCount + column
+  }
+
   private static func adjustedCountForOffsetRequirement(
     baseCount: Int,
     requiresEven: Bool,
@@ -329,7 +501,7 @@ enum GridShapePlacementEngine {
   }
 
   private static func rowShiftRequiresEvenRowCount(
-    for strategy: TesseraPlacement.GridOffsetStrategy,
+    for strategy: PlacementModel.GridOffsetStrategy,
   ) -> Bool {
     switch strategy {
     case .rowShift, .checkerShift:
@@ -340,7 +512,7 @@ enum GridShapePlacementEngine {
   }
 
   private static func columnShiftRequiresEvenColumnCount(
-    for strategy: TesseraPlacement.GridOffsetStrategy,
+    for strategy: PlacementModel.GridOffsetStrategy,
   ) -> Bool {
     switch strategy {
     case .columnShift, .checkerShift:
@@ -350,7 +522,7 @@ enum GridShapePlacementEngine {
     }
   }
 
-  private static func normalizedOffsetAmount(from strategy: TesseraPlacement.GridOffsetStrategy) -> Double {
+  private static func normalizedOffsetAmount(from strategy: PlacementModel.GridOffsetStrategy) -> Double {
     let offset: Double = switch strategy {
     case .none:
       0
@@ -368,16 +540,18 @@ enum GridShapePlacementEngine {
   private static func gridCellCenter(
     columnIndex: Int,
     rowIndex: Int,
+    columnSpan: Int = 1,
+    rowSpan: Int = 1,
     cellSize: CGSize,
   ) -> CGPoint {
     CGPoint(
-      x: (CGFloat(columnIndex) + 0.5) * cellSize.width,
-      y: (CGFloat(rowIndex) + 0.5) * cellSize.height,
+      x: (CGFloat(columnIndex) + CGFloat(columnSpan) / 2) * cellSize.width,
+      y: (CGFloat(rowIndex) + CGFloat(rowSpan) / 2) * cellSize.height,
     )
   }
 
   private static func gridOffset(
-    for strategy: TesseraPlacement.GridOffsetStrategy,
+    for strategy: PlacementModel.GridOffsetStrategy,
     normalizedOffset: Double,
     columnIndex: Int,
     rowIndex: Int,
@@ -402,7 +576,7 @@ enum GridShapePlacementEngine {
 
   private static func symbolPhaseOffset(
     for symbolID: UUID,
-    symbolPhases: [UUID: TesseraPlacement.Grid.SymbolPhase],
+    symbolPhases: [UUID: PlacementModel.Grid.SymbolPhase],
     cellSize: CGSize,
   ) -> CGSize {
     guard let phase = symbolPhases[symbolID] else { return .zero }
@@ -412,6 +586,59 @@ enum GridShapePlacementEngine {
     return CGSize(
       width: CGFloat(x) * cellSize.width,
       height: CGFloat(y) * cellSize.height,
+    )
+  }
+
+  private static func mergedCellFitScaleMultiplier(
+    polygons: [CollisionPolygon],
+    rowSpan: Int,
+    columnSpan: Int,
+    baseCellSize: CGSize,
+  ) -> Double {
+    let fallbackMultiplier = sqrt(Double(max(1, rowSpan * columnSpan)))
+    let targetSize = CGSize(
+      width: CGFloat(columnSpan) * baseCellSize.width,
+      height: CGFloat(rowSpan) * baseCellSize.height,
+    )
+
+    guard let bounds = bounds(for: polygons), bounds.width > 0, bounds.height > 0 else {
+      return fallbackMultiplier
+    }
+
+    let horizontalScale = targetSize.width / bounds.width
+    let verticalScale = targetSize.height / bounds.height
+    let fitScale = min(horizontalScale, verticalScale)
+    guard fitScale.isFinite, fitScale > 0 else {
+      return fallbackMultiplier
+    }
+
+    return Double(fitScale)
+  }
+
+  private static func bounds(for polygons: [CollisionPolygon]) -> CGRect? {
+    var minimumX = CGFloat.greatestFiniteMagnitude
+    var minimumY = CGFloat.greatestFiniteMagnitude
+    var maximumX = -CGFloat.greatestFiniteMagnitude
+    var maximumY = -CGFloat.greatestFiniteMagnitude
+    var hasPoints = false
+
+    for polygon in polygons {
+      for point in polygon.points {
+        hasPoints = true
+        minimumX = min(minimumX, point.x)
+        minimumY = min(minimumY, point.y)
+        maximumX = max(maximumX, point.x)
+        maximumY = max(maximumY, point.y)
+      }
+    }
+
+    guard hasPoints else { return nil }
+
+    return CGRect(
+      x: minimumX,
+      y: minimumY,
+      width: maximumX - minimumX,
+      height: maximumY - minimumY,
     )
   }
 }

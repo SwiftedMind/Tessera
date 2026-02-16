@@ -69,7 +69,7 @@ enum ShapePlacementEngine {
 
   static func makeSymbolDescriptors(
     from symbols: [TesseraSymbol],
-    placement: TesseraPlacement,
+    placement: PlacementModel,
   ) -> [PlacementSymbolDescriptor] {
     symbols.map { symbol in
       makeSymbolDescriptor(from: symbol, placement: placement)
@@ -95,7 +95,7 @@ enum ShapePlacementEngine {
     symbolDescriptors: [PlacementSymbolDescriptor],
     pinnedSymbolDescriptors: [PinnedSymbolDescriptor] = [],
     edgeBehavior: TesseraEdgeBehavior = .seamlessWrapping,
-    placement: TesseraPlacement,
+    placement: PlacementModel,
     region: TesseraResolvedPolygonRegion? = nil,
     alphaMask: TesseraAlphaMask? = nil,
     randomGenerator: inout some RandomNumberGenerator,
@@ -129,7 +129,7 @@ enum ShapePlacementEngine {
 
   private static func resolvedScaleRange(
     for symbol: TesseraSymbol,
-    placement: TesseraPlacement,
+    placement: PlacementModel,
   ) -> ClosedRange<Double> {
     switch placement {
     case let .organic(organicConfiguration):
@@ -141,7 +141,7 @@ enum ShapePlacementEngine {
 
   private static func makeSymbolDescriptor(
     from symbol: TesseraSymbol,
-    placement: TesseraPlacement,
+    placement: PlacementModel,
   ) -> PlacementSymbolDescriptor {
     let childDescriptors = symbol.choices.map { childSymbol in
       makeSymbolDescriptor(

@@ -8,7 +8,7 @@ extension DemoConfigurations {
     Pattern(
       symbols: DemoSymbols.organic,
       placement: .organic(
-        Placement.OrganicOptions(
+        TesseraPlacement.Organic(
           seed: 203,
           minimumSpacing: 4,
           density: 0.82,
@@ -31,7 +31,7 @@ extension DemoConfigurations {
     Pattern(
       symbols: DemoSymbols.rotationBars,
       placement: .grid(
-        Placement.GridOptions(
+        TesseraPlacement.Grid(
           columnCount: 9,
           rowCount: 9,
           seed: 303,
@@ -43,6 +43,7 @@ extension DemoConfigurations {
               easing: .easeInOut,
             ),
           ),
+          showsGridOverlay: true,
         ),
       ),
     )

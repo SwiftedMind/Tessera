@@ -28,7 +28,7 @@ enum OrganicShapePlacementEngine {
     symbolDescriptors: [PlacementSymbolDescriptor],
     pinnedSymbolDescriptors: [PinnedSymbolDescriptor],
     edgeBehavior: TesseraEdgeBehavior,
-    configuration: TesseraPlacement.Organic,
+    configuration: PlacementModel.Organic,
     region: TesseraResolvedPolygonRegion? = nil,
     alphaMask: TesseraAlphaMask? = nil,
     randomGenerator: inout some RandomNumberGenerator,

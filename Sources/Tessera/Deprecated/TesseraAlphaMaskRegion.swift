@@ -250,40 +250,6 @@ public struct TesseraAlphaMaskRegion: Hashable, Sendable {
     self.invert = invert
   }
 
-  /// Creates an alpha mask region from a view or image source.
-  ///
-  /// - Parameters:
-  ///   - id: Stable identifier for caching the rendered alpha mask. Update this value when the mask content changes.
-  ///   - source: The view or image used as the alpha mask.
-  ///   - mapping: Mapping strategy that fits the mask into the resolved canvas size.
-  ///   - padding: Inset applied to the canvas bounds before mapping.
-  ///   - pixelScale: Rasterization scale for the alpha mask.
-  ///   - alphaThreshold: Alpha threshold (0...1) used to determine inclusion.
-  ///   - sampling: Sampling strategy used when querying the mask.
-  ///   - invert: When true, inverts the mask (alpha below threshold is treated as inside).
-  @available(*, deprecated, renamed: "init(cacheKey:source:mapping:padding:pixelScale:alphaThreshold:sampling:invert:)")
-  public init(
-    id: TesseraRegionID,
-    source: Source,
-    mapping: TesseraPolygonMapping = .fit(mode: .aspectFit, alignment: .center),
-    padding: CGFloat = 0,
-    pixelScale: CGFloat = 2,
-    alphaThreshold: CGFloat = 0.5,
-    sampling: Sampling = .nearest,
-    invert: Bool = false,
-  ) {
-    self.init(
-      cacheKey: id,
-      source: source,
-      mapping: mapping,
-      padding: padding,
-      pixelScale: pixelScale,
-      alphaThreshold: alphaThreshold,
-      sampling: sampling,
-      invert: invert,
-    )
-  }
-
   func renderView(in canvasSize: CGSize) -> AnyView {
     let clampedPadding = max(padding, 0)
     let paddedSize = CGSize(
