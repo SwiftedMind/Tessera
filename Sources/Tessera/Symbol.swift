@@ -30,9 +30,9 @@ public extension Symbol {
   init(
     id: UUID = UUID(),
     weight: Double = 1,
-    rotation: ClosedRange<Angle> = Angle.fullCircle,
+    rotation: ClosedRange<Angle> = (.zero)...(.zero),
     scale: ClosedRange<Double>? = nil,
-    collider: Collider = .automatic(size: CGSize(width: 30, height: 30)),
+    collider: Collider,
     @ViewBuilder content: @escaping () -> some View,
   ) {
     switch collider {
