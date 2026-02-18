@@ -27,18 +27,62 @@ enum DemoExampleAssets {
         CGPoint(x: 27.95, y: 4.56),
       ])),
     ) {
-      Image(systemName: "shield.fill")
-        .font(.system(size: 52, weight: .semibold))
-        .foregroundStyle(.primary)
+      ZStack {
+        HexagonShape()
+          .fill(DemoPalette.teal.opacity(0.24))
+
+        HexagonShape()
+          .stroke(DemoPalette.teal, lineWidth: 3)
+
+        Circle()
+          .fill(DemoPalette.strokePrimary)
+          .frame(width: 8, height: 8)
+      }
+      .frame(width: 56, height: 56)
     }
   }
 }
 
 private struct AlphaMaskShape: View {
   var body: some View {
-    Image(systemName: "sparkles")
-      .font(.system(size: 120, weight: .bold))
-      .foregroundStyle(.black.opacity(0.7))
-      .padding(20)
+    ZStack {
+      RoundedRectangle(cornerRadius: 28, style: .continuous)
+        .frame(width: 180, height: 180)
+
+      Circle()
+        .frame(width: 86, height: 86)
+        .offset(y: -30)
+
+      RoundedRectangle(cornerRadius: 14, style: .continuous)
+        .frame(width: 112, height: 30)
+        .offset(y: 42)
+    }
+    .foregroundStyle(.black.opacity(0.72))
+    .padding(20)
+  }
+}
+
+private struct HexagonShape: Shape {
+  func path(in rect: CGRect) -> Path {
+    let center = CGPoint(x: rect.midX, y: rect.midY)
+    let radius = min(rect.width, rect.height) * 0.5
+
+    let points = (0..<6).map { index in
+      let angle = CGFloat(index) * (.pi / 3) - (.pi / 2)
+      return CGPoint(
+        x: center.x + cos(angle) * radius,
+        y: center.y + sin(angle) * radius,
+      )
+    }
+
+    var path = Path()
+    guard let first = points.first else { return path }
+
+    path.move(to: first)
+    for point in points.dropFirst() {
+      path.addLine(to: point)
+    }
+    path.closeSubpath()
+    return path
   }
 }

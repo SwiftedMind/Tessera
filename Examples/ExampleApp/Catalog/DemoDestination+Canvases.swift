@@ -10,6 +10,7 @@ extension DemoDestination {
       Tessera(DemoConfigurations.organic)
         .mode(.tiled(tileSize: CGSize(width: 256, height: 256)))
         .seed(.fixed(0))
+        .background(DemoPalette.canvasBackground)
     }
   }
 
@@ -20,7 +21,7 @@ extension DemoDestination {
         .mode(.canvas(edgeBehavior: .finite))
         .seed(.fixed(0))
         .pinnedSymbols(DemoPinnedSymbols.hero)
-        .background(.black)
+        .background(DemoPalette.canvasBackground)
     }
   }
 
@@ -37,7 +38,7 @@ extension DemoDestination {
       Tessera(DemoConfigurations.gridMergedCells)
         .mode(.canvas(edgeBehavior: .finite))
         .seed(.fixed(222))
-        .background(.black)
+        .background(DemoPalette.canvasBackground)
     }
   }
 
@@ -59,7 +60,7 @@ extension DemoDestination {
         .seed(.fixed(14))
         .region(DemoRegions.mosaic)
         .regionRendering(.unclipped)
-        .background(.black)
+        .background(DemoPalette.canvasBackground)
     }
   }
 
@@ -71,7 +72,7 @@ extension DemoDestination {
         .seed(.fixed(7))
         .region(DemoExampleAssets.alphaMaskRegion)
         .regionRendering(.clipped)
-        .background(.black)
+        .background(DemoPalette.canvasBackground)
     }
   }
 }

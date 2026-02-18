@@ -9,9 +9,10 @@ enum DemoConfigurations {
       placement: .organic(
         TesseraPlacement.Organic(
           seed: 0,
-          minimumSpacing: 0,
-          density: 0.8,
-          baseScaleRange: 0.5...1.2,
+          minimumSpacing: 7,
+          density: 0.62,
+          baseScaleRange: 0.75...1.1,
+          maximumSymbolCount: 220,
         ),
       ),
     )
@@ -78,10 +79,10 @@ enum DemoConfigurations {
       placement: .organic(
         TesseraPlacement.Organic(
           seed: 14,
-          minimumSpacing: 2,
-          density: 0.7,
-          baseScaleRange: 0.6...1.1,
-          maximumSymbolCount: 220,
+          minimumSpacing: 6,
+          density: 0.58,
+          baseScaleRange: 0.75...1.05,
+          maximumSymbolCount: 160,
         ),
       ),
     )
@@ -93,10 +94,10 @@ enum DemoConfigurations {
       placement: .organic(
         TesseraPlacement.Organic(
           seed: 7,
-          minimumSpacing: 2,
-          density: 0.75,
-          baseScaleRange: 0.6...1.2,
-          maximumSymbolCount: 240,
+          minimumSpacing: 5,
+          density: 0.6,
+          baseScaleRange: 0.75...1.1,
+          maximumSymbolCount: 175,
         ),
       ),
     )
@@ -108,13 +109,13 @@ enum DemoConfigurations {
       placement: .organic(
         TesseraPlacement.Organic(
           seed: 21,
-          minimumSpacing: 7,
-          density: 0.85,
-          baseScaleRange: 0.8...1.15,
-          maximumSymbolCount: 280,
+          minimumSpacing: 10,
+          density: 0.58,
+          baseScaleRange: 0.85...1.05,
+          maximumSymbolCount: 190,
           steering: .init(
             minimumSpacingMultiplier: .init(
-              values: 0.25...2.0,
+              values: 0.35...1.8,
               from: .top,
               to: .bottom,
               easing: .smoothStep,
@@ -131,13 +132,13 @@ enum DemoConfigurations {
       placement: .organic(
         TesseraPlacement.Organic(
           seed: 34,
-          minimumSpacing: 3,
-          density: 0.85,
-          baseScaleRange: 0.8...1.15,
-          maximumSymbolCount: 320,
+          minimumSpacing: 6,
+          density: 0.6,
+          baseScaleRange: 0.85...1.05,
+          maximumSymbolCount: 220,
           steering: .init(
             scaleMultiplier: .init(
-              values: 0.55...1.7,
+              values: 0.65...1.45,
               from: .leading,
               to: .trailing,
               easing: .easeInOut,
@@ -158,7 +159,7 @@ enum DemoConfigurations {
           seed: 55,
           steering: .init(
             scaleMultiplier: .init(
-              values: 0.5...1.2,
+              values: 0.65...1.25,
               from: .topLeading,
               to: .bottomTrailing,
               easing: .smoothStep,
@@ -176,13 +177,13 @@ enum DemoConfigurations {
       placement: .organic(
         TesseraPlacement.Organic(
           seed: 89,
-          minimumSpacing: 10,
-          density: 0.7,
-          baseScaleRange: 0.9...1.1,
-          maximumSymbolCount: 180,
+          minimumSpacing: 12,
+          density: 0.5,
+          baseScaleRange: 0.9...1.0,
+          maximumSymbolCount: 140,
           steering: .init(
             rotationOffsetDegrees: .init(
-              values: 0...180,
+              values: 0...140,
               from: .top,
               to: .bottom,
               easing: .linear,
@@ -203,7 +204,7 @@ enum DemoConfigurations {
           seed: 121,
           steering: .init(
             rotationMultiplier: .init(
-              values: 0.5...1.5,
+              values: 0.7...1.3,
               from: .leading,
               to: .trailing,
               easing: .linear,

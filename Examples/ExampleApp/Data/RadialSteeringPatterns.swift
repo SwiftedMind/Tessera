@@ -10,15 +10,15 @@ extension DemoConfigurations {
       placement: .organic(
         TesseraPlacement.Organic(
           seed: 203,
-          minimumSpacing: 4,
-          density: 0.82,
-          baseScaleRange: 0.85...1.1,
-          maximumSymbolCount: 320,
+          minimumSpacing: 6,
+          density: 0.6,
+          baseScaleRange: 0.9...1.05,
+          maximumSymbolCount: 220,
           steering: .init(
             scaleMultiplier: .radial(
-              values: 0.6...1.65,
+              values: 0.75...1.45,
               center: .center,
-              radius: .shortestSideFraction(0.55),
+              radius: .shortestSideFraction(0.58),
               easing: .smoothStep,
             ),
           ),
@@ -37,7 +37,7 @@ extension DemoConfigurations {
           seed: 303,
           steering: .init(
             rotationOffsetDegrees: .radial(
-              values: 0...42,
+              values: 0...32,
               center: .center,
               radius: .autoFarthestCorner,
               easing: .easeInOut,

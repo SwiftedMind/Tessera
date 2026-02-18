@@ -37,7 +37,7 @@ extension Symbol {
       id: ChoiceSymbolIDs.root,
       choiceStrategy: .weightedRandom,
       choiceSeed: 302,
-      choices: [.choiceSpark, .choiceSlashedCircle, .choiceDiamond],
+      choices: [.choiceCircle, .choiceRoundedSquare, .choiceDiamond],
     )
   }
 
@@ -45,37 +45,33 @@ extension Symbol {
     Symbol(
       id: ChoiceSymbolIDs.indexSequenceRoot,
       choiceStrategy: .indexSequence([0, 2, 1, 2]),
-      choices: [.choiceSpark, .choiceSlashedCircle, .choiceDiamond],
+      choices: [.choiceCircle, .choiceRoundedSquare, .choiceDiamond],
     )
   }
 
-  static var choiceSpark: Symbol {
+  static var choiceCircle: Symbol {
     Symbol(
-      id: ChoiceSymbolIDs.spark,
+      id: ChoiceSymbolIDs.circle,
       weight: 1,
       rotation: .degrees(0)...(.degrees(0)),
-      collider: .shape(.rectangle(center: .zero, size: .zero)),
+      collider: .shape(.circle(center: .zero, radius: 12)),
     ) {
-      Image(systemName: "sparkles")
-        .resizable()
-        .aspectRatio(contentMode: .fit)
-        .frame(width: 26, height: 26)
-        .foregroundStyle(Color(red: 0.95, green: 0.72, blue: 0.30))
+      Circle()
+        .stroke(DemoPalette.blue, lineWidth: 3)
+        .frame(width: 24, height: 24)
     }
   }
 
-  static var choiceSlashedCircle: Symbol {
+  static var choiceRoundedSquare: Symbol {
     Symbol(
-      id: ChoiceSymbolIDs.slashedCircle,
+      id: ChoiceSymbolIDs.roundedSquare,
       weight: 1,
       rotation: .degrees(0)...(.degrees(0)),
-      collider: .shape(.rectangle(center: .zero, size: .zero)),
+      collider: .shape(.rectangle(center: .zero, size: CGSize(width: 24, height: 24))),
     ) {
-      Image(systemName: "circle.slash")
-        .resizable()
-        .aspectRatio(contentMode: .fit)
-        .frame(width: 26, height: 26)
-        .foregroundStyle(Color(red: 0.56, green: 0.78, blue: 0.96))
+      RoundedRectangle(cornerRadius: 6, style: .continuous)
+        .stroke(DemoPalette.amber, lineWidth: 3)
+        .frame(width: 22, height: 22)
     }
   }
 
@@ -84,13 +80,12 @@ extension Symbol {
       id: ChoiceSymbolIDs.diamond,
       weight: 1,
       rotation: .degrees(0)...(.degrees(0)),
-      collider: .shape(.rectangle(center: .zero, size: .zero)),
+      collider: .shape(.rectangle(center: .zero, size: CGSize(width: 16, height: 16))),
     ) {
-      Image(systemName: "diamond.fill")
-        .resizable()
-        .aspectRatio(contentMode: .fit)
-        .frame(width: 20, height: 20)
-        .foregroundStyle(Color(red: 0.94, green: 0.44, blue: 0.50))
+      RoundedRectangle(cornerRadius: 4, style: .continuous)
+        .fill(DemoPalette.coral.opacity(0.9))
+        .frame(width: 16, height: 16)
+        .rotationEffect(.degrees(45))
     }
   }
 }
@@ -100,13 +95,13 @@ struct ChoiceSymbolsExampleView: View {
     Tessera(DemoConfigurations.choiceSymbolsGrid)
       .mode(.tiled(tileSize: ChoiceSymbolsConstants.tileSize))
       .seed(.fixed(ChoiceSymbolsConstants.seed))
-      .background(Color(red: 0.09, green: 0.10, blue: 0.14))
+      .background(DemoPalette.canvasBackground)
       .ignoresSafeArea()
       .overlay(alignment: .topLeading) {
         SteeringLegendOverlay(
           title: "Choice Symbol",
-          startLabel: "weighted variants per cell",
-          endLabel: "slashed-circle phase: +0.5 / +0.5",
+          startLabel: "weighted geometric variants",
+          endLabel: "circle, square, and diamond",
           axisSymbol: "dice",
         )
       }
@@ -120,13 +115,13 @@ struct ChoiceIndexSequenceExampleView: View {
     Tessera(DemoConfigurations.choiceSymbolsIndexSequenceGrid)
       .mode(.tiled(tileSize: ChoiceSymbolsConstants.tileSize))
       .seed(.fixed(ChoiceSymbolsConstants.indexSequenceSeed))
-      .background(Color(red: 0.09, green: 0.10, blue: 0.14))
+      .background(DemoPalette.canvasBackground)
       .ignoresSafeArea()
       .overlay(alignment: .topLeading) {
         SteeringLegendOverlay(
           title: "Choice Index Sequence",
           startLabel: "indices: [0, 2, 1, 2] repeats",
-          endLabel: "explicit, deterministic child order",
+          endLabel: "deterministic variant ordering",
           axisSymbol: "list.number",
         )
       }
@@ -146,7 +141,7 @@ private enum ChoiceSymbolsConstants {
 private enum ChoiceSymbolIDs {
   static let root = UUID(uuidString: "F9514DB4-50B4-4F17-8BE3-26E2A48D6C38")!
   static let indexSequenceRoot = UUID(uuidString: "34D834A5-4C6E-45D0-8F80-71E81E88FB03")!
-  static let spark = UUID(uuidString: "80A33AD9-7BC5-4C69-A0A0-511DD6CBEE71")!
-  static let slashedCircle = UUID(uuidString: "4D51AD6A-0B07-478C-B053-95B380EC2EA4")!
+  static let circle = UUID(uuidString: "80A33AD9-7BC5-4C69-A0A0-511DD6CBEE71")!
+  static let roundedSquare = UUID(uuidString: "4D51AD6A-0B07-478C-B053-95B380EC2EA4")!
   static let diamond = UUID(uuidString: "A2C8FC7B-CE54-41B0-A909-26FAFF3512E4")!
 }

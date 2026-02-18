@@ -8,21 +8,25 @@ enum DemoPinnedSymbols {
     [
       PinnedSymbol(
         position: .centered(),
-        collider: .shape(.circle(center: .zero, radius: 60)),
+        collider: .shape(.circle(center: .zero, radius: 62)),
       ) {
-        Image(systemName: "swift")
-          .resizable()
-          .scaledToFit()
-          .foregroundStyle(.orange)
-          .frame(width: 100, height: 100)
+        ZStack {
+          Circle()
+            .stroke(DemoPalette.strokePrimary.opacity(0.9), lineWidth: 5)
+            .frame(width: 108, height: 108)
+
+          Circle()
+            .fill(DemoPalette.teal.opacity(0.28))
+            .frame(width: 56, height: 56)
+        }
       },
       PinnedSymbol(
-        position: .bottomTrailing(offset: CGSize(width: -120, height: -120)),
-        collider: .shape(.circle(center: .zero, radius: 140)),
+        position: .bottomTrailing(offset: CGSize(width: -110, height: -110)),
+        collider: .shape(.rectangle(center: .zero, size: CGSize(width: 164, height: 64))),
       ) {
-        Text("Tessera")
-          .font(.system(size: 48, weight: .bold, design: .rounded))
-          .foregroundStyle(.white.opacity(0.8))
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+          .stroke(DemoPalette.strokeMuted.opacity(0.95), lineWidth: 3)
+          .frame(width: 156, height: 56)
       },
     ]
   }
