@@ -18,17 +18,23 @@ extension ShapePlacementEngine {
       return symbolDescriptor.renderDescriptor
     }
 
-    let selectedIndex: Int
-    switch symbolDescriptor.choiceStrategy {
+    let selectedIndex: Int = switch symbolDescriptor.choiceStrategy {
     case .weightedRandom:
-      selectedIndex = randomWeightedChoiceIndex(
+      randomWeightedChoiceIndex(
         for: symbolDescriptor.choices,
         randomGenerator: &randomGenerator,
       )
     case .sequence:
-      let nextIndex = sequenceState.nextChoiceIndexBySymbolID[symbolDescriptor.id, default: 0]
-      sequenceState.nextChoiceIndexBySymbolID[symbolDescriptor.id] = nextIndex + 1
-      selectedIndex = nextIndex % symbolDescriptor.choices.count
+      sequenceChoiceIndex(
+        for: symbolDescriptor,
+        sequenceState: &sequenceState,
+      )
+    case let .indexSequence(indices):
+      indexSequenceChoiceIndex(
+        for: symbolDescriptor,
+        indices: indices,
+        sequenceState: &sequenceState,
+      )
     }
 
     return resolveLeafSymbolDescriptor(
@@ -69,4 +75,64 @@ extension ShapePlacementEngine {
 
     return choices.count - 1
   }
+
+  private static func sequenceChoiceIndex(
+    for symbolDescriptor: PlacementSymbolDescriptor,
+    sequenceState: inout ChoiceSequenceState,
+  ) -> Int {
+    let nextStep = nextChoiceStep(
+      for: symbolDescriptor.id,
+      sequenceState: &sequenceState,
+    )
+    return positiveModulo(nextStep, modulus: symbolDescriptor.choices.count)
+  }
+
+  private static func indexSequenceChoiceIndex(
+    for symbolDescriptor: PlacementSymbolDescriptor,
+    indices: [Int],
+    sequenceState: inout ChoiceSequenceState,
+  ) -> Int {
+    let nextStep = nextChoiceStep(
+      for: symbolDescriptor.id,
+      sequenceState: &sequenceState,
+    )
+
+    guard indices.isEmpty == false else {
+      #if DEBUG
+      debugEmptyIndexSequenceWarning()
+      #endif
+      return positiveModulo(nextStep, modulus: symbolDescriptor.choices.count)
+    }
+
+    let sequenceIndex = positiveModulo(nextStep, modulus: indices.count)
+    let rawChildIndex = indices[sequenceIndex]
+    return positiveModulo(rawChildIndex, modulus: symbolDescriptor.choices.count)
+  }
+
+  private static func nextChoiceStep(
+    for symbolID: UUID,
+    sequenceState: inout ChoiceSequenceState,
+  ) -> Int {
+    let nextStep = sequenceState.nextChoiceIndexBySymbolID[symbolID, default: 0]
+    sequenceState.nextChoiceIndexBySymbolID[symbolID] = nextStep + 1
+    return nextStep
+  }
+
+  private static func positiveModulo(_ value: Int, modulus: Int) -> Int {
+    guard modulus > 0 else { return 0 }
+
+    let remainder = value % modulus
+    return remainder >= 0 ? remainder : remainder + modulus
+  }
+
+  #if DEBUG
+  private static func debugEmptyIndexSequenceWarning() {
+    guard let warningData =
+      "Assertion failed: Choice strategy .indexSequence requires at least one index. Falling back to .sequence.\n"
+        .data(using: .utf8)
+    else { return }
+
+    FileHandle.standardError.write(warningData)
+  }
+  #endif
 }

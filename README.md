@@ -365,7 +365,10 @@ Choice symbols let one top-level `Symbol` resolve one child symbol per accepted 
 
 - `.weightedRandom`: pick a child by child `weight`.
 - `.sequence`: cycle children deterministically (`first`, `second`, ... then wrap).
+- `.indexSequence([Int])`: resolve child indices in caller-defined order (`indices[0]`, `indices[1]`, ... then wrap).
 - Child `weight` values are relative probabilities for `.weightedRandom`.
+- `.indexSequence` normalizes each provided index modulo child count (supports negative/out-of-range values).
+- `.indexSequence([])` emits an assertion-style warning in debug builds and falls back to `.sequence`.
 - `choiceSeed` is an optional per-symbol seed salt mixed with the placement seed.
 - Keep `choiceSeed` as `nil` to use only the global seed, or set it for stable per-symbol variation control.
 
@@ -388,7 +391,7 @@ let slashedCircle = Symbol(
 
 let choice = Symbol(
   id: UUID(uuidString: "F9514DB4-50B4-4F17-8BE3-26E2A48D6C38")!,
-  choiceStrategy: .weightedRandom,
+  choiceStrategy: .indexSequence([0, 1, 0, 1, 1]),
   choiceSeed: 302,
   choices: [sparkle, slashedCircle]
 )

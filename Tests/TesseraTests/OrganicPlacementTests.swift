@@ -124,6 +124,91 @@ import Testing
   }
 }
 
+@Test func organicIndexSequenceChoiceCyclesAcrossAcceptedPlacements() async throws {
+  let size = CGSize(width: 100, height: 100)
+  let placement = PlacementModel.Organic(
+    seed: 6,
+    minimumSpacing: 0,
+    density: 1,
+    baseScaleRange: 1...1,
+    maximumSymbolCount: 12,
+  )
+  let rootID = UUID(uuidString: "00000000-0000-0000-0000-000000000018")!
+  let firstID = UUID(uuidString: "00000000-0000-0000-0000-000000000019")!
+  let secondID = UUID(uuidString: "00000000-0000-0000-0000-00000000001A")!
+  let thirdID = UUID(uuidString: "00000000-0000-0000-0000-00000000001B")!
+  let choiceSymbol = makeChoiceSymbolDescriptor(
+    id: rootID,
+    strategy: .indexSequence([2, 0, 1]),
+    choices: [
+      makeSymbolDescriptor(id: firstID, collisionShape: .circle(center: .zero, radius: 0)),
+      makeSymbolDescriptor(id: secondID, collisionShape: .circle(center: .zero, radius: 0)),
+      makeSymbolDescriptor(id: thirdID, collisionShape: .circle(center: .zero, radius: 0)),
+    ],
+  )
+
+  var generator = SeededGenerator(seed: placement.seed)
+  let placed = OrganicShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: [choiceSymbol],
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .finite,
+    configuration: placement,
+    randomGenerator: &generator,
+  )
+
+  #expect(placed.count == placement.maximumSymbolCount)
+  #expect(placed.allSatisfy { $0.symbolId == rootID })
+  #expect(placed.map(\.renderSymbolId) == [
+    thirdID, firstID, secondID,
+    thirdID, firstID, secondID,
+    thirdID, firstID, secondID,
+    thirdID, firstID, secondID,
+  ])
+}
+
+@Test func organicIndexSequenceChoiceNormalizesOutOfRangeAndNegativeIndices() async throws {
+  let size = CGSize(width: 100, height: 100)
+  let placement = PlacementModel.Organic(
+    seed: 7,
+    minimumSpacing: 0,
+    density: 1,
+    baseScaleRange: 1...1,
+    maximumSymbolCount: 9,
+  )
+  let rootID = UUID(uuidString: "00000000-0000-0000-0000-00000000001C")!
+  let firstID = UUID(uuidString: "00000000-0000-0000-0000-00000000001D")!
+  let secondID = UUID(uuidString: "00000000-0000-0000-0000-00000000001E")!
+  let thirdID = UUID(uuidString: "00000000-0000-0000-0000-00000000001F")!
+  let choiceSymbol = makeChoiceSymbolDescriptor(
+    id: rootID,
+    strategy: .indexSequence([7, -1, 1]),
+    choices: [
+      makeSymbolDescriptor(id: firstID, collisionShape: .circle(center: .zero, radius: 0)),
+      makeSymbolDescriptor(id: secondID, collisionShape: .circle(center: .zero, radius: 0)),
+      makeSymbolDescriptor(id: thirdID, collisionShape: .circle(center: .zero, radius: 0)),
+    ],
+  )
+
+  var generator = SeededGenerator(seed: placement.seed)
+  let placed = OrganicShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: [choiceSymbol],
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .finite,
+    configuration: placement,
+    randomGenerator: &generator,
+  )
+
+  #expect(placed.count == placement.maximumSymbolCount)
+  #expect(placed.allSatisfy { $0.symbolId == rootID })
+  #expect(placed.map(\.renderSymbolId) == [
+    secondID, thirdID, secondID,
+    secondID, thirdID, secondID,
+    secondID, thirdID, secondID,
+  ])
+}
+
 @Test func organicChoiceSeedChangesChoiceResolutionForSamePlacementSeed() async throws {
   let size = CGSize(width: 100, height: 100)
   let placement = PlacementModel.Organic(

@@ -16,6 +16,19 @@ extension DemoConfigurations {
       ),
     )
   }
+
+  static var choiceSymbolsIndexSequenceGrid: Pattern {
+    Pattern(
+      symbols: [.choiceIndexSequenceRoot],
+      placement: .grid(
+        columns: ChoiceSymbolsConstants.columns,
+        rows: ChoiceSymbolsConstants.rows,
+        symbolOrder: .sequence,
+        seed: ChoiceSymbolsConstants.indexSequenceSeed,
+        showsGridOverlay: true,
+      ),
+    )
+  }
 }
 
 extension Symbol {
@@ -24,6 +37,14 @@ extension Symbol {
       id: ChoiceSymbolIDs.root,
       choiceStrategy: .weightedRandom,
       choiceSeed: 302,
+      choices: [.choiceSpark, .choiceSlashedCircle, .choiceDiamond],
+    )
+  }
+
+  static var choiceIndexSequenceRoot: Symbol {
+    Symbol(
+      id: ChoiceSymbolIDs.indexSequenceRoot,
+      choiceStrategy: .indexSequence([0, 2, 1, 2]),
       choices: [.choiceSpark, .choiceSlashedCircle, .choiceDiamond],
     )
   }
@@ -94,15 +115,37 @@ struct ChoiceSymbolsExampleView: View {
   }
 }
 
+struct ChoiceIndexSequenceExampleView: View {
+  var body: some View {
+    Tessera(DemoConfigurations.choiceSymbolsIndexSequenceGrid)
+      .mode(.tiled(tileSize: ChoiceSymbolsConstants.tileSize))
+      .seed(.fixed(ChoiceSymbolsConstants.indexSequenceSeed))
+      .background(Color(red: 0.09, green: 0.10, blue: 0.14))
+      .ignoresSafeArea()
+      .overlay(alignment: .topLeading) {
+        SteeringLegendOverlay(
+          title: "Choice Index Sequence",
+          startLabel: "indices: [0, 2, 1, 2] repeats",
+          endLabel: "explicit, deterministic child order",
+          axisSymbol: "list.number",
+        )
+      }
+      .navigationTitle("Choice Index Sequence")
+      .navigationBarTitleDisplayMode(.inline)
+  }
+}
+
 private enum ChoiceSymbolsConstants {
   static let columns = 9
   static let rows = 9
   static let tileSize = CGSize(width: 320, height: 320)
   static let seed: UInt64 = 302
+  static let indexSequenceSeed: UInt64 = 904
 }
 
 private enum ChoiceSymbolIDs {
   static let root = UUID(uuidString: "F9514DB4-50B4-4F17-8BE3-26E2A48D6C38")!
+  static let indexSequenceRoot = UUID(uuidString: "34D834A5-4C6E-45D0-8F80-71E81E88FB03")!
   static let spark = UUID(uuidString: "80A33AD9-7BC5-4C69-A0A0-511DD6CBEE71")!
   static let slashedCircle = UUID(uuidString: "4D51AD6A-0B07-478C-B053-95B380EC2EA4")!
   static let diamond = UUID(uuidString: "A2C8FC7B-CE54-41B0-A909-26FAFF3512E4")!

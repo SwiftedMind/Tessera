@@ -215,6 +215,60 @@ import Testing
   #expect(placed.map(\.renderSymbolId) == [firstID, nestedFirstID, firstID, nestedSecondID])
 }
 
+@Test func gridIndexSequenceChoiceCyclesAcrossCellsAndRepeatsProvidedIndices() async throws {
+  let size = CGSize(width: 300, height: 100)
+  let rootID = UUID(uuidString: "00000000-0000-0000-0000-000000000045")!
+  let firstID = UUID(uuidString: "00000000-0000-0000-0000-000000000046")!
+  let secondID = UUID(uuidString: "00000000-0000-0000-0000-000000000047")!
+  let thirdID = UUID(uuidString: "00000000-0000-0000-0000-000000000048")!
+  let rootChoice = makeChoiceSymbolDescriptor(
+    id: rootID,
+    strategy: .indexSequence([2, 0, 1]),
+    choices: [
+      makeGridSymbolDescriptor(id: firstID, allowedRotationRangeDegrees: 0...0),
+      makeGridSymbolDescriptor(id: secondID, allowedRotationRangeDegrees: 0...0),
+      makeGridSymbolDescriptor(id: thirdID, allowedRotationRangeDegrees: 0...0),
+    ],
+  )
+
+  let placed = placeGrid(
+    size: size,
+    symbolDescriptors: [rootChoice],
+    seed: 14,
+    columnCount: 5,
+    rowCount: 1,
+  )
+
+  #expect(placed.map(\.renderSymbolId) == [thirdID, firstID, secondID, thirdID, firstID])
+}
+
+@Test func gridIndexSequenceChoiceNormalizesOutOfRangeAndNegativeIndices() async throws {
+  let size = CGSize(width: 180, height: 100)
+  let rootID = UUID(uuidString: "00000000-0000-0000-0000-000000000049")!
+  let firstID = UUID(uuidString: "00000000-0000-0000-0000-00000000004A")!
+  let secondID = UUID(uuidString: "00000000-0000-0000-0000-00000000004B")!
+  let thirdID = UUID(uuidString: "00000000-0000-0000-0000-00000000004C")!
+  let rootChoice = makeChoiceSymbolDescriptor(
+    id: rootID,
+    strategy: .indexSequence([5, -1, 1]),
+    choices: [
+      makeGridSymbolDescriptor(id: firstID, allowedRotationRangeDegrees: 0...0),
+      makeGridSymbolDescriptor(id: secondID, allowedRotationRangeDegrees: 0...0),
+      makeGridSymbolDescriptor(id: thirdID, allowedRotationRangeDegrees: 0...0),
+    ],
+  )
+
+  let placed = placeGrid(
+    size: size,
+    symbolDescriptors: [rootChoice],
+    seed: 15,
+    columnCount: 3,
+    rowCount: 1,
+  )
+
+  #expect(placed.map(\.renderSymbolId) == [thirdID, thirdID, secondID])
+}
+
 @Test func gridSequenceChoiceDoesNotAdvanceWhenCellIsRejected() async throws {
   let size = CGSize(width: 200, height: 100)
   let rootID = UUID(uuidString: "00000000-0000-0000-0000-000000000050")!
@@ -254,6 +308,66 @@ import Testing
   #expect(placed.count == 1)
   #expect(placed[0].symbolId == rootID)
   #expect(placed[0].renderSymbolId == firstID)
+}
+
+@Test func gridIndexSequenceChoiceDoesNotAdvanceWhenCellIsRejected() async throws {
+  let size = CGSize(width: 200, height: 100)
+  let rootID = UUID(uuidString: "00000000-0000-0000-0000-000000000054")!
+  let firstID = UUID(uuidString: "00000000-0000-0000-0000-000000000055")!
+  let secondID = UUID(uuidString: "00000000-0000-0000-0000-000000000056")!
+  let rootChoice = makeChoiceSymbolDescriptor(
+    id: rootID,
+    strategy: .indexSequence([1, 0]),
+    choices: [
+      makeGridSymbolDescriptor(id: firstID, allowedRotationRangeDegrees: 0...0),
+      makeGridSymbolDescriptor(id: secondID, allowedRotationRangeDegrees: 0...0),
+    ],
+  )
+  let pinnedSymbol = ShapePlacementEngine.PinnedSymbolDescriptor(
+    id: UUID(uuidString: "00000000-0000-0000-0000-000000000057")!,
+    position: CGPoint(x: 50, y: 50),
+    rotationRadians: 0,
+    scale: 1,
+    collisionShape: .circle(center: .zero, radius: 30),
+  )
+
+  let placed = placeGrid(
+    size: size,
+    symbolDescriptors: [rootChoice],
+    seed: 17,
+    columnCount: 2,
+    rowCount: 1,
+    pinnedSymbolDescriptors: [pinnedSymbol],
+  )
+
+  #expect(placed.count == 1)
+  #expect(placed[0].symbolId == rootID)
+  #expect(placed[0].renderSymbolId == secondID)
+}
+
+@Test func gridIndexSequenceChoiceFallsBackToSequenceWhenIndicesAreEmpty() async throws {
+  let size = CGSize(width: 240, height: 100)
+  let rootID = UUID(uuidString: "00000000-0000-0000-0000-000000000058")!
+  let firstID = UUID(uuidString: "00000000-0000-0000-0000-000000000059")!
+  let secondID = UUID(uuidString: "00000000-0000-0000-0000-00000000005A")!
+  let rootChoice = makeChoiceSymbolDescriptor(
+    id: rootID,
+    strategy: .indexSequence([]),
+    choices: [
+      makeGridSymbolDescriptor(id: firstID, allowedRotationRangeDegrees: 0...0),
+      makeGridSymbolDescriptor(id: secondID, allowedRotationRangeDegrees: 0...0),
+    ],
+  )
+
+  let placed = placeGrid(
+    size: size,
+    symbolDescriptors: [rootChoice],
+    seed: 18,
+    columnCount: 4,
+    rowCount: 1,
+  )
+
+  #expect(placed.map(\.renderSymbolId) == [firstID, secondID, firstID, secondID])
 }
 
 @Test func gridSymbolPhasesUseResolvedChoiceLeafID() async throws {

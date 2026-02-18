@@ -11,8 +11,10 @@
 - **Grid Debug Overlay**: Added `showsGridOverlay` for visualizing resolved grid lines and merged-cell bounds in
   canvas/tile rendering.
 - **Choice Symbols**: `TesseraSymbol`/`Symbol` now support nested `choices` plus `choiceStrategy`
-  (`.weightedRandom`, `.sequence`) so one top-level symbol can resolve controlled per-placement variation while staying
-  seed-stable.
+  (`.weightedRandom`, `.sequence`, `.indexSequence([Int])`) so one top-level symbol can resolve controlled
+  per-placement variation while staying seed-stable.
+- **Choice Index Sequences**: `TesseraSymbolChoiceStrategy` now supports `.indexSequence([Int])` for deterministic
+  caller-defined child index placement with repeating sequences.
 - **Spatial Steering Fields**: Added `TesseraPlacement.SteeringField` with value range, easing
   (`linear`, `smoothStep`, `easeIn`, `easeOut`, `easeInOut`), and shape selection (`linear`, `radial`) for
   position-based interpolation.

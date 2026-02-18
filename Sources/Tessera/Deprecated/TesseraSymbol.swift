@@ -9,6 +9,9 @@ public enum TesseraSymbolChoiceStrategy: Hashable, Sendable {
   case weightedRandom
   /// Picks child symbols in deterministic order (`first`, `second`, ... then wrap).
   case sequence
+  /// Picks child symbols using caller-provided indices (`indices[0]`, `indices[1]`, ... then wrap).
+  /// Indices are normalized modulo child count, so negative and out-of-range values remain valid.
+  case indexSequence([Int])
 }
 
 /// Describes a drawable symbol that can appear inside a tessera tile.

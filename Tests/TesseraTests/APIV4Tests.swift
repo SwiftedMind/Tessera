@@ -293,6 +293,24 @@ import Testing
   #expect(choice.renderableLeafSymbols.map(\.id) == [first.id, second.id])
 }
 
+@Test func symbolChoiceInitializerStoresIndexSequenceStrategy() async throws {
+  let first = Symbol(collider: .automatic(size: CGSize(width: 8, height: 8))) {
+    Circle().frame(width: 8, height: 8)
+  }
+  let second = Symbol(collider: .automatic(size: CGSize(width: 10, height: 10))) {
+    Rectangle().frame(width: 10, height: 10)
+  }
+  let strategy: TesseraSymbolChoiceStrategy = .indexSequence([2, -1, 0])
+  let choice = Symbol(
+    id: UUID(uuidString: "00000000-0000-0000-0000-0000000000AB")!,
+    choiceStrategy: strategy,
+    choices: [first, second],
+  )
+
+  #expect(choice.choiceStrategy == strategy)
+  #expect(choice.choices.map(\.id) == [first.id, second.id])
+}
+
 @Test @MainActor func canvasModeExportRequiresCanvasSize() async throws {
   let symbol = Symbol(collider: .automatic(size: CGSize(width: 12, height: 12))) {
     Circle().frame(width: 12, height: 12)

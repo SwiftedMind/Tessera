@@ -54,6 +54,15 @@ struct TesseraDemoView: View {
             )
           }
           NavigationLink {
+            ChoiceIndexSequenceExampleView()
+          } label: {
+            ExampleRow(
+              title: "Choice Index Sequence",
+              subtitle: "Explicit child index placement order",
+              systemImage: "list.number",
+            )
+          }
+          NavigationLink {
             PolygonRegionExampleView()
           } label: {
             ExampleRow(
