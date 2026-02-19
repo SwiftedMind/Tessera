@@ -5,7 +5,7 @@ import Foundation
 @testable import Tessera
 import Testing
 
-@Test func sequenceMatchesPriorRowMajor() async throws {
+@Test func rowMajorMatchesPriorSequenceBehavior() async throws {
   let size = CGSize(width: 200, height: 200)
 
   let ids = [UUID(), UUID(), UUID()]
@@ -15,7 +15,7 @@ import Testing
     columnCount: 2,
     rowCount: 2,
     offsetStrategy: .none,
-    symbolOrder: .sequence,
+    symbolOrder: .rowMajor,
     seed: 1,
   )
 
@@ -28,6 +28,36 @@ import Testing
   )
 
   #expect(placed.map(\.symbolId) == [ids[0], ids[1], ids[2], ids[0]])
+}
+
+@Test func columnMajorAssignsTopToBottomThenNextColumn() async throws {
+  let size = CGSize(width: 300, height: 200)
+
+  let ids = [UUID(), UUID(), UUID()]
+  let symbols = ids.map { makeSymbolDescriptor(id: $0) }
+
+  let configuration = PlacementModel.Grid(
+    columnCount: 3,
+    rowCount: 2,
+    offsetStrategy: .none,
+    symbolOrder: .columnMajor,
+    seed: 1,
+  )
+
+  let placed = GridShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: symbols,
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .finite,
+    configuration: configuration,
+  )
+
+  #expect(symbolID(at: CGPoint(x: 50, y: 50), in: placed) == ids[0])
+  #expect(symbolID(at: CGPoint(x: 50, y: 150), in: placed) == ids[1])
+  #expect(symbolID(at: CGPoint(x: 150, y: 50), in: placed) == ids[2])
+  #expect(symbolID(at: CGPoint(x: 150, y: 150), in: placed) == ids[0])
+  #expect(symbolID(at: CGPoint(x: 250, y: 50), in: placed) == ids[1])
+  #expect(symbolID(at: CGPoint(x: 250, y: 150), in: placed) == ids[2])
 }
 
 @Test func diagonalAssignsByRowPlusColumn() async throws {
@@ -198,6 +228,13 @@ private func makeSymbolDescriptor(
     resolvedScaleRange: 1...1,
     collisionShape: .circle(center: .zero, radius: 1),
   )
+}
+
+private func symbolID(
+  at position: CGPoint,
+  in placedDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor],
+) -> UUID? {
+  placedDescriptors.first(where: { $0.position == position })?.symbolId
 }
 
 private func expectedIndices(

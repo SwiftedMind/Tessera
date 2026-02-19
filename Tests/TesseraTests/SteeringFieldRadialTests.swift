@@ -261,7 +261,7 @@ import Testing
     columnCount: 9,
     rowCount: 9,
     offsetStrategy: .none,
-    symbolOrder: .sequence,
+    symbolOrder: .rowMajor,
     seed: 404,
     steering: .init(
       rotationOffsetDegrees: .radial(

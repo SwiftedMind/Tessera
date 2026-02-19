@@ -34,7 +34,7 @@ import Testing
   #expect(options.columnCount == 3)
   #expect(options.rowCount == 2)
   #expect(options.offsetStrategy == .none)
-  #expect(options.symbolOrder == .sequence)
+  #expect(options.symbolOrder == .rowMajor)
   #expect(options.symbolPhases.isEmpty)
   #expect(options.showsGridOverlay == false)
   #expect(options.mergedCells.isEmpty)

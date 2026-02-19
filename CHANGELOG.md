@@ -2,7 +2,7 @@
 
 ### Added
 - **Grid Symbol Orders**: `TesseraPlacement.GridSymbolOrder` now supports `.randomWeightedPerCell`, `.shuffle`,
-  `.diagonal`, and `.snake` (in addition to `.sequence`).
+  `.diagonal`, and `.snake` with canonical traversal cases `.rowMajor` and `.columnMajor`.
 - **Grid Seed**: `TesseraPlacement.Grid` now includes `seed` to drive deterministic grid symbol assignment.
 - **Per-Symbol Grid Phases**: `TesseraPlacement.Grid.symbolPhases` allows deterministic per-symbol phase offsets in
   grid cell units (for interleaved lattices and phase-shifted symbol families).
@@ -30,6 +30,8 @@
   [MIGRATION.md](MIGRATION.md).
 
 ### Changed
+- **Grid Sequence Naming**: Grid order now uses `.rowMajor` as the canonical sequence naming; existing `.sequence`
+  usage maps to row-major behavior.
 - **Seed Override Applies To Grid**: `Tessera.seed(.fixed(...))` now overrides grid placement seeding in all render
   modes (`.tile`, `.tiled`, `.canvas`).
 - **Pairwise Organic Spacing**: Organic spacing checks now use per-symbol pairwise buffers (`max(lhs, rhs)`) so

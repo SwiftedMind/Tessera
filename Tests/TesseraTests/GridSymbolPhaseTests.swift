@@ -14,14 +14,14 @@ import Testing
     columnCount: 2,
     rowCount: 2,
     offsetStrategy: .none,
-    symbolOrder: .sequence,
+    symbolOrder: .rowMajor,
     seed: 7,
   )
   let configurationWithZeroPhase = PlacementModel.Grid(
     columnCount: 2,
     rowCount: 2,
     offsetStrategy: .none,
-    symbolOrder: .sequence,
+    symbolOrder: .rowMajor,
     seed: 7,
     symbolPhases: [symbolID: .init(x: 0, y: 0)],
   )
@@ -82,7 +82,7 @@ import Testing
     columnCount: 4,
     rowCount: 1,
     offsetStrategy: .none,
-    symbolOrder: .sequence,
+    symbolOrder: .rowMajor,
     seed: 1,
     symbolPhases: [symbolID: .init(x: 1.25, y: 0)],
   )
@@ -109,14 +109,14 @@ import Testing
     columnCount: 2,
     rowCount: 2,
     offsetStrategy: .none,
-    symbolOrder: .sequence,
+    symbolOrder: .rowMajor,
     seed: 3,
   )
   let nonFinitePhaseConfiguration = PlacementModel.Grid(
     columnCount: 2,
     rowCount: 2,
     offsetStrategy: .none,
-    symbolOrder: .sequence,
+    symbolOrder: .rowMajor,
     seed: 3,
     symbolPhases: [symbolID: phase],
   )
@@ -149,7 +149,7 @@ import Testing
     columnCount: 4,
     rowCount: 1,
     offsetStrategy: .none,
-    symbolOrder: .sequence,
+    symbolOrder: .rowMajor,
     seed: 1,
     symbolPhases: [symbolID: .init(x: 1.25, y: 0)],
   )
@@ -182,7 +182,7 @@ import Testing
     columnCount: 4,
     rowCount: 2,
     offsetStrategy: .none,
-    symbolOrder: .sequence,
+    symbolOrder: .rowMajor,
     seed: 31,
     symbolPhases: [symbolID: .init(x: 0.25, y: 0)],
     mergedCells: [

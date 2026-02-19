@@ -35,6 +35,7 @@ enum DemoDestination: String, Hashable, Identifiable {
   case tiledCanvas
   case finiteCanvas
   case gridPlacement
+  case gridColumnMajor
   case mergedGridCells
   case choiceSymbols
   case choiceIndexSequence

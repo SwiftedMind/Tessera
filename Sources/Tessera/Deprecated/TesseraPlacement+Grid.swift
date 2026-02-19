@@ -203,7 +203,7 @@ public extension PlacementModel {
       columnCount: Int,
       rowCount: Int,
       offsetStrategy: GridOffsetStrategy = .none,
-      symbolOrder: GridSymbolOrder = .sequence,
+      symbolOrder: GridSymbolOrder = .rowMajor,
       seed: UInt64 = TesseraConfiguration.randomSeed(),
       symbolPhases: [UUID: SymbolPhase] = [:],
       steering: GridSteering = .none,

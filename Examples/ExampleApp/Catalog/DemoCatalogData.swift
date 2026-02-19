@@ -27,6 +27,12 @@ enum DemoCatalog {
           systemImage: "square.grid.2x2",
         ),
         DemoCatalogExample(
+          destination: .gridColumnMajor,
+          title: "Grid Column Major",
+          summary: "Top-to-bottom symbol assignment order",
+          systemImage: "arrow.down.to.line.compact",
+        ),
+        DemoCatalogExample(
           destination: .mergedGridCells,
           title: "Merged Grid Cells",
           summary: "Rectangular grid cell spans",

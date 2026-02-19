@@ -27,8 +27,10 @@ public extension PlacementModel {
 
   /// Symbol assignment order for grid placement.
   enum GridSymbolOrder: Hashable, Sendable {
-    /// Assign symbols in array order, repeating from the start as needed.
-    case sequence
+    /// Assign symbols in array order left-to-right for each row, repeating from the start as needed.
+    case rowMajor
+    /// Assign symbols in array order top-to-bottom for each column, repeating from the start as needed.
+    case columnMajor
     /// Assign a random symbol to each cell, sampling using `TesseraSymbol.weight`.
     ///
     /// Each cell is sampled independently using a deterministic per-cell random seed derived from `Grid.seed`.
@@ -41,5 +43,11 @@ public extension PlacementModel {
     case diagonal
     /// Assign symbols row-major, reversing the symbol index progression on odd rows.
     case snake
+
+    /// Compatibility alias for row-major sequence ordering.
+    @available(*, deprecated, renamed: "rowMajor")
+    public static var sequence: Self {
+      .rowMajor
+    }
   }
 }

@@ -74,6 +74,15 @@ try Tessera(pattern)
 - 3.x APIs remain available as deprecated shims in 4.0.
 - Remove deprecated calls before 5.0, where shims will be dropped.
 
+### Grid symbol order updates
+
+Grid sequence naming now uses `rowMajor` as the canonical default, and grid placement adds a column-first traversal mode:
+
+- `symbolOrder: .rowMajor`: left-to-right across each row, then next row (default).
+- `symbolOrder: .columnMajor`: top-to-bottom in each column, then next column.
+
+If your existing 4.0 code used `symbolOrder: .sequence`, migrate to `symbolOrder: .rowMajor`.
+
 ## 2.0.0 → 3.0.0
 
 This guide covers migrating from Tessera `2.0.0` (current `main` branch) to Tessera `3.0.0` (current `develop` branch).

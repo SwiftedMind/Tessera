@@ -15,7 +15,7 @@ import Testing
       columnCount: 4,
       rowCount: 3,
       offsetStrategy: .none,
-      symbolOrder: .sequence,
+      symbolOrder: .rowMajor,
       seed: 9,
     ),
   )
@@ -39,7 +39,7 @@ import Testing
       columnCount: 6,
       rowCount: 4,
       offsetStrategy: .none,
-      symbolOrder: .sequence,
+      symbolOrder: .rowMajor,
       seed: 1,
     ),
   )
@@ -52,7 +52,7 @@ import Testing
       columnCount: 6,
       rowCount: 4,
       offsetStrategy: .none,
-      symbolOrder: .sequence,
+      symbolOrder: .rowMajor,
       seed: 2,
     ),
   )
@@ -476,7 +476,7 @@ import Testing
   #expect(placed.contains { $0.position == CGPoint(x: 250, y: 250) })
 }
 
-@Test func gridSequenceOrderUsesContiguousResolvedPlacementIndicesWithMergedCells() async throws {
+@Test func gridRowMajorOrderUsesContiguousResolvedPlacementIndicesWithMergedCells() async throws {
   let symbolIDs = [
     UUID(uuidString: "00000000-0000-0000-0000-000000000074")!,
     UUID(uuidString: "00000000-0000-0000-0000-000000000075")!,
@@ -511,6 +511,47 @@ import Testing
     symbolIDs[0],
     symbolIDs[1],
     symbolIDs[2],
+    symbolIDs[0],
+    symbolIDs[1],
+  ])
+}
+
+@Test func gridColumnMajorOrderUsesContiguousRegularIndicesWithMergedCells() async throws {
+  let symbolIDs = [
+    UUID(uuidString: "00000000-0000-0000-0000-000000000079")!,
+    UUID(uuidString: "00000000-0000-0000-0000-000000000080")!,
+    UUID(uuidString: "00000000-0000-0000-0000-000000000081")!,
+  ]
+  let symbols = symbolIDs.map { id in
+    makeGridSymbolDescriptor(
+      id: id,
+      allowedRotationRangeDegrees: 0...0,
+    )
+  }
+  let placed = placeGrid(
+    size: CGSize(width: 300, height: 200),
+    symbolDescriptors: symbols,
+    seed: 15,
+    columnCount: 3,
+    rowCount: 2,
+    symbolOrder: .columnMajor,
+    mergedCells: [
+      .init(origin: .init(row: 0, column: 1), span: .init(rows: 1, columns: 2)),
+    ],
+  )
+
+  #expect(placed.count == 5)
+  #expect(placed.map(\.position) == [
+    CGPoint(x: 50, y: 50),
+    CGPoint(x: 200, y: 50),
+    CGPoint(x: 50, y: 150),
+    CGPoint(x: 150, y: 150),
+    CGPoint(x: 250, y: 150),
+  ])
+  #expect(placed.map(\.symbolId) == [
+    symbolIDs[0],
+    symbolIDs[2],
+    symbolIDs[1],
     symbolIDs[0],
     symbolIDs[1],
   ])
@@ -721,7 +762,7 @@ private func placeGrid(
   rowCount: Int,
   edgeBehavior: TesseraEdgeBehavior = .finite,
   offsetStrategy: PlacementModel.GridOffsetStrategy = .none,
-  symbolOrder: PlacementModel.GridSymbolOrder = .sequence,
+  symbolOrder: PlacementModel.GridSymbolOrder = .rowMajor,
   pinnedSymbolDescriptors: [ShapePlacementEngine.PinnedSymbolDescriptor] = [],
   symbolPhases: [UUID: PlacementModel.Grid.SymbolPhase] = [:],
   mergedCells: [PlacementModel.Grid.CellMerge] = [],

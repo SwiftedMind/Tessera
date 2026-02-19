@@ -248,10 +248,11 @@ let region = Region.alphaMask(
 ### Grid Placement
 
 Use grid placement when you want orderly, repeatable patterns with optional row/column offsets. Symbols are assigned in
-the order defined by `symbolOrder` (defaults to row-major `.sequence`), and the grid derives cell size from the
+the order defined by `symbolOrder` (defaults to row-major `.rowMajor`), and the grid derives cell size from the
 configured row and column counts. When seamless wrapping with non-zero offset strategies requires even counts, the
 engine rounds up to the nearest even value. Offset fractions are expressed in cell units, so values greater than 1 shift
 by whole cells (for example `2.5` shifts by 2½ cells).
+Use `.columnMajor` when you want symbol assignment to move top-to-bottom before advancing to the next column.
 
 ```swift
 let pattern = Pattern(

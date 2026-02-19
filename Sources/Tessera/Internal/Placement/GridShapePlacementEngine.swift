@@ -93,6 +93,14 @@ enum GridShapePlacementEngine {
     }()
     let regularSymbolCount = regularSymbolDescriptors.count
     let regularPlacementCount = max(0, totalPlacementCount - fixedSymbolsByPlacementIndex.count)
+    let columnMajorRegularAssignmentIndicesByPlacementIndex = configuration.symbolOrder == .columnMajor
+      ? makeColumnMajorRegularAssignmentIndicesByPlacementIndex(
+        resolvedPlacementCells: resolvedPlacementCells,
+        fixedPlacementIndices: Set(fixedSymbolsByPlacementIndex.keys),
+        rowCount: resolvedGrid.rowCount,
+        columnCount: resolvedGrid.columnCount,
+      )
+      : [:]
     let normalizedOffset = normalizedOffsetAmount(from: configuration.offsetStrategy)
     let wrapOffsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: edgeBehavior)
     let shuffledSymbolIndices = configuration.symbolOrder == .shuffle
@@ -146,12 +154,21 @@ enum GridShapePlacementEngine {
         selectedSymbol = fixedSymbol
         symbolAssignmentIndex = placementIndex
       } else {
-        let currentRegularAssignmentIndex = regularAssignmentIndex
+        let currentRegularAssignmentIndex: Int
+        if configuration.symbolOrder == .columnMajor {
+          guard let columnMajorIndex = columnMajorRegularAssignmentIndicesByPlacementIndex[placementIndex] else {
+            preconditionFailure("Missing column-major assignment index for placement \(placementIndex)")
+          }
+
+          currentRegularAssignmentIndex = columnMajorIndex
+        } else {
+          currentRegularAssignmentIndex = regularAssignmentIndex
+        }
         regularAssignmentIndex += 1
 
         let resolvedSymbolIndex: Int
         switch configuration.symbolOrder {
-        case .sequence:
+        case .rowMajor, .columnMajor:
           resolvedSymbolIndex = currentRegularAssignmentIndex
         case .diagonal:
           resolvedSymbolIndex = rowIndex + columnIndex
@@ -478,6 +495,37 @@ enum GridShapePlacementEngine {
       updatedCell.placementIndex = offset
       return updatedCell
     }
+  }
+
+  private static func makeColumnMajorRegularAssignmentIndicesByPlacementIndex(
+    resolvedPlacementCells: [ResolvedPlacementCell],
+    fixedPlacementIndices: Set<Int>,
+    rowCount: Int,
+    columnCount: Int,
+  ) -> [Int: Int] {
+    var placementIndexByGridIndex = Array(repeating: -1, count: rowCount * columnCount)
+    for cell in resolvedPlacementCells {
+      let gridIndex = cellIndexInGrid(row: cell.rowIndex, column: cell.columnIndex, columnCount: columnCount)
+      placementIndexByGridIndex[gridIndex] = cell.placementIndex
+    }
+
+    var indicesByPlacementIndex: [Int: Int] = [:]
+    indicesByPlacementIndex.reserveCapacity(max(0, resolvedPlacementCells.count - fixedPlacementIndices.count))
+    var regularAssignmentIndex = 0
+
+    for column in 0..<columnCount {
+      for row in 0..<rowCount {
+        let gridIndex = cellIndexInGrid(row: row, column: column, columnCount: columnCount)
+        let placementIndex = placementIndexByGridIndex[gridIndex]
+        guard placementIndex >= 0 else { continue }
+        guard fixedPlacementIndices.contains(placementIndex) == false else { continue }
+
+        indicesByPlacementIndex[placementIndex] = regularAssignmentIndex
+        regularAssignmentIndex += 1
+      }
+    }
+
+    return indicesByPlacementIndex
   }
 
   private static func cellIndexInGrid(

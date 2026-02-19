@@ -33,6 +33,16 @@ extension DemoDestination {
   }
 
   @ViewBuilder
+  func gridColumnMajorView() -> some View {
+    DemoExampleScreen(title: "Grid Column Major") {
+      Tessera(DemoConfigurations.gridColumnMajor)
+        .mode(.canvas(edgeBehavior: .finite))
+        .seed(.fixed(314))
+        .background(DemoPalette.canvasBackground)
+    }
+  }
+
+  @ViewBuilder
   func mergedGridCellsView() -> some View {
     DemoExampleScreen(title: "Merged Grid Cells") {
       Tessera(DemoConfigurations.gridMergedCells)

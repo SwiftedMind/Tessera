@@ -10,7 +10,7 @@ extension DemoConfigurations {
       placement: .grid(
         columns: ChoiceSymbolsConstants.columns,
         rows: ChoiceSymbolsConstants.rows,
-        symbolOrder: .sequence,
+        symbolOrder: .rowMajor,
         seed: ChoiceSymbolsConstants.seed,
         showsGridOverlay: true,
       ),
@@ -23,7 +23,7 @@ extension DemoConfigurations {
       placement: .grid(
         columns: ChoiceSymbolsConstants.columns,
         rows: ChoiceSymbolsConstants.rows,
-        symbolOrder: .sequence,
+        symbolOrder: .rowMajor,
         seed: ChoiceSymbolsConstants.indexSequenceSeed,
         showsGridOverlay: true,
       ),

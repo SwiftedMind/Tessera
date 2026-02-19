@@ -12,6 +12,8 @@ extension DemoDestination {
       finiteCanvasView()
     case .gridPlacement:
       gridPlacementView()
+    case .gridColumnMajor:
+      gridColumnMajorView()
     case .mergedGridCells:
       mergedGridCellsView()
     case .choiceSymbols:

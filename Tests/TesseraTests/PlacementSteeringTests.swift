@@ -274,7 +274,7 @@ import Testing
     columnCount: 1,
     rowCount: 5,
     offsetStrategy: .none,
-    symbolOrder: .sequence,
+    symbolOrder: .rowMajor,
     seed: 1,
     steering: .init(
       scaleMultiplier: .init(
@@ -316,7 +316,7 @@ import Testing
     columnCount: 5,
     rowCount: 1,
     offsetStrategy: .none,
-    symbolOrder: .sequence,
+    symbolOrder: .rowMajor,
     seed: 1,
     steering: .init(
       rotationMultiplier: .init(

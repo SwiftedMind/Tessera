@@ -32,6 +32,21 @@ enum DemoConfigurations {
     )
   }
 
+  static var gridColumnMajor: Pattern {
+    Pattern(
+      symbols: [.gridCross, .gridCrossRotated, .mergedCellDot],
+      placement: .grid(
+        TesseraPlacement.Grid(
+          columnCount: 7,
+          rowCount: 5,
+          symbolOrder: .columnMajor,
+          seed: 314,
+          showsGridOverlay: true,
+        ),
+      ),
+    )
+  }
+
   static var gridMergedCells: Pattern {
     Pattern(
       symbols: DemoSymbols.gridMergedCells,
@@ -39,7 +54,7 @@ enum DemoConfigurations {
         TesseraPlacement.Grid(
           columnCount: 10,
           rowCount: 10,
-          symbolOrder: .sequence,
+          symbolOrder: .rowMajor,
           seed: 222,
           showsGridOverlay: true,
           mergedCells: [

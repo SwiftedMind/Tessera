@@ -1,5 +1,9 @@
 # FlowDeck Skill Pack Changelog
 
+## 1.8.1 - 2026-02-19
+- Added notes and migration guidance for grid symbol order naming updates (`rowMajor` and `columnMajor`).
+- Aligned examples/docs to present the current-state default (`rowMajor`) for grid traversal.
+
 ## 1.8.0 - 2026-02-07
 - Reorganized and expanded doc-bot documentation.
 - Split doc-bot docs by product surface: Extension, CLI, and macOS app.
