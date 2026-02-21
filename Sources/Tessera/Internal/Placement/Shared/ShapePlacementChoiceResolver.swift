@@ -98,9 +98,6 @@ extension ShapePlacementEngine {
     )
 
     guard indices.isEmpty == false else {
-      #if DEBUG
-      debugEmptyIndexSequenceWarning()
-      #endif
       return positiveModulo(nextStep, modulus: symbolDescriptor.choices.count)
     }
 
@@ -124,15 +121,4 @@ extension ShapePlacementEngine {
     let remainder = value % modulus
     return remainder >= 0 ? remainder : remainder + modulus
   }
-
-  #if DEBUG
-  private static func debugEmptyIndexSequenceWarning() {
-    guard let warningData =
-      "Assertion failed: Choice strategy .indexSequence requires at least one index. Falling back to .sequence.\n"
-        .data(using: .utf8)
-    else { return }
-
-    FileHandle.standardError.write(warningData)
-  }
-  #endif
 }
