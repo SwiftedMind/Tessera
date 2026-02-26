@@ -4,113 +4,211 @@ import CoreGraphics
 
 /// Performs collision tests for candidate symbol placements.
 enum ShapePlacementCollision {
+  /// Stores precomputed candidate collision data used during validity checks.
+  struct PlacementCandidate {
+    var collisionShape: CollisionShape
+    var collisionTransform: CollisionTransform
+    var polygons: [CollisionPolygon]
+    var boundingRadius: CGFloat
+    var minimumSpacing: CGFloat
+  }
+
+  /// Lightweight counters for profiling collision behavior in tests/benchmarks.
+  final class Diagnostics {
+    var pairChecks = 0
+    var circleFastPathChecks = 0
+    var polygonChecks = 0
+  }
+
   /// Returns whether a candidate placement clears all existing colliders.
   ///
   /// - Parameters:
   ///   - candidate: The candidate placement to validate.
-  ///   - candidatePolygons: The collision polygons for the candidate symbol.
   ///   - existingColliderIndices: The indices of colliders to test against.
   ///   - allColliders: The full collider store referenced by the indices.
   ///   - tileSize: The size of the tile used for wrap checks.
   ///   - edgeBehavior: The edge behavior that determines wrapping rules.
   ///   - wrapOffsets: The offsets used for wrap-aware collision checks.
-  ///   - candidateMinimumSpacing: The local spacing requirement for the candidate symbol.
+  ///   - diagnostics: Optional counters for profiling collision-path behavior.
   /// - Returns: `true` when the candidate does not overlap any collider.
   static func isPlacementValid(
-    candidate: ShapePlacementEngine.PlacedSymbolDescriptor,
-    candidatePolygons: [CollisionPolygon],
+    candidate: PlacementCandidate,
     existingColliderIndices: [Int],
     allColliders: [ShapePlacementEngine.PlacedCollider],
     tileSize: CGSize,
     edgeBehavior: TesseraEdgeBehavior,
     wrapOffsets: [CGPoint],
-    candidateMinimumSpacing: CGFloat,
+    diagnostics: Diagnostics? = nil,
   ) -> Bool {
-    let candidateBoundingRadius = candidate.collisionShape.boundingRadius(atScale: candidate.collisionTransform.scale)
-    let candidatePosition = candidate.collisionTransform.position
+    guard existingColliderIndices.isEmpty == false else { return true }
+
+    let candidateTransform = candidate.collisionTransform
+    let candidatePosition = candidateTransform.position
     let minimumTileHalfDimension = min(tileSize.width, tileSize.height) / 2
 
     // Check candidate against every already-placed symbol, accounting for wrap offsets.
     for colliderIndex in existingColliderIndices {
+      diagnostics?.pairChecks += 1
       let collider = allColliders[colliderIndex]
-      let colliderBoundingRadius = collider.boundingRadius
-      let pairMinimumSpacing = max(candidateMinimumSpacing, collider.minimumSpacing)
-      let combinedRadius = candidateBoundingRadius + colliderBoundingRadius
+      let pairMinimumSpacing = max(candidate.minimumSpacing, collider.minimumSpacing)
+      let combinedRadius = candidate.boundingRadius + collider.boundingRadius
       let bufferedDistance = combinedRadius + pairMinimumSpacing
       let bufferedDistanceSquared = bufferedDistance * bufferedDistance
 
       let shouldUseNearestPeriodicImage = switch edgeBehavior {
       case .finite:
-        true
+        false
       case .seamlessWrapping:
         bufferedDistance < minimumTileHalfDimension
       }
 
-      if shouldUseNearestPeriodicImage {
+      if edgeBehavior == .finite {
+        guard isWithinBufferedDistance(
+          candidatePosition: candidatePosition,
+          colliderPosition: collider.collisionTransform.position,
+          bufferedDistanceSquared: bufferedDistanceSquared,
+        ) else { continue }
+
+        if intersects(
+          candidate: candidate,
+          candidateTransform: candidateTransform,
+          collider: collider,
+          colliderTransform: collider.collisionTransform,
+          pairMinimumSpacing: pairMinimumSpacing,
+          diagnostics: diagnostics,
+        ) {
+          return false
+        }
+      } else if shouldUseNearestPeriodicImage {
         let offset = nearestPeriodicOffset(
           from: collider.collisionTransform.position,
           to: candidatePosition,
           tileSize: tileSize,
-          edgeBehavior: edgeBehavior,
         )
-
-        let shiftedPosition = CGPoint(
-          x: collider.collisionTransform.position.x + offset.x,
-          y: collider.collisionTransform.position.y + offset.y,
-        )
-        let deltaX = candidatePosition.x - shiftedPosition.x
-        let deltaY = candidatePosition.y - shiftedPosition.y
-        let centerDistanceSquared = deltaX * deltaX + deltaY * deltaY
+        let shiftedTransform = shiftedTransform(for: collider.collisionTransform, offset: offset)
 
         // If centers are farther apart than the buffered radii, spacing is satisfied.
-        guard centerDistanceSquared < bufferedDistanceSquared else { continue }
+        guard isWithinBufferedDistance(
+          candidatePosition: candidatePosition,
+          colliderPosition: shiftedTransform.position,
+          bufferedDistanceSquared: bufferedDistanceSquared,
+        ) else { continue }
 
-        let shiftedTransform = CollisionTransform(
-          position: shiftedPosition,
-          rotation: collider.collisionTransform.rotation,
-          scale: collider.collisionTransform.scale,
-        )
-
-        // Within the buffered range, run the narrow-phase polygon test with spacing buffer.
-        if CollisionMath.polygonsIntersect(
-          candidatePolygons,
-          transformA: candidate.collisionTransform,
-          collider.polygons,
-          transformB: shiftedTransform,
-          buffer: pairMinimumSpacing,
-        ) { return false }
+        if intersects(
+          candidate: candidate,
+          candidateTransform: candidateTransform,
+          collider: collider,
+          colliderTransform: shiftedTransform,
+          pairMinimumSpacing: pairMinimumSpacing,
+          diagnostics: diagnostics,
+        ) {
+          return false
+        }
       } else {
         for offset in wrapOffsets {
-          let shiftedPosition = CGPoint(
-            x: collider.collisionTransform.position.x + offset.x,
-            y: collider.collisionTransform.position.y + offset.y,
-          )
-          let deltaX = candidatePosition.x - shiftedPosition.x
-          let deltaY = candidatePosition.y - shiftedPosition.y
-          let centerDistanceSquared = deltaX * deltaX + deltaY * deltaY
+          let shiftedTransform = shiftedTransform(for: collider.collisionTransform, offset: offset)
 
           // If centers are farther apart than the buffered radii, spacing is satisfied.
-          guard centerDistanceSquared < bufferedDistanceSquared else { continue }
+          guard isWithinBufferedDistance(
+            candidatePosition: candidatePosition,
+            colliderPosition: shiftedTransform.position,
+            bufferedDistanceSquared: bufferedDistanceSquared,
+          ) else { continue }
 
-          let shiftedTransform = CollisionTransform(
-            position: shiftedPosition,
-            rotation: collider.collisionTransform.rotation,
-            scale: collider.collisionTransform.scale,
-          )
-
-          // Within the buffered range, run the narrow-phase polygon test with spacing buffer.
-          if CollisionMath.polygonsIntersect(
-            candidatePolygons,
-            transformA: candidate.collisionTransform,
-            collider.polygons,
-            transformB: shiftedTransform,
-            buffer: pairMinimumSpacing,
-          ) { return false }
+          if intersects(
+            candidate: candidate,
+            candidateTransform: candidateTransform,
+            collider: collider,
+            colliderTransform: shiftedTransform,
+            pairMinimumSpacing: pairMinimumSpacing,
+            diagnostics: diagnostics,
+          ) {
+            return false
+          }
         }
       }
     }
 
     return true
+  }
+
+  private static func isWithinBufferedDistance(
+    candidatePosition: CGPoint,
+    colliderPosition: CGPoint,
+    bufferedDistanceSquared: CGFloat,
+  ) -> Bool {
+    let deltaX = candidatePosition.x - colliderPosition.x
+    let deltaY = candidatePosition.y - colliderPosition.y
+    let centerDistanceSquared = deltaX * deltaX + deltaY * deltaY
+    return centerDistanceSquared < bufferedDistanceSquared
+  }
+
+  private static func shiftedTransform(
+    for transform: CollisionTransform,
+    offset: CGPoint,
+  ) -> CollisionTransform {
+    CollisionTransform(
+      position: CGPoint(
+        x: transform.position.x + offset.x,
+        y: transform.position.y + offset.y,
+      ),
+      rotation: transform.rotation,
+      scale: transform.scale,
+    )
+  }
+
+  private static func intersects(
+    candidate: PlacementCandidate,
+    candidateTransform: CollisionTransform,
+    collider: ShapePlacementEngine.PlacedCollider,
+    colliderTransform: CollisionTransform,
+    pairMinimumSpacing: CGFloat,
+    diagnostics: Diagnostics?,
+  ) -> Bool {
+    if let circlesIntersect = circlesIntersect(
+      candidate: candidate,
+      candidateTransform: candidateTransform,
+      collider: collider,
+      colliderTransform: colliderTransform,
+      pairMinimumSpacing: pairMinimumSpacing,
+    ) {
+      diagnostics?.circleFastPathChecks += 1
+      return circlesIntersect
+    }
+
+    diagnostics?.polygonChecks += 1
+    return CollisionMath.polygonsIntersect(
+      candidate.polygons,
+      transformA: candidateTransform,
+      collider.polygons,
+      transformB: colliderTransform,
+      buffer: pairMinimumSpacing,
+    )
+  }
+
+  private static func circlesIntersect(
+    candidate: PlacementCandidate,
+    candidateTransform: CollisionTransform,
+    collider: ShapePlacementEngine.PlacedCollider,
+    colliderTransform: CollisionTransform,
+    pairMinimumSpacing: CGFloat,
+  ) -> Bool? {
+    guard case let .circle(candidateCenter, candidateRadius) = candidate.collisionShape,
+          case let .circle(colliderCenter, colliderRadius) = collider.collisionShape
+    else { return nil }
+
+    let transformedCandidateCenter = CollisionMath.applyTransform(candidateCenter, using: candidateTransform)
+    let transformedColliderCenter = CollisionMath.applyTransform(colliderCenter, using: colliderTransform)
+    let candidateScaledRadius = candidateRadius * candidateTransform.scale
+    let colliderScaledRadius = colliderRadius * colliderTransform.scale
+    let bufferedDistance = candidateScaledRadius + colliderScaledRadius + pairMinimumSpacing
+    let bufferedDistanceSquared = bufferedDistance * bufferedDistance
+
+    return isWithinBufferedDistance(
+      candidatePosition: transformedCandidateCenter,
+      colliderPosition: transformedColliderCenter,
+      bufferedDistanceSquared: bufferedDistanceSquared,
+    )
   }
 
   /// Returns the nearest periodic offset between two positions in a wrapped tile.
@@ -119,15 +217,12 @@ enum ShapePlacementCollision {
   ///   - colliderPosition: The base position of the existing collider.
   ///   - candidatePosition: The position of the candidate symbol.
   ///   - tileSize: The size of the tile used for wrap checks.
-  ///   - edgeBehavior: The edge behavior that determines wrapping rules.
   /// - Returns: The offset that brings the collider nearest to the candidate.
   private static func nearestPeriodicOffset(
     from colliderPosition: CGPoint,
     to candidatePosition: CGPoint,
     tileSize: CGSize,
-    edgeBehavior: TesseraEdgeBehavior,
   ) -> CGPoint {
-    guard edgeBehavior == .seamlessWrapping else { return .zero }
     guard tileSize.width > 0, tileSize.height > 0 else { return .zero }
 
     let deltaX = candidatePosition.x - colliderPosition.x

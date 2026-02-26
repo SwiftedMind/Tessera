@@ -308,31 +308,42 @@ enum GridShapePlacementEngine {
       let rotationOffsetRadians = rotationOffsetDegrees * Double.pi / 180
       let rotationRadians = baseRotationRadians * rotationMultiplier + rotationOffsetRadians
 
-      let candidate = PlacedSymbolDescriptor(
-        symbolId: selectedSymbol.id,
-        renderSymbolId: selectedRenderSymbol.id,
+      let candidateCollisionShape = selectedRenderSymbol.collisionShape
+      let candidateTransform = CollisionTransform(
         position: position,
-        rotationRadians: rotationRadians,
+        rotation: CGFloat(rotationRadians),
         scale: CGFloat(scale),
-        collisionShape: selectedRenderSymbol.collisionShape,
+      )
+      let candidateCollision = ShapePlacementCollision.PlacementCandidate(
+        collisionShape: candidateCollisionShape,
+        collisionTransform: candidateTransform,
+        polygons: selectedPolygons,
+        boundingRadius: candidateCollisionShape.boundingRadius(atScale: candidateTransform.scale),
+        minimumSpacing: 0,
       )
 
       if pinnedColliders.isEmpty == false {
         let isValid = ShapePlacementCollision.isPlacementValid(
-          candidate: candidate,
-          candidatePolygons: selectedPolygons,
+          candidate: candidateCollision,
           existingColliderIndices: pinnedIndices,
           allColliders: pinnedColliders,
           tileSize: size,
           edgeBehavior: edgeBehavior,
           wrapOffsets: wrapOffsets,
-          candidateMinimumSpacing: 0,
         )
 
         guard isValid else { continue }
       }
 
       choiceSequenceState = tentativeChoiceSequenceState
+      let candidate = PlacedSymbolDescriptor(
+        symbolId: selectedSymbol.id,
+        renderSymbolId: selectedRenderSymbol.id,
+        position: position,
+        rotationRadians: rotationRadians,
+        scale: CGFloat(scale),
+        collisionShape: candidateCollisionShape,
+      )
       placedDescriptors.append(candidate)
     }
 

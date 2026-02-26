@@ -9,7 +9,6 @@ enum OrganicShapePlacementEngine {
   typealias PinnedSymbolDescriptor = ShapePlacementEngine.PinnedSymbolDescriptor
   typealias PlacedSymbolDescriptor = ShapePlacementEngine.PlacedSymbolDescriptor
   typealias PlacedCollider = ShapePlacementEngine.PlacedCollider
-  typealias CellCoordinate = ShapePlacementEngine.CellCoordinate
 
   /// Generates placed symbol descriptors using the organic placement configuration.
   ///
@@ -22,6 +21,7 @@ enum OrganicShapePlacementEngine {
   ///   - region: Optional polygon region in tile space used to constrain placement.
   ///   - alphaMask: Optional alpha mask used to constrain placement.
   ///   - randomGenerator: The random number generator that drives placement.
+  ///   - diagnostics: Optional collision diagnostics for profiling.
   /// - Returns: The placed symbol descriptors for the tile.
   static func placeSymbolDescriptors(
     in size: CGSize,
@@ -32,6 +32,7 @@ enum OrganicShapePlacementEngine {
     region: TesseraResolvedPolygonRegion? = nil,
     alphaMask: TesseraAlphaMask? = nil,
     randomGenerator: inout some RandomNumberGenerator,
+    diagnostics: ShapePlacementCollision.Diagnostics? = nil,
   ) -> [PlacedSymbolDescriptor] {
     let baseMinimumSpacing = CGFloat(max(0, configuration.minimumSpacing))
     let maximumSpacingMultiplier = max(
@@ -100,24 +101,26 @@ enum OrganicShapePlacementEngine {
 
     var colliders: [PlacedCollider] = fixedColliders
     colliders.reserveCapacity(fixedColliders.count + remainingTargetCount)
-    var colliderGrid: [CellCoordinate: [Int]] = [:]
-    colliderGrid.reserveCapacity(fixedColliders.count + remainingTargetCount)
+
+    var spatialIndex = OrganicSpatialIndex(
+      gridColumnCount: gridColumnCount,
+      gridRowCount: gridRowCount,
+      edgeBehavior: edgeBehavior,
+    )
 
     for colliderIndex in colliders.indices {
-      let collider = colliders[colliderIndex]
-      let coordinate = cellCoordinate(
-        for: collider.collisionTransform.position,
+      spatialIndex.append(
+        colliderIndex: colliderIndex,
+        at: colliders[colliderIndex].collisionTransform.position,
         cellSize: cellSize,
-        gridColumnCount: gridColumnCount,
-        gridRowCount: gridRowCount,
-        edgeBehavior: edgeBehavior,
       )
-      colliderGrid[coordinate, default: []].append(colliderIndex)
     }
 
     var placedDescriptors: [PlacedSymbolDescriptor] = []
     placedDescriptors.reserveCapacity(remainingTargetCount)
     var choiceSequenceState = ShapePlacementEngine.ChoiceSequenceState()
+    var neighboringColliderIndices: [Int] = []
+    neighboringColliderIndices.reserveCapacity(32)
 
     for placementAttemptIndex in 0..<remainingTargetCount {
       if Task.isCancelled { return placedDescriptors }
@@ -197,62 +200,61 @@ enum OrganicShapePlacementEngine {
         let rotationOffsetRadians = rotationOffsetDegrees * Double.pi / 180
         let rotationRadians = baseRotationRadians * rotationMultiplier + rotationOffsetRadians
 
+        let candidateTransform = CollisionTransform(
+          position: position,
+          rotation: CGFloat(rotationRadians),
+          scale: CGFloat(scale),
+        )
+        let candidateCollisionShape = selectedRenderSymbol.collisionShape
+        let candidateCollision = ShapePlacementCollision.PlacementCandidate(
+          collisionShape: candidateCollisionShape,
+          collisionTransform: candidateTransform,
+          polygons: selectedPolygons,
+          boundingRadius: candidateCollisionShape.boundingRadius(atScale: candidateTransform.scale),
+          minimumSpacing: candidateMinimumSpacing,
+        )
+
+        let candidateCellIndex = spatialIndex.cellIndex(for: position, cellSize: cellSize)
+        neighboringColliderIndices.removeAll(keepingCapacity: true)
+        spatialIndex.appendNeighboringColliderIndices(
+          around: candidateCellIndex,
+          to: &neighboringColliderIndices,
+        )
+
+        guard ShapePlacementCollision.isPlacementValid(
+          candidate: candidateCollision,
+          existingColliderIndices: neighboringColliderIndices,
+          allColliders: colliders,
+          tileSize: size,
+          edgeBehavior: edgeBehavior,
+          wrapOffsets: wrapOffsets,
+          diagnostics: diagnostics,
+        ) else { continue }
+
+        choiceSequenceState = tentativeChoiceSequenceState
+
         let candidate = PlacedSymbolDescriptor(
           symbolId: selectedSymbol.id,
           renderSymbolId: selectedRenderSymbol.id,
           position: position,
           rotationRadians: rotationRadians,
           scale: CGFloat(scale),
-          collisionShape: selectedRenderSymbol.collisionShape,
+          collisionShape: candidateCollisionShape,
         )
-
-        let candidateCoordinate = cellCoordinate(
-          for: position,
-          cellSize: cellSize,
-          gridColumnCount: gridColumnCount,
-          gridRowCount: gridRowCount,
-          edgeBehavior: edgeBehavior,
-        )
-        let neighboringCoordinates = neighboringCellCoordinates(
-          around: candidateCoordinate,
-          gridColumnCount: gridColumnCount,
-          gridRowCount: gridRowCount,
-          edgeBehavior: edgeBehavior,
-        )
-
-        var neighboringColliderIndices: [Int] = []
-        neighboringColliderIndices.reserveCapacity(32)
-        for coordinate in neighboringCoordinates {
-          if let indices = colliderGrid[coordinate] {
-            neighboringColliderIndices.append(contentsOf: indices)
-          }
-        }
-
-        guard ShapePlacementCollision.isPlacementValid(
-          candidate: candidate,
-          candidatePolygons: selectedPolygons,
-          existingColliderIndices: neighboringColliderIndices,
-          allColliders: colliders,
-          tileSize: size,
-          edgeBehavior: edgeBehavior,
-          wrapOffsets: wrapOffsets,
-          candidateMinimumSpacing: candidateMinimumSpacing,
-        ) else { continue }
-
-        choiceSequenceState = tentativeChoiceSequenceState
         placedDescriptors.append(candidate)
-        let candidateTransform = candidate.collisionTransform
+
         colliders.append(
           PlacedCollider(
-            collisionShape: selectedRenderSymbol.collisionShape,
+            collisionShape: candidateCollisionShape,
             collisionTransform: candidateTransform,
             polygons: selectedPolygons,
-            boundingRadius: selectedRenderSymbol.collisionShape.boundingRadius(atScale: candidateTransform.scale),
+            boundingRadius: candidateCollision.boundingRadius,
             minimumSpacing: candidateMinimumSpacing,
           ),
         )
         let newColliderIndex = colliders.count - 1
-        colliderGrid[candidateCoordinate, default: []].append(newColliderIndex)
+        spatialIndex.append(colliderIndex: newColliderIndex, at: position, cellSize: cellSize)
+
         didPlaceSymbol = true
         break
       }
@@ -263,6 +265,161 @@ enum OrganicShapePlacementEngine {
     }
 
     return placedDescriptors
+  }
+
+  private struct OrganicSpatialIndex {
+    let gridColumnCount: Int
+    let gridRowCount: Int
+    let edgeBehavior: TesseraEdgeBehavior
+    var colliderIndicesByCellIndex: [[Int]]
+    let neighboringCellIndicesByCellIndex: [[Int]]
+
+    init(
+      gridColumnCount: Int,
+      gridRowCount: Int,
+      edgeBehavior: TesseraEdgeBehavior,
+    ) {
+      self.gridColumnCount = gridColumnCount
+      self.gridRowCount = gridRowCount
+      self.edgeBehavior = edgeBehavior
+
+      let totalCellCount = gridColumnCount * gridRowCount
+      colliderIndicesByCellIndex = Array(repeating: [], count: totalCellCount)
+      neighboringCellIndicesByCellIndex = Self.makeNeighboringCellIndicesByCellIndex(
+        gridColumnCount: gridColumnCount,
+        gridRowCount: gridRowCount,
+        edgeBehavior: edgeBehavior,
+      )
+    }
+
+    mutating func append(
+      colliderIndex: Int,
+      at position: CGPoint,
+      cellSize: CGFloat,
+    ) {
+      let index = cellIndex(for: position, cellSize: cellSize)
+      colliderIndicesByCellIndex[index].append(colliderIndex)
+    }
+
+    func appendNeighboringColliderIndices(
+      around cellIndex: Int,
+      to output: inout [Int],
+    ) {
+      let neighboringCellIndices = neighboringCellIndicesByCellIndex[cellIndex]
+      for neighboringCellIndex in neighboringCellIndices {
+        output.append(contentsOf: colliderIndicesByCellIndex[neighboringCellIndex])
+      }
+    }
+
+    func cellIndex(
+      for position: CGPoint,
+      cellSize: CGFloat,
+    ) -> Int {
+      let rawColumn = Int(floor(position.x / cellSize))
+      let rawRow = Int(floor(position.y / cellSize))
+
+      let column: Int
+      let row: Int
+      switch edgeBehavior {
+      case .finite:
+        column = max(0, min(gridColumnCount - 1, rawColumn))
+        row = max(0, min(gridRowCount - 1, rawRow))
+      case .seamlessWrapping:
+        column = ShapePlacementWrapping.wrappedIndex(rawColumn, modulus: gridColumnCount)
+        row = ShapePlacementWrapping.wrappedIndex(rawRow, modulus: gridRowCount)
+      }
+
+      return Self.cellIndex(row: row, column: column, gridColumnCount: gridColumnCount)
+    }
+
+    private static func makeNeighboringCellIndicesByCellIndex(
+      gridColumnCount: Int,
+      gridRowCount: Int,
+      edgeBehavior: TesseraEdgeBehavior,
+    ) -> [[Int]] {
+      let totalCellCount = gridColumnCount * gridRowCount
+      var neighboringCellIndicesByCellIndex = Array(
+        repeating: [Int](),
+        count: totalCellCount,
+      )
+
+      let offsetRange: ClosedRange<Int> = switch edgeBehavior {
+      case .finite:
+        -1...1
+      case .seamlessWrapping:
+        // In seamless wrapping mode, colliders can interact across tile boundaries (toroidal distance).
+        // When the tile size is not an exact multiple of `cellSize`, the band within one `cellSize` of an edge can span
+        // two grid columns/rows. Expanding the neighbor range to 5×5 ensures we do not miss wrap-adjacent colliders
+        // that end up in the second-to-last column/row.
+        -2...2
+      }
+
+      for row in 0..<gridRowCount {
+        for column in 0..<gridColumnCount {
+          var neighboringCellIndices: [Int] = []
+          neighboringCellIndices.reserveCapacity(
+            (offsetRange.upperBound - offsetRange.lowerBound + 1) *
+              (offsetRange.upperBound - offsetRange.lowerBound + 1),
+          )
+
+          var visitedCellIndices: Set<Int> = []
+          visitedCellIndices.reserveCapacity(neighboringCellIndices.capacity)
+
+          for rowOffset in offsetRange {
+            for columnOffset in offsetRange {
+              let neighboringColumn = column + columnOffset
+              let neighboringRow = row + rowOffset
+
+              let resolvedColumn: Int
+              let resolvedRow: Int
+              switch edgeBehavior {
+              case .finite:
+                guard (0..<gridColumnCount).contains(neighboringColumn),
+                      (0..<gridRowCount).contains(neighboringRow)
+                else { continue }
+
+                resolvedColumn = neighboringColumn
+                resolvedRow = neighboringRow
+              case .seamlessWrapping:
+                resolvedColumn = ShapePlacementWrapping.wrappedIndex(
+                  neighboringColumn,
+                  modulus: gridColumnCount,
+                )
+                resolvedRow = ShapePlacementWrapping.wrappedIndex(
+                  neighboringRow,
+                  modulus: gridRowCount,
+                )
+              }
+
+              let neighboringCellIndex = cellIndex(
+                row: resolvedRow,
+                column: resolvedColumn,
+                gridColumnCount: gridColumnCount,
+              )
+              guard visitedCellIndices.insert(neighboringCellIndex).inserted else { continue }
+
+              neighboringCellIndices.append(neighboringCellIndex)
+            }
+          }
+
+          neighboringCellIndicesByCellIndex[cellIndex(
+            row: row,
+            column: column,
+            gridColumnCount: gridColumnCount,
+          )] = neighboringCellIndices
+        }
+      }
+
+      return neighboringCellIndicesByCellIndex
+    }
+
+    private static func cellIndex(
+      row: Int,
+      column: Int,
+      gridColumnCount: Int,
+    ) -> Int {
+      row * gridColumnCount + column
+    }
   }
 
   private static func organicChoiceSeed(
@@ -301,102 +458,32 @@ enum OrganicShapePlacementEngine {
     return maximumRadius
   }
 
-  private static func cellCoordinate(
-    for position: CGPoint,
-    cellSize: CGFloat,
-    gridColumnCount: Int,
-    gridRowCount: Int,
-    edgeBehavior: TesseraEdgeBehavior,
-  ) -> CellCoordinate {
-    let rawColumn = Int(floor(position.x / cellSize))
-    let rawRow = Int(floor(position.y / cellSize))
-
-    let column: Int
-    let row: Int
-    switch edgeBehavior {
-    case .finite:
-      column = max(0, min(gridColumnCount - 1, rawColumn))
-      row = max(0, min(gridRowCount - 1, rawRow))
-    case .seamlessWrapping:
-      column = ShapePlacementWrapping.wrappedIndex(rawColumn, modulus: gridColumnCount)
-      row = ShapePlacementWrapping.wrappedIndex(rawRow, modulus: gridRowCount)
-    }
-
-    return CellCoordinate(column: column, row: row)
-  }
-
-  private static func neighboringCellCoordinates(
-    around coordinate: CellCoordinate,
-    gridColumnCount: Int,
-    gridRowCount: Int,
-    edgeBehavior: TesseraEdgeBehavior,
-  ) -> [CellCoordinate] {
-    let offsetRange: ClosedRange<Int> = switch edgeBehavior {
-    case .finite:
-      -1...1
-    case .seamlessWrapping:
-      // In seamless wrapping mode, colliders can interact across tile boundaries (toroidal distance).
-      // When the tile size is not an exact multiple of `cellSize`, the band within one `cellSize` of an edge can span
-      // two grid columns/rows. Expanding the neighbor range to 5×5 ensures we do not miss wrap-adjacent colliders
-      // that end up in the second-to-last column/row.
-      -2...2
-    }
-
-    var coordinates: [CellCoordinate] = []
-    coordinates
-      .reserveCapacity((offsetRange.upperBound - offsetRange.lowerBound + 1) *
-        (offsetRange.upperBound - offsetRange.lowerBound + 1))
-
-    var visitedCoordinates: Set<CellCoordinate> = []
-    visitedCoordinates.reserveCapacity(coordinates.capacity)
-
-    for rowOffset in offsetRange {
-      for columnOffset in offsetRange {
-        let neighborColumn = coordinate.column + columnOffset
-        let neighborRow = coordinate.row + rowOffset
-
-        let proposedCoordinate: CellCoordinate? = switch edgeBehavior {
-        case .finite:
-          if (0..<gridColumnCount).contains(neighborColumn),
-             (0..<gridRowCount).contains(neighborRow) {
-            CellCoordinate(column: neighborColumn, row: neighborRow)
-          } else {
-            nil
-          }
-        case .seamlessWrapping:
-          CellCoordinate(
-            column: ShapePlacementWrapping.wrappedIndex(neighborColumn, modulus: gridColumnCount),
-            row: ShapePlacementWrapping.wrappedIndex(neighborRow, modulus: gridRowCount),
-          )
-        }
-
-        guard let proposedCoordinate else { continue }
-        guard visitedCoordinates.insert(proposedCoordinate).inserted else { continue }
-
-        coordinates.append(proposedCoordinate)
-      }
-    }
-
-    return coordinates
-  }
-
   private static func pickSymbol(
     from symbols: [PlacementSymbolDescriptor],
     using randomGenerator: inout some RandomNumberGenerator,
   ) -> PlacementSymbolDescriptor? {
     // Weighted pick to preserve caller-defined symbol frequencies.
-    let normalizedWeights: [Double] = symbols.map { symbol in
-      symbol.weight.isFinite ? max(0, symbol.weight) : 0
+    guard symbols.isEmpty == false else { return nil }
+
+    var totalWeight = 0.0
+    for symbol in symbols {
+      if symbol.weight.isFinite {
+        totalWeight += max(0, symbol.weight)
+      }
     }
-    let totalWeight = normalizedWeights.reduce(0, +)
+
     guard totalWeight > 0 else { return symbols.randomElement(using: &randomGenerator) }
 
     let randomValue = Double.random(in: 0..<totalWeight, using: &randomGenerator)
     var accumulator = 0.0
 
-    for (index, symbol) in symbols.enumerated() {
-      accumulator += normalizedWeights[index]
-      if randomValue < accumulator { return symbol }
+    for symbol in symbols {
+      if symbol.weight.isFinite {
+        accumulator += max(0, symbol.weight)
+      }
+      if randomValue < accumulator {
+        return symbol
+      }
     }
 
     return symbols.last

@@ -26,31 +26,73 @@ import Testing
     scale: 1,
     collisionShape: collisionShape,
   )
+  let candidateCollision = ShapePlacementCollision.PlacementCandidate(
+    collisionShape: candidate.collisionShape,
+    collisionTransform: candidate.collisionTransform,
+    polygons: polygons,
+    boundingRadius: candidate.collisionShape.boundingRadius(atScale: candidate.collisionTransform.scale),
+    minimumSpacing: 0,
+  )
 
   let wrappedOffsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: .seamlessWrapping)
   let isValidWhenWrapped = ShapePlacementCollision.isPlacementValid(
-    candidate: candidate,
-    candidatePolygons: polygons,
+    candidate: candidateCollision,
     existingColliderIndices: [0],
     allColliders: [collider],
     tileSize: size,
     edgeBehavior: .seamlessWrapping,
     wrapOffsets: wrappedOffsets,
-    candidateMinimumSpacing: 0,
   )
 
   let finiteOffsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: .finite)
   let isValidWhenFinite = ShapePlacementCollision.isPlacementValid(
-    candidate: candidate,
-    candidatePolygons: polygons,
+    candidate: candidateCollision,
     existingColliderIndices: [0],
     allColliders: [collider],
     tileSize: size,
     edgeBehavior: .finite,
     wrapOffsets: finiteOffsets,
-    candidateMinimumSpacing: 0,
   )
 
   #expect(isValidWhenWrapped == false)
   #expect(isValidWhenFinite == true)
+}
+
+@Test func circleCollisionFastPathSkipsPolygonNarrowPhase() async throws {
+  let size = CGSize(width: 100, height: 100)
+  let collisionShape = CollisionShape.circle(center: .zero, radius: 10)
+  let polygons = CollisionMath.polygons(for: collisionShape)
+
+  let colliderTransform = CollisionTransform(position: CGPoint(x: 20, y: 50), rotation: 0, scale: 1)
+  let collider = ShapePlacementEngine.PlacedCollider(
+    collisionShape: collisionShape,
+    collisionTransform: colliderTransform,
+    polygons: polygons,
+    boundingRadius: collisionShape.boundingRadius(atScale: colliderTransform.scale),
+    minimumSpacing: 0,
+  )
+
+  let candidateCollision = ShapePlacementCollision.PlacementCandidate(
+    collisionShape: collisionShape,
+    collisionTransform: CollisionTransform(position: CGPoint(x: 30, y: 50), rotation: 0, scale: 1),
+    polygons: polygons,
+    boundingRadius: collisionShape.boundingRadius(atScale: 1),
+    minimumSpacing: 0,
+  )
+  let diagnostics = ShapePlacementCollision.Diagnostics()
+
+  let isValid = ShapePlacementCollision.isPlacementValid(
+    candidate: candidateCollision,
+    existingColliderIndices: [0],
+    allColliders: [collider],
+    tileSize: size,
+    edgeBehavior: .finite,
+    wrapOffsets: ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: .finite),
+    diagnostics: diagnostics,
+  )
+
+  #expect(isValid == false)
+  #expect(diagnostics.pairChecks == 1)
+  #expect(diagnostics.circleFastPathChecks == 1)
+  #expect(diagnostics.polygonChecks == 0)
 }

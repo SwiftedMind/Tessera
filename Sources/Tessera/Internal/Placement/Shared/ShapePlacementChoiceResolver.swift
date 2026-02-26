@@ -50,14 +50,12 @@ extension ShapePlacementEngine {
   ) -> Int {
     guard choices.isEmpty == false else { return 0 }
 
-    let normalizedWeights: [Double] = choices.map { choice in
+    var totalWeight = 0.0
+    for choice in choices {
       if choice.weight.isFinite {
-        max(0, choice.weight)
-      } else {
-        0
+        totalWeight += max(0, choice.weight)
       }
     }
-    let totalWeight = normalizedWeights.reduce(0, +)
 
     guard totalWeight > 0 else {
       return Int.random(in: 0..<choices.count, using: &randomGenerator)
@@ -66,8 +64,10 @@ extension ShapePlacementEngine {
     let randomValue = Double.random(in: 0..<totalWeight, using: &randomGenerator)
     var accumulatedWeight = 0.0
 
-    for (index, weight) in normalizedWeights.enumerated() {
-      accumulatedWeight += weight
+    for (index, choice) in choices.enumerated() {
+      if choice.weight.isFinite {
+        accumulatedWeight += max(0, choice.weight)
+      }
       if randomValue < accumulatedWeight {
         return index
       }
