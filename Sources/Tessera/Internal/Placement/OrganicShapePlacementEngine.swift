@@ -581,6 +581,7 @@ enum OrganicShapePlacementEngine {
       maximumFilledFraction: Double = 0.35,
       minimumAcceptedPixelCount: Int = 32,
     ) {
+      guard alphaMask.sampling == .nearest else { return nil }
       guard alphaMask.filledFraction > 0, alphaMask.filledFraction <= maximumFilledFraction else { return nil }
 
       var acceptedPixelIndices: [Int] = []

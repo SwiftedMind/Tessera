@@ -96,3 +96,43 @@ import Testing
   #expect(diagnostics.circleFastPathChecks == 1)
   #expect(diagnostics.polygonChecks == 0)
 }
+
+@Test func mixedShapeCollisionFallsBackToPolygonNarrowPhase() async throws {
+  let size = CGSize(width: 100, height: 100)
+  let candidateShape = CollisionShape.circle(center: .zero, radius: 10)
+  let candidatePolygons = CollisionMath.polygons(for: candidateShape)
+
+  let colliderShape = CollisionShape.rectangle(center: .zero, size: CGSize(width: 18, height: 18))
+  let colliderTransform = CollisionTransform(position: CGPoint(x: 35, y: 50), rotation: 0, scale: 1)
+  let collider = ShapePlacementEngine.PlacedCollider(
+    collisionShape: colliderShape,
+    collisionTransform: colliderTransform,
+    polygons: CollisionMath.polygons(for: colliderShape),
+    boundingRadius: colliderShape.boundingRadius(atScale: colliderTransform.scale),
+    minimumSpacing: 0,
+  )
+
+  let candidateCollision = ShapePlacementCollision.PlacementCandidate(
+    collisionShape: candidateShape,
+    collisionTransform: CollisionTransform(position: CGPoint(x: 30, y: 50), rotation: 0, scale: 1),
+    polygons: candidatePolygons,
+    boundingRadius: candidateShape.boundingRadius(atScale: 1),
+    minimumSpacing: 0,
+  )
+  let diagnostics = ShapePlacementCollision.Diagnostics()
+
+  let isValid = ShapePlacementCollision.isPlacementValid(
+    candidate: candidateCollision,
+    existingColliderIndices: [0],
+    allColliders: [collider],
+    tileSize: size,
+    edgeBehavior: .finite,
+    wrapOffsets: ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: .finite),
+    diagnostics: diagnostics,
+  )
+
+  #expect(isValid == false)
+  #expect(diagnostics.pairChecks == 1)
+  #expect(diagnostics.circleFastPathChecks == 0)
+  #expect(diagnostics.polygonChecks == 1)
+}

@@ -377,6 +377,65 @@ import Testing
   }
 }
 
+@Test func organicPlacementWrapsPinnedCollisionsAcrossTileEdges() async throws {
+  let size = CGSize(width: 101, height: 80)
+  let placement = PlacementModel.Organic(
+    seed: 991,
+    minimumSpacing: 0,
+    density: 1,
+    baseScaleRange: 1...1,
+    maximumSymbolCount: 2,
+  )
+  let symbolDescriptor = makeSymbolDescriptor(
+    id: UUID(uuidString: "00000000-0000-0000-0000-000000000020")!,
+    collisionShape: .circle(center: .zero, radius: 20),
+  )
+  let pinnedSymbol = ShapePlacementEngine.PinnedSymbolDescriptor(
+    id: UUID(uuidString: "00000000-0000-0000-0000-000000000021")!,
+    position: CGPoint(x: 4, y: size.height / 2),
+    rotationRadians: 0,
+    scale: 1,
+    collisionShape: .circle(center: .zero, radius: 25),
+  )
+  let region = TesseraCanvasRegion.polygon(
+    [
+      CGPoint(x: 99, y: 0),
+      CGPoint(x: 101, y: 0),
+      CGPoint(x: 101, y: size.height),
+      CGPoint(x: 99, y: size.height),
+    ],
+    mapping: .canvasCoordinates,
+  )
+  let resolvedRegion = region.resolvedPolygon(in: size)
+
+  #expect(resolvedRegion != nil)
+
+  var finiteGenerator = SeededGenerator(seed: placement.seed)
+  let finitePlaced = OrganicShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: [symbolDescriptor],
+    pinnedSymbolDescriptors: [pinnedSymbol],
+    edgeBehavior: .finite,
+    configuration: placement,
+    region: resolvedRegion,
+    randomGenerator: &finiteGenerator,
+  )
+
+  var wrappedGenerator = SeededGenerator(seed: placement.seed)
+  let wrappedPlaced = OrganicShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: [symbolDescriptor],
+    pinnedSymbolDescriptors: [pinnedSymbol],
+    edgeBehavior: .seamlessWrapping,
+    configuration: placement,
+    region: resolvedRegion,
+    randomGenerator: &wrappedGenerator,
+  )
+
+  #expect(finitePlaced.count == 1)
+  #expect(wrappedPlaced.isEmpty)
+}
+
 private struct PlacementSnapshot: Hashable, Sendable {
   var symbolId: UUID
   var renderSymbolId: UUID
