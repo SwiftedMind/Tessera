@@ -4,36 +4,145 @@ import CoreGraphics
 
 /// Evaluates value-based steering fields in normalized tile space.
 enum ShapePlacementSteering {
+  /// Prepared evaluator for repeated sampling of a steering field on a fixed canvas.
+  struct Evaluator {
+    private enum PreparedShape {
+      case linear(
+        from: PlacementModel.SteeringField.Point,
+        axisX: Double,
+        axisY: Double,
+        axisLengthSquared: Double,
+      )
+      case radial(center: CGPoint, radius: Double)
+    }
+
+    private var preparedShape: PreparedShape
+    private var lower: Double
+    private var upper: Double
+    private var easing: PlacementModel.SteeringField.Easing
+    private var canvasSize: CGSize
+    private var defaultValue: Double
+
+    fileprivate init(
+      field: PlacementModel.SteeringField,
+      canvasSize: CGSize,
+      defaultValue: Double,
+    ) {
+      let lower = ShapePlacementSteering.sanitize(field.values.lowerBound, fallback: defaultValue)
+      let upper = ShapePlacementSteering.sanitize(field.values.upperBound, fallback: defaultValue)
+
+      self.lower = lower
+      self.upper = upper
+      easing = field.easing
+      self.canvasSize = canvasSize
+      self.defaultValue = defaultValue
+
+      switch field.shape {
+      case let .linear(from: from, to: to):
+        let normalizedFrom = ShapePlacementSteering.normalizedFieldPoint(from)
+        let normalizedTo = ShapePlacementSteering.normalizedFieldPoint(to)
+        let axisX = normalizedTo.x - normalizedFrom.x
+        let axisY = normalizedTo.y - normalizedFrom.y
+        let axisLengthSquared = axisX * axisX + axisY * axisY
+        preparedShape = .linear(
+          from: normalizedFrom,
+          axisX: axisX,
+          axisY: axisY,
+          axisLengthSquared: axisLengthSquared,
+        )
+      case let .radial(center: center, radius: radius):
+        let normalizedCenter = ShapePlacementSteering.normalizedFieldPoint(center)
+        let centerPoint = ShapePlacementSteering.pointFromNormalized(
+          normalizedCenter,
+          canvasSize: canvasSize,
+        )
+        let radiusPoints = ShapePlacementSteering.resolvedRadius(
+          radius,
+          center: centerPoint,
+          canvasSize: canvasSize,
+        )
+        preparedShape = .radial(center: centerPoint, radius: radiusPoints)
+      }
+    }
+
+    func value(at position: CGPoint) -> Double {
+      let progress: Double = switch preparedShape {
+      case let .linear(from: from, axisX: axisX, axisY: axisY, axisLengthSquared: axisLengthSquared):
+        linearProgress(
+          position: position,
+          from: from,
+          axisX: axisX,
+          axisY: axisY,
+          axisLengthSquared: axisLengthSquared,
+        )
+      case let .radial(center: center, radius: radius):
+        radialProgress(
+          position: position,
+          center: center,
+          radius: radius,
+        )
+      }
+
+      let eased = ShapePlacementSteering.easedProgress(progress, easing: easing)
+      let interpolated = lower + (upper - lower) * eased
+      return ShapePlacementSteering.sanitize(interpolated, fallback: defaultValue)
+    }
+
+    private func linearProgress(
+      position: CGPoint,
+      from: PlacementModel.SteeringField.Point,
+      axisX: Double,
+      axisY: Double,
+      axisLengthSquared: Double,
+    ) -> Double {
+      guard axisLengthSquared > 0.000_000_1 else {
+        return 0
+      }
+
+      let normalizedPoint = ShapePlacementSteering.normalizedPosition(position, canvasSize: canvasSize)
+      let pointOffsetX = normalizedPoint.x - from.x
+      let pointOffsetY = normalizedPoint.y - from.y
+      let projected = (pointOffsetX * axisX + pointOffsetY * axisY) / axisLengthSquared
+      return ShapePlacementSteering.clamp(projected, min: 0, max: 1)
+    }
+
+    private func radialProgress(
+      position: CGPoint,
+      center: CGPoint,
+      radius: Double,
+    ) -> Double {
+      guard radius > 0.000_000_1 else {
+        return 0
+      }
+
+      let deltaX = position.x - center.x
+      let deltaY = position.y - center.y
+      let distance = Double(hypot(deltaX, deltaY))
+      return ShapePlacementSteering.clamp(distance / radius, min: 0, max: 1)
+    }
+  }
+
+  static func evaluator(
+    for field: PlacementModel.SteeringField?,
+    canvasSize: CGSize,
+    defaultValue: Double = 1,
+  ) -> Evaluator? {
+    guard let field else { return nil }
+
+    return Evaluator(field: field, canvasSize: canvasSize, defaultValue: defaultValue)
+  }
+
   static func value(
     for field: PlacementModel.SteeringField?,
     position: CGPoint,
     canvasSize: CGSize,
     defaultValue: Double = 1,
   ) -> Double {
-    guard let field else { return defaultValue }
-
-    let progress: Double = switch field.shape {
-    case let .linear(from: from, to: to):
-      linearProgress(
-        position: position,
-        canvasSize: canvasSize,
-        from: normalizedFieldPoint(from),
-        to: normalizedFieldPoint(to),
-      )
-    case let .radial(center: center, radius: radius):
-      radialProgress(
-        position: position,
-        canvasSize: canvasSize,
-        center: normalizedFieldPoint(center),
-        radius: radius,
-      )
+    guard let evaluator = evaluator(for: field, canvasSize: canvasSize, defaultValue: defaultValue) else {
+      return defaultValue
     }
 
-    let eased = easedProgress(progress, easing: field.easing)
-    let lower = sanitize(field.values.lowerBound, fallback: defaultValue)
-    let upper = sanitize(field.values.upperBound, fallback: defaultValue)
-    let interpolated = lower + (upper - lower) * eased
-    return sanitize(interpolated, fallback: defaultValue)
+    return evaluator.value(at: position)
   }
 
   static func maximumValue(
@@ -46,50 +155,6 @@ enum ShapePlacementSteering {
     let upper = sanitize(field.values.upperBound, fallback: defaultValue)
     let maximum = max(lower, upper)
     return sanitize(maximum, fallback: defaultValue)
-  }
-
-  private static func linearProgress(
-    position: CGPoint,
-    canvasSize: CGSize,
-    from: PlacementModel.SteeringField.Point,
-    to: PlacementModel.SteeringField.Point,
-  ) -> Double {
-    let normalizedPoint = normalizedPosition(position, canvasSize: canvasSize)
-    let axisX = to.x - from.x
-    let axisY = to.y - from.y
-    let axisLengthSquared = axisX * axisX + axisY * axisY
-
-    guard axisLengthSquared > 0.000_000_1 else {
-      return 0
-    }
-
-    let pointOffsetX = normalizedPoint.x - from.x
-    let pointOffsetY = normalizedPoint.y - from.y
-    let projected = (pointOffsetX * axisX + pointOffsetY * axisY) / axisLengthSquared
-    return clamp(projected, min: 0, max: 1)
-  }
-
-  private static func radialProgress(
-    position: CGPoint,
-    canvasSize: CGSize,
-    center: PlacementModel.SteeringField.Point,
-    radius: PlacementModel.SteeringField.Radius,
-  ) -> Double {
-    let centerPoint = pointFromNormalized(center, canvasSize: canvasSize)
-    let radiusPoints = resolvedRadius(
-      radius,
-      center: centerPoint,
-      canvasSize: canvasSize,
-    )
-
-    guard radiusPoints > 0.000_000_1 else {
-      return 0
-    }
-
-    let deltaX = position.x - centerPoint.x
-    let deltaY = position.y - centerPoint.y
-    let distance = Double(hypot(deltaX, deltaY))
-    return clamp(distance / radiusPoints, min: 0, max: 1)
   }
 
   private static func resolvedRadius(

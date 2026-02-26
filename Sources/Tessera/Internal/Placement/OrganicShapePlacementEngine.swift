@@ -63,6 +63,28 @@ enum OrganicShapePlacementEngine {
     let remainingTargetCount = min(max(0, targetCount - pinnedSymbolDescriptors.count), maximumCount)
 
     let wrapOffsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: edgeBehavior)
+    let minimumSpacingMultiplierEvaluator = ShapePlacementSteering.evaluator(
+      for: configuration.steering.minimumSpacingMultiplier,
+      canvasSize: size,
+      defaultValue: 1,
+    )
+    let scaleMultiplierEvaluator = ShapePlacementSteering.evaluator(
+      for: configuration.steering.scaleMultiplier,
+      canvasSize: size,
+      defaultValue: 1,
+    )
+    let rotationMultiplierEvaluator = ShapePlacementSteering.evaluator(
+      for: configuration.steering.rotationMultiplier,
+      canvasSize: size,
+      defaultValue: 1,
+    )
+    let rotationOffsetDegreesEvaluator = ShapePlacementSteering.evaluator(
+      for: configuration.steering.rotationOffsetDegrees,
+      canvasSize: size,
+      defaultValue: 0,
+    )
+    let regionPointSampler = region.flatMap { RegionPointSampler(region: $0) }
+    let sparseMaskPointSampler = alphaMask.flatMap { SparseMaskPointSampler(alphaMask: $0) }
 
     let fixedColliders: [PlacedCollider] = pinnedSymbolDescriptors.map { pinnedSymbol in
       let collisionTransform = CollisionTransform(
@@ -155,48 +177,30 @@ enum OrganicShapePlacementEngine {
       for _ in 0..<maximumAttempts {
         if Task.isCancelled { return placedDescriptors }
 
-        // Rejection-sample a position and reuse if it clears all collisions.
-        guard let position = randomPoint(in: size, region: region, using: &randomGenerator) else { continue }
-
-        if let alphaMask, alphaMask.contains(position) == false {
-          continue
-        }
+        guard let position = samplePosition(
+          in: size,
+          region: region,
+          regionPointSampler: regionPointSampler,
+          alphaMask: alphaMask,
+          sparseMaskPointSampler: sparseMaskPointSampler,
+          using: &randomGenerator,
+        ) else { continue }
 
         let spacingMultiplier = max(
           0,
-          ShapePlacementSteering.value(
-            for: configuration.steering.minimumSpacingMultiplier,
-            position: position,
-            canvasSize: size,
-            defaultValue: 1,
-          ),
+          minimumSpacingMultiplierEvaluator?.value(at: position) ?? 1,
         )
         let candidateMinimumSpacing = baseMinimumSpacing * CGFloat(spacingMultiplier)
         let scaleMultiplier = max(
           0,
-          ShapePlacementSteering.value(
-            for: configuration.steering.scaleMultiplier,
-            position: position,
-            canvasSize: size,
-            defaultValue: 1,
-          ),
+          scaleMultiplierEvaluator?.value(at: position) ?? 1,
         )
         let scale = max(0, baseScale * scaleMultiplier)
         let rotationMultiplier = max(
           0,
-          ShapePlacementSteering.value(
-            for: configuration.steering.rotationMultiplier,
-            position: position,
-            canvasSize: size,
-            defaultValue: 1,
-          ),
+          rotationMultiplierEvaluator?.value(at: position) ?? 1,
         )
-        let rotationOffsetDegrees = ShapePlacementSteering.value(
-          for: configuration.steering.rotationOffsetDegrees,
-          position: position,
-          canvasSize: size,
-          defaultValue: 0,
-        )
+        let rotationOffsetDegrees = rotationOffsetDegreesEvaluator?.value(at: position) ?? 0
         let rotationOffsetRadians = rotationOffsetDegrees * Double.pi / 180
         let rotationRadians = baseRotationRadians * rotationMultiplier + rotationOffsetRadians
 
@@ -489,9 +493,50 @@ enum OrganicShapePlacementEngine {
     return symbols.last
   }
 
+  private static func samplePosition(
+    in size: CGSize,
+    region: TesseraResolvedPolygonRegion?,
+    regionPointSampler: RegionPointSampler?,
+    alphaMask: TesseraAlphaMask?,
+    sparseMaskPointSampler: SparseMaskPointSampler?,
+    using randomGenerator: inout some RandomNumberGenerator,
+  ) -> CGPoint? {
+    guard size.width > 0, size.height > 0 else { return nil }
+
+    if let sparseMaskPointSampler {
+      let maximumAttempts = 12
+      for _ in 0..<maximumAttempts {
+        guard let point = sparseMaskPointSampler.sample(using: &randomGenerator) else { break }
+
+        if let region, region.contains(point) == false {
+          continue
+        }
+        if let alphaMask, alphaMask.contains(point) == false {
+          continue
+        }
+        return point
+      }
+      return nil
+    }
+
+    guard let point = randomPoint(
+      in: size,
+      region: region,
+      regionPointSampler: regionPointSampler,
+      using: &randomGenerator,
+    ) else { return nil }
+
+    if let alphaMask, alphaMask.contains(point) == false {
+      return nil
+    }
+
+    return point
+  }
+
   private static func randomPoint(
     in size: CGSize,
     region: TesseraResolvedPolygonRegion?,
+    regionPointSampler: RegionPointSampler?,
     using randomGenerator: inout some RandomNumberGenerator,
   ) -> CGPoint? {
     guard size.width > 0, size.height > 0 else { return nil }
@@ -500,6 +545,10 @@ enum OrganicShapePlacementEngine {
         x: CGFloat.random(in: 0..<size.width, using: &randomGenerator),
         y: CGFloat.random(in: 0..<size.height, using: &randomGenerator),
       )
+    }
+
+    if let regionPointSampler {
+      return regionPointSampler.sample(using: &randomGenerator)
     }
 
     let bounds = region.samplingBounds
@@ -519,6 +568,295 @@ enum OrganicShapePlacementEngine {
     }
 
     return nil
+  }
+
+  private struct SparseMaskPointSampler {
+    var pointSize: CGSize
+    var pixelsWide: Int
+    var pixelsHigh: Int
+    var acceptedPixelIndices: [Int]
+
+    init?(
+      alphaMask: TesseraAlphaMask,
+      maximumFilledFraction: Double = 0.35,
+      minimumAcceptedPixelCount: Int = 32,
+    ) {
+      guard alphaMask.filledFraction > 0, alphaMask.filledFraction <= maximumFilledFraction else { return nil }
+
+      var acceptedPixelIndices: [Int] = []
+      acceptedPixelIndices.reserveCapacity(max(minimumAcceptedPixelCount, alphaMask.alphaBytes.count / 10))
+
+      for (index, value) in alphaMask.alphaBytes.enumerated() {
+        let visible = value >= alphaMask.thresholdByte
+        let included = alphaMask.invert ? !visible : visible
+        if included {
+          acceptedPixelIndices.append(index)
+        }
+      }
+
+      guard acceptedPixelIndices.count >= minimumAcceptedPixelCount else { return nil }
+
+      pointSize = alphaMask.size
+      pixelsWide = alphaMask.pixelsWide
+      pixelsHigh = alphaMask.pixelsHigh
+      self.acceptedPixelIndices = acceptedPixelIndices
+    }
+
+    func sample(
+      using randomGenerator: inout some RandomNumberGenerator,
+    ) -> CGPoint? {
+      guard acceptedPixelIndices.isEmpty == false else { return nil }
+      guard pixelsWide > 0, pixelsHigh > 0 else { return nil }
+
+      let sampleIndex = Int.random(in: 0..<acceptedPixelIndices.count, using: &randomGenerator)
+      let pixelIndex = acceptedPixelIndices[sampleIndex]
+      let pixelX = pixelIndex % pixelsWide
+      let pixelY = pixelIndex / pixelsWide
+
+      let jitterX = CGFloat.random(in: 0..<1, using: &randomGenerator)
+      let jitterY = CGFloat.random(in: 0..<1, using: &randomGenerator)
+
+      let x = (CGFloat(pixelX) + jitterX) / CGFloat(pixelsWide) * pointSize.width
+      let y = (CGFloat(pixelY) + jitterY) / CGFloat(pixelsHigh) * pointSize.height
+      return CGPoint(x: x, y: y)
+    }
+  }
+
+  private struct RegionPointSampler {
+    private struct Triangle {
+      var a: CGPoint
+      var b: CGPoint
+      var c: CGPoint
+      var area: Double
+    }
+
+    private let triangles: [Triangle]
+    private let cumulativeAreas: [Double]
+    private let totalArea: Double
+
+    init?(region: TesseraResolvedPolygonRegion) {
+      let points = region.points
+      guard points.count >= 3 else { return nil }
+      guard let triangles = Self.triangulate(points), triangles.isEmpty == false else {
+        return nil
+      }
+
+      var cumulativeAreas: [Double] = []
+      cumulativeAreas.reserveCapacity(triangles.count)
+
+      var runningArea = 0.0
+      for triangle in triangles {
+        runningArea += triangle.area
+        cumulativeAreas.append(runningArea)
+      }
+
+      guard runningArea > Self.epsilon else { return nil }
+
+      self.triangles = triangles
+      self.cumulativeAreas = cumulativeAreas
+      totalArea = runningArea
+    }
+
+    func sample(
+      using randomGenerator: inout some RandomNumberGenerator,
+    ) -> CGPoint? {
+      guard triangles.isEmpty == false, totalArea > Self.epsilon else { return nil }
+
+      let randomValue = Double.random(in: 0..<totalArea, using: &randomGenerator)
+      let triangleIndex = triangleIndex(for: randomValue)
+      let triangle = triangles[triangleIndex]
+
+      // Uniform random sample inside a triangle using barycentric coordinates.
+      let r1 = sqrt(Double.random(in: 0...1, using: &randomGenerator))
+      let r2 = Double.random(in: 0...1, using: &randomGenerator)
+      let weightA = 1 - r1
+      let weightB = r1 * (1 - r2)
+      let weightC = r1 * r2
+
+      return CGPoint(
+        x: triangle.a.x * weightA + triangle.b.x * weightB + triangle.c.x * weightC,
+        y: triangle.a.y * weightA + triangle.b.y * weightB + triangle.c.y * weightC,
+      )
+    }
+
+    private func triangleIndex(for value: Double) -> Int {
+      var lowerBound = 0
+      var upperBound = cumulativeAreas.count - 1
+
+      while lowerBound < upperBound {
+        let mid = (lowerBound + upperBound) / 2
+        if value < cumulativeAreas[mid] {
+          upperBound = mid
+        } else {
+          lowerBound = mid + 1
+        }
+      }
+
+      return lowerBound
+    }
+
+    private static let epsilon = 0.000_001
+
+    private static func triangulate(_ points: [CGPoint]) -> [Triangle]? {
+      guard points.count >= 3 else { return nil }
+
+      var remainingPoints = points
+      var triangles: [Triangle] = []
+      let isCounterClockwise = signedArea(remainingPoints) > 0
+      let maximumIterations = remainingPoints.count * remainingPoints.count
+      var iteration = 0
+
+      while remainingPoints.count > 3, iteration < maximumIterations {
+        iteration += 1
+        var didFindEar = false
+        let count = remainingPoints.count
+
+        for index in 0..<count {
+          let previousIndex = (index - 1 + count) % count
+          let nextIndex = (index + 1) % count
+
+          let previousPoint = remainingPoints[previousIndex]
+          let currentPoint = remainingPoints[index]
+          let nextPoint = remainingPoints[nextIndex]
+
+          guard isConvexVertex(
+            previousPoint,
+            currentPoint,
+            nextPoint,
+            isCounterClockwise: isCounterClockwise,
+          ) else { continue }
+
+          let trianglePoints = [previousPoint, currentPoint, nextPoint]
+          if triangleContainsAnyPoint(
+            trianglePoints,
+            in: remainingPoints,
+            excludingIndices: [previousIndex, index, nextIndex],
+            isCounterClockwise: isCounterClockwise,
+          ) {
+            continue
+          }
+
+          if let triangle = makeTriangle(from: trianglePoints) {
+            triangles.append(triangle)
+          }
+          remainingPoints.remove(at: index)
+          didFindEar = true
+          break
+        }
+
+        if didFindEar == false {
+          return nil
+        }
+      }
+
+      if remainingPoints.count == 3, let triangle = makeTriangle(from: remainingPoints) {
+        triangles.append(triangle)
+      }
+
+      return triangles.isEmpty ? nil : triangles
+    }
+
+    private static func makeTriangle(from points: [CGPoint]) -> Triangle? {
+      guard points.count == 3 else { return nil }
+
+      let area = abs(signedArea(points))
+      guard area > epsilon else { return nil }
+
+      return Triangle(
+        a: points[0],
+        b: points[1],
+        c: points[2],
+        area: Double(area),
+      )
+    }
+
+    private static func isConvexVertex(
+      _ previousPoint: CGPoint,
+      _ currentPoint: CGPoint,
+      _ nextPoint: CGPoint,
+      isCounterClockwise: Bool,
+    ) -> Bool {
+      let cross = cornerCross(previous: previousPoint, current: currentPoint, next: nextPoint)
+      guard abs(cross) > epsilon else { return false }
+
+      return isCounterClockwise ? cross > 0 : cross < 0
+    }
+
+    private static func triangleContainsAnyPoint(
+      _ triangle: [CGPoint],
+      in points: [CGPoint],
+      excludingIndices: [Int],
+      isCounterClockwise: Bool,
+    ) -> Bool {
+      let excludedSet = Set(excludingIndices)
+
+      for (index, point) in points.enumerated() where excludedSet.contains(index) == false {
+        if pointIsInsideTriangle(
+          point,
+          triangle: triangle,
+          isCounterClockwise: isCounterClockwise,
+        ) {
+          return true
+        }
+      }
+
+      return false
+    }
+
+    private static func pointIsInsideTriangle(
+      _ point: CGPoint,
+      triangle: [CGPoint],
+      isCounterClockwise: Bool,
+    ) -> Bool {
+      guard triangle.count == 3 else { return false }
+
+      let pointA = triangle[0]
+      let pointB = triangle[1]
+      let pointC = triangle[2]
+
+      let cross1 = crossProduct(pointA, pointB, point)
+      let cross2 = crossProduct(pointB, pointC, point)
+      let cross3 = crossProduct(pointC, pointA, point)
+
+      if isCounterClockwise {
+        return cross1 >= -epsilon && cross2 >= -epsilon && cross3 >= -epsilon
+      }
+
+      return cross1 <= epsilon && cross2 <= epsilon && cross3 <= epsilon
+    }
+
+    private static func signedArea(_ points: [CGPoint]) -> CGFloat {
+      guard points.count >= 3 else { return 0 }
+
+      var area: CGFloat = 0
+      for index in points.indices {
+        let pointA = points[index]
+        let pointB = points[(index + 1) % points.count]
+        area += pointA.x * pointB.y - pointB.x * pointA.y
+      }
+
+      return area / 2
+    }
+
+    private static func cornerCross(
+      previous: CGPoint,
+      current: CGPoint,
+      next: CGPoint,
+    ) -> CGFloat {
+      let vectorA = CGPoint(x: current.x - previous.x, y: current.y - previous.y)
+      let vectorB = CGPoint(x: next.x - current.x, y: next.y - current.y)
+      return vectorA.x * vectorB.y - vectorA.y * vectorB.x
+    }
+
+    private static func crossProduct(
+      _ pointA: CGPoint,
+      _ pointB: CGPoint,
+      _ pointC: CGPoint,
+    ) -> CGFloat {
+      let vectorA = CGPoint(x: pointB.x - pointA.x, y: pointB.y - pointA.y)
+      let vectorB = CGPoint(x: pointC.x - pointA.x, y: pointC.y - pointA.y)
+      return vectorA.x * vectorB.y - vectorA.y * vectorB.x
+    }
   }
 
   private static func randomAngleRadians(
