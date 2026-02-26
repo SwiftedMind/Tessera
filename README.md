@@ -2,7 +2,7 @@
 
 # Tessera
 
-Tessera is a Swift package that turns a single generated tile composed of arbitrary SwiftUI views into an endlessly repeating, seamlessly wrapping pattern.
+Tessera is a Swift package for building seamless, repeating patterns from regular SwiftUI views.
 
 <p align="center">
 <img alt="TEST 1" src="https://github.com/user-attachments/assets/6b7e9519-5182-4063-b067-b4c853d5c4be" />
@@ -10,17 +10,16 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
 
 ## Features
 
-- Compose repeatable patterns from regular SwiftUI views.
-- Declarative configuration: describe symbols and placement; provide a size at render time.
-- Even spacing: shape-aware placement that avoids clustering.
-- Grid placement: place symbols on a regular grid with configurable offsets.
-- Choice symbols: let one symbol resolve to multiple child variants per placement.
-- Spatial steering: modulate spacing, scale, and rotation from position-based fields.
-- Seamless wrapping: tile edges wrap toroidally so patterns repeat without seams.
-- Deterministic output: provide a seed for reproducible layouts; omit to randomize.
-- Polygon regions: fill an arbitrary polygon, not just a rectangle.
-- Alpha mask regions: fill the shape of any view or image.
-- Export: render to PNG or vector-friendly PDF.
+- Build repeatable patterns from standard SwiftUI views.
+- Configure symbols and placement declaratively, then provide a size at render time.
+- Use organic placement for shape-aware spacing that avoids clustering.
+- Use grid placement for regular layouts with configurable offsets.
+- Let a single symbol resolve to multiple child variants with choice symbols.
+- Modulate spacing, scale, and rotation from position-based steering fields.
+- Wrap tile edges toroidally for seamless repetition.
+- Set a seed for deterministic output, or omit it for randomized layouts.
+- Fill polygon regions or alpha-mask regions.
+- Export to PNG or vector-friendly PDF.
 
 ## Table of Contents
 
@@ -31,22 +30,22 @@ Tessera is a Swift package that turns a single generated tile composed of arbitr
   - [Quickstart: Render a tiled background](#quickstart-render-a-tiled-background)
   - [Which mode should I use?](#which-mode-should-i-use)
   - [Render a finite canvas](#render-a-finite-canvas)
-  - [Next Steps](#next-steps)
-- [Advanced Guides](#advanced-guides)
-  - [Polygon Regions](#polygon-regions)
-  - [Alpha Mask Regions](#alpha-mask-regions)
-  - [Grid Placement](#grid-placement)
-  - [Choice Symbols](#choice-symbols)
-  - [Spatial Steering](#spatial-steering)
-  - [Pinned Symbols](#pinned-symbols)
+  - [Next steps](#next-steps)
+- [Advanced guides](#advanced-guides)
+  - [Polygon regions](#polygon-regions)
+  - [Alpha mask regions](#alpha-mask-regions)
+  - [Grid placement](#grid-placement)
+  - [Choice symbols](#choice-symbols)
+  - [Spatial steering](#spatial-steering)
+  - [Pinned symbols](#pinned-symbols)
   - [Exporting](#exporting)
   - [Collision Shape Editor](#collision-shape-editor)
 - [Reference](#reference)
   - [Terminology](#terminology)
   - [Determinism](#determinism)
-  - [Performance Notes](#performance-notes)
+  - [Performance notes](#performance-notes)
   - [Migration Guide (3.x → 4.0)](MIGRATION.md)
-- [Tessera App](#tessera-app)
+- [Tessera app](#tessera-app)
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
 
@@ -163,15 +162,15 @@ struct Poster: View {
 }
 ```
 
-### Next Steps
+### Next steps
 
 - Run the sample app: [`Examples/README.md`](Examples/README.md)
 - Review migration notes: [`MIGRATION.md`](MIGRATION.md)
-- Jump to advanced guides: [Polygon Regions](#polygon-regions), [Grid Placement](#grid-placement), [Spatial Steering](#spatial-steering)
+- Jump to advanced guides: [Polygon regions](#polygon-regions), [Grid placement](#grid-placement), [Spatial steering](#spatial-steering)
 
-## Advanced Guides
+## Advanced guides
 
-### Polygon Regions
+### Polygon regions
 
 - Place symbols inside arbitrary polygons rather than rectangles.
 - Points can be defined in source space and mapped into the resolved canvas size.
@@ -202,7 +201,7 @@ let path = CGPath(ellipseIn: CGRect(x: 0, y: 0, width: 200, height: 120), transf
 let region = Region.polygon(path, flatness: 2)
 ```
 
-#### Mapping Modes
+#### Mapping modes
 
 | Mapping | Behavior |
 | --- | --- |
@@ -211,7 +210,7 @@ let region = Region.polygon(path, flatness: 2)
 | `.fit(mode: .stretch, alignment: .center)` | Stretches independently on each axis to fill the canvas. |
 | `.canvasCoordinates` | Treats points as canvas coordinates with no additional mapping. |
 
-### Alpha Mask Regions
+### Alpha mask regions
 
 - Constrain placement using the alpha channel from a SwiftUI view or image.
 - Tessera rasterizes the mask at `pixelScale` and treats alpha ≥ `alphaThreshold` as inside.
@@ -245,14 +244,13 @@ let region = Region.alphaMask(
 > Note: For view-based masks, the view is sized by the mapping; use view modifiers such as `.aspectRatio` to preserve
 > the shape’s proportions. Increase `pixelScale` when you need sharper edges at the cost of extra placement work.
 
-### Grid Placement
+### Grid placement
 
-Use grid placement when you want orderly, repeatable patterns with optional row/column offsets. Symbols are assigned in
-the order defined by `symbolOrder` (defaults to row-major `.rowMajor`), and the grid derives cell size from the
-configured row and column counts. When seamless wrapping with non-zero offset strategies requires even counts, the
-engine rounds up to the nearest even value. Offset fractions are expressed in cell units, so values greater than 1 shift
-by whole cells (for example `2.5` shifts by 2½ cells).
-Use `.columnMajor` when you want symbol assignment to move top-to-bottom before advancing to the next column.
+Use grid placement when you want regular, repeatable patterns with optional row/column offsets. `symbolOrder` controls
+how cells are traversed (defaults to row-major `.rowMajor`), and cell size comes from the configured row and column
+counts. Some seamless wrapping modes with non-zero offsets require even row/column counts, so Tessera rounds up when
+needed. Offsets are expressed in cell units, so `2.5` shifts by two and a half cells. Use `.columnMajor` to traverse
+top-to-bottom before moving to the next column.
 
 ```swift
 let pattern = Pattern(
@@ -348,8 +346,8 @@ If you need explicit ID wiring, use `symbolOverride: .existing(...)`:
 - `symbolOverride`: explicit override mode (`.none`, `.inline(symbol)`, `.existing(symbolID)`).
 - `symbol`: convenience for inline overrides (recommended).
 - `symbolSizing`: `.natural` or `.fitMergedCell`.
-- By default, symbols used as merged-cell overrides are excluded from regular-cell assignment.
-  - Set `excludeMergedSymbolsFromRegularCells: false` to opt out.
+- By default, symbols used as merged-cell overrides are excluded from regular-cell assignment. Set
+  `excludeMergedSymbolsFromRegularCells: false` to opt out.
 - In debug builds, Tessera asserts if a merged-cell override references an unknown symbol ID.
 - For seamless wrapping + non-zero offset strategies, Tessera may resolve to adjusted row/column counts (for example
   rounding to even counts). Merge validation is performed against those resolved counts.
@@ -360,7 +358,7 @@ Important: a single grid pass still places one symbol per resolved placement cel
 If you need two complete lattices overlaid (both fully populated), render two Tessera layers (one per symbol family)
 and phase-shift one of the layers.
 
-### Choice Symbols
+### Choice symbols
 
 Choice symbols let one top-level `Symbol` resolve one child symbol per accepted placement.
 
@@ -419,9 +417,9 @@ let pattern = Pattern(
 )
 ```
 
-### Spatial Steering
+### Spatial steering
 
-Spatial steering lets you modulate placement from position using a `SteeringField`.
+Spatial steering modulates placement from position using a `SteeringField`.
 
 Key `SteeringField` properties:
 - `values`: interpolation range.
@@ -439,7 +437,7 @@ scale = baseScale * scaleMultiplier                             // organic + gri
 rotation = baseRotation * rotationMultiplier + rotationOffset   // organic + grid
 ```
 
-#### Organic steering (primary example)
+#### Organic steering example
 
 ```swift
 let pattern = Pattern(
@@ -472,7 +470,7 @@ let pattern = Pattern(
 )
 ```
 
-#### Grid steering (variant)
+#### Grid steering example
 
 ```swift
 let pattern = Pattern(
@@ -558,9 +556,11 @@ let pattern = Pattern(
 > - Grid placement does not reject overlaps between generated grid symbols; it only enforces collisions against pinned symbols.
 > - For a single non-repeating gradient across the whole output, use `.mode(.canvas(edgeBehavior: .finite))`.
 
-### Pinned Symbols
+### Pinned symbols
 
-Pinned symbols let you place specific content (like a logo or headline) on a fixed-sized canvas while Tessera fills the space around it with repeating Tessera symbols. Pinned symbols are rendered above generated symbols. Fixed symbols participate in collision checks, so generated symbols keep their distance.
+Pinned symbols let you place fixed content (like a logo or headline) on a finite canvas while Tessera fills the
+surrounding space with generated symbols. Pinned symbols render above generated symbols and participate in collision
+checks, so generated symbols keep their distance.
 
 ```swift
 import SwiftUI
@@ -607,7 +607,7 @@ struct HeroCard: View {
 
 ### Exporting
 
-Export a tile or tiled canvas to PNG or vector-friendly PDF using the built-in exporter (powered by `ImageRenderer`).
+Use the built-in exporter (powered by `ImageRenderer`) to render a tile or tiled canvas to PNG or vector-friendly PDF.
 
 ```swift
 import Foundation
@@ -718,7 +718,7 @@ var pattern = Pattern(
 pattern.offset = CGSize(width: 40, height: 0)
 ```
 
-### Performance Notes
+### Performance notes
 
 - Tessera uses `Canvas` symbols for performance; keep symbol views lightweight.
 - Canvas rendering defaults to synchronous updates to keep interactive transforms in sync. Use
@@ -727,15 +727,15 @@ pattern.offset = CGSize(width: 40, height: 0)
   Complex polygons and multi-polygon shapes can dramatically reduce placement performance.
 - `TesseraPlacement.Organic.maximumCount` is a safety cap. If you crank up `density` on large canvases, you may want to raise it.
 
-## Tessera App
+## Tessera app
 
-Heads up: I also built a companion app called Tessera if you prefer making patterns in a dedicated UI instead of code.
-It lets you design, preview, and export seamless patterns on iPad and macOS.
+There is also a companion app called Tessera if you prefer designing patterns in a dedicated UI instead of code.
+It supports design, preview, and export workflows on iPad and macOS.
 
 - Website: [tesserapatterns.com](https://tesserapatterns.com)
 - App Store: [Tessera - Seamless Patterns](https://apps.apple.com/us/app/tessera-seamless-patterns/id6756501042)
 
-If you check it out, I'd really appreciate it.
+If that workflow fits your project better, you can use the app and keep the package for code-based integrations.
 
 ## License
 
@@ -763,6 +763,4 @@ SOFTWARE.
 
 ## Acknowledgments
 
-Built with the amazing Swift ecosystem and community
-
-Made with ❤️ for the Swift community
+Built with Swift and the open-source community.
