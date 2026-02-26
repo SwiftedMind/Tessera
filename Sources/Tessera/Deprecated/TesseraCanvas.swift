@@ -22,6 +22,50 @@ public enum TesseraRegionRendering: Sendable, Hashable {
 
 /// Fills a finite canvas once using a tessera configuration, respecting fixed symbols.
 public struct TesseraCanvas: View {
+  /// Lightweight descriptor of an already placed symbol, suitable for reuse in export rendering.
+  public struct PlacementDescriptor: Sendable, Hashable {
+    /// The identifier of the selected top-level symbol.
+    public var symbolId: UUID
+    /// The identifier of the render symbol resolved from nested choices.
+    public var renderSymbolId: UUID
+    /// Final position in canvas coordinates.
+    public var position: CGPoint
+    /// Final rotation in radians.
+    public var rotationRadians: Double
+    /// Final scale.
+    public var scale: CGFloat
+
+    public init(
+      symbolId: UUID,
+      renderSymbolId: UUID,
+      position: CGPoint,
+      rotationRadians: Double,
+      scale: CGFloat,
+    ) {
+      self.symbolId = symbolId
+      self.renderSymbolId = renderSymbolId
+      self.position = position
+      self.rotationRadians = rotationRadians
+      self.scale = scale
+    }
+  }
+
+  /// Snapshot of resolved placements for a specific canvas size.
+  public struct PlacementSnapshot: Sendable, Hashable {
+    /// Canvas size used for placement computation.
+    public var canvasSize: CGSize
+    /// Resolved placed symbols for this canvas size.
+    public var placedSymbols: [PlacementDescriptor]
+
+    public init(
+      canvasSize: CGSize,
+      placedSymbols: [PlacementDescriptor],
+    ) {
+      self.canvasSize = canvasSize
+      self.placedSymbols = placedSymbols
+    }
+  }
+
   /// Pattern configuration used to generate symbol placements.
   public var configuration: TesseraConfiguration
   /// Fixed symbols rendered once and used as collision obstacles.
@@ -38,6 +82,8 @@ public struct TesseraCanvas: View {
   public var rendersAsynchronously: Bool
   /// Callback that reports whether placement computation is currently running.
   public var onComputationStateChange: ((Bool) -> Void)?
+  /// Callback that provides resolved placements for the latest completed computation key.
+  public var onPlacementSnapshotReady: ((PlacementSnapshot) -> Void)?
 
   // swiftformat:disable privateStateVariables
   @State var cachedPlacedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor] = []
@@ -70,6 +116,7 @@ public struct TesseraCanvas: View {
     regionRendering: TesseraRegionRendering = .clipped,
     rendersAsynchronously: Bool = false,
     onComputationStateChange: ((Bool) -> Void)? = nil,
+    onPlacementSnapshotReady: ((PlacementSnapshot) -> Void)? = nil,
   ) {
     self.configuration = configuration
     self.pinnedSymbols = pinnedSymbols
@@ -79,6 +126,7 @@ public struct TesseraCanvas: View {
     self.regionRendering = regionRendering
     self.rendersAsynchronously = rendersAsynchronously
     self.onComputationStateChange = onComputationStateChange
+    self.onPlacementSnapshotReady = onPlacementSnapshotReady
   }
 
   /// Renders the canvas at the size resolved by parent layout.
@@ -290,6 +338,13 @@ public extension TesseraCanvas {
   func rendersAsynchronously(_ value: Bool) -> TesseraCanvas {
     var copy = self
     copy.rendersAsynchronously = value
+    return copy
+  }
+
+  /// Returns a copy that emits placement snapshots after computations complete.
+  func onPlacementSnapshotReady(_ value: @escaping (PlacementSnapshot) -> Void) -> TesseraCanvas {
+    var copy = self
+    copy.onPlacementSnapshotReady = value
     return copy
   }
 }

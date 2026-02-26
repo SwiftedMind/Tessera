@@ -3,6 +3,9 @@
 import CoreGraphics
 import Foundation
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 @testable import Tessera
 import Testing
 
@@ -146,6 +149,98 @@ import Testing
   #expect(Int(centerPixel.red) - Int(centerPixel.blue) > 100)
 }
 
+@Test @MainActor func canvasPNGExportUsingPlacementSnapshotMatchesRegularExport() async throws {
+  let canvasSize = CGSize(width: 128, height: 128)
+  let canvas = makeSingleSymbolGridCanvas()
+  let temporaryDirectory = FileManager.default.temporaryDirectory
+  let fileName = UUID().uuidString
+
+  let placedSymbolDescriptors = canvas.makeSynchronousPlacedDescriptors(for: canvasSize)
+  let placementSnapshot = canvas.makePlacementSnapshot(
+    canvasSize: canvasSize,
+    placedSymbolDescriptors: placedSymbolDescriptors,
+  )
+
+  let baselineURL = try canvas.renderPNG(
+    to: temporaryDirectory,
+    fileName: "\(fileName)-baseline",
+    canvasSize: canvasSize,
+  )
+  defer { try? FileManager.default.removeItem(at: baselineURL) }
+
+  let snapshotURL = try canvas.renderPNG(
+    to: temporaryDirectory,
+    fileName: "\(fileName)-snapshot",
+    placementSnapshot: placementSnapshot,
+  )
+  defer { try? FileManager.default.removeItem(at: snapshotURL) }
+
+  let baselineImage = try cgImageFromPNGFile(at: baselineURL)
+  let snapshotImage = try cgImageFromPNGFile(at: snapshotURL)
+
+  #expect(imagesArePixelEqual(baselineImage, snapshotImage))
+}
+
+@Test @MainActor func canvasPNGExportWithInvalidPlacementSnapshotThrowsError() async throws {
+  let canvasSize = CGSize(width: 128, height: 128)
+  let canvas = makeSingleSymbolGridCanvas()
+  let temporaryDirectory = FileManager.default.temporaryDirectory
+  let fileName = UUID().uuidString
+
+  let placedSymbolDescriptors = canvas.makeSynchronousPlacedDescriptors(for: canvasSize)
+  var invalidPlacementSnapshot = canvas.makePlacementSnapshot(
+    canvasSize: canvasSize,
+    placedSymbolDescriptors: placedSymbolDescriptors,
+  )
+  #expect(invalidPlacementSnapshot.placedSymbols.isEmpty == false)
+  invalidPlacementSnapshot.placedSymbols[0].renderSymbolId = UUID()
+
+  #expect(throws: RenderError.invalidPlacementSnapshot) {
+    try canvas.renderPNG(
+      to: temporaryDirectory,
+      fileName: fileName,
+      placementSnapshot: invalidPlacementSnapshot,
+    )
+  }
+}
+
+@Test @MainActor func canvasPlacementSnapshotCallbackEmitsComputedSnapshot() async throws {
+  let canvasSize = CGSize(width: 128, height: 128)
+  var callbackSnapshot: TesseraCanvas.PlacementSnapshot?
+
+  let canvas = makeSingleSymbolGridCanvas().onPlacementSnapshotReady { snapshot in
+    callbackSnapshot = snapshot
+  }
+  let expectedPlacedSymbolDescriptors = canvas.makeSynchronousPlacedDescriptors(
+    for: canvasSize,
+  )
+  let expectedSnapshot = canvas.makePlacementSnapshot(
+    canvasSize: canvasSize,
+    placedSymbolDescriptors: expectedPlacedSymbolDescriptors,
+  )
+
+  #if canImport(UIKit)
+  let hostView = canvas.frame(width: canvasSize.width, height: canvasSize.height)
+  let hostingController = UIHostingController(rootView: hostView)
+  let window = UIWindow(frame: CGRect(origin: .zero, size: canvasSize))
+  window.rootViewController = hostingController
+  window.makeKeyAndVisible()
+  defer {
+    window.isHidden = true
+    window.rootViewController = nil
+  }
+
+  let timeoutDate = Date().addingTimeInterval(2)
+  while callbackSnapshot == nil, Date() < timeoutDate {
+    try await Task.sleep(nanoseconds: 10_000_000)
+  }
+  #else
+  Issue.record("Callback emission test requires UIKit")
+  #endif
+
+  #expect(callbackSnapshot == expectedSnapshot)
+}
+
 @Test @MainActor func canvasPDFExportRendersPinnedSymbolsAboveGeneratedSymbols() async throws {
   let canvasSize = CGSize(width: 128, height: 128)
 
@@ -262,4 +357,34 @@ import Testing
   let blueExcess = Int(blueCornerPixel.green) - Int(blueCornerPixel.blue)
   #expect(greenExcess > 20)
   #expect(blueExcess < -20)
+}
+
+@MainActor
+private func makeSingleSymbolGridCanvas() -> TesseraCanvas {
+  let symbol = TesseraSymbol(
+    weight: 1,
+    allowedRotationRange: .degrees(0)...(.degrees(0)),
+    scaleRange: 1...1,
+    collisionShape: .rectangle(center: .zero, size: CGSize(width: 64, height: 64)),
+  ) {
+    Rectangle()
+      .fill(Color.blue)
+      .frame(width: 64, height: 64)
+  }
+
+  let configuration = TesseraConfiguration(
+    symbols: [symbol],
+    placement: .grid(
+      PlacementModel.Grid(
+        columnCount: 1,
+        rowCount: 1,
+      ),
+    ),
+  )
+
+  return TesseraCanvas(
+    configuration,
+    seed: 1,
+    edgeBehavior: .finite,
+  )
 }

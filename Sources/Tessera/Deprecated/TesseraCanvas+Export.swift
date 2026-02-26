@@ -26,6 +26,53 @@ public extension TesseraCanvas {
     colorScheme: ColorScheme? = nil,
     options: RenderOptions = RenderOptions(),
   ) throws -> URL {
+    try renderPNG(
+      to: directory,
+      fileName: fileName,
+      canvasSize: canvasSize,
+      backgroundColor: backgroundColor,
+      colorScheme: colorScheme,
+      options: options,
+      precomputedPlacedSymbolDescriptors: nil,
+    )
+  }
+
+  /// Renders the tessera canvas to a PNG file using precomputed placements.
+  ///
+  /// This skips placement and collision recomputation and is ideal when a live stage already produced placements.
+  ///
+  /// The snapshot's `canvasSize` is used as the export size.
+  /// The snapshot must come from a compatible canvas configuration.
+  @MainActor @discardableResult func renderPNG(
+    to directory: URL,
+    fileName: String = "tessera-canvas",
+    backgroundColor: Color? = nil,
+    colorScheme: ColorScheme? = nil,
+    options: RenderOptions = RenderOptions(),
+    placementSnapshot: PlacementSnapshot,
+  ) throws -> URL {
+    try validate(placementSnapshot: placementSnapshot)
+    return try renderPNG(
+      to: directory,
+      fileName: fileName,
+      canvasSize: placementSnapshot.canvasSize,
+      backgroundColor: backgroundColor,
+      colorScheme: colorScheme,
+      options: options,
+      precomputedPlacedSymbolDescriptors: makePlacedSymbolDescriptors(from: placementSnapshot),
+    )
+  }
+
+  @MainActor
+  private func renderPNG(
+    to directory: URL,
+    fileName: String,
+    canvasSize: CGSize,
+    backgroundColor: Color?,
+    colorScheme: ColorScheme?,
+    options: RenderOptions,
+    precomputedPlacedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor]?,
+  ) throws -> URL {
     var renderConfiguration = configuration
     if case var .organic(organicPlacement) = renderConfiguration.placement {
       organicPlacement.showsCollisionOverlay = options.showsCollisionOverlay
@@ -33,7 +80,7 @@ public extension TesseraCanvas {
     }
     let destinationURL = resolvedOutputURL(directory: directory, fileName: fileName, fileExtension: "png")
     let resolvedAlphaMask = region.resolvedAlphaMask(in: canvasSize)
-    let placedSymbolDescriptors = makeSynchronousPlacedDescriptors(
+    let placedSymbolDescriptors = precomputedPlacedSymbolDescriptors ?? makeSynchronousPlacedDescriptors(
       for: canvasSize,
       resolvedAlphaMask: resolvedAlphaMask,
     )
@@ -171,6 +218,40 @@ public extension TesseraCanvas {
     return directory
       .appending(path: baseName)
       .appendingPathExtension(fileExtension)
+  }
+
+  private func makePlacedSymbolDescriptors(
+    from placementSnapshot: PlacementSnapshot,
+  ) -> [ShapePlacementEngine.PlacedSymbolDescriptor] {
+    placementSnapshot.placedSymbols.map { descriptor in
+      ShapePlacementEngine.PlacedSymbolDescriptor(
+        symbolId: descriptor.symbolId,
+        renderSymbolId: descriptor.renderSymbolId,
+        position: descriptor.position,
+        rotationRadians: descriptor.rotationRadians,
+        scale: descriptor.scale,
+        collisionShape: .circle(center: .zero, radius: 0),
+      )
+    }
+  }
+
+  private func validate(placementSnapshot: PlacementSnapshot) throws {
+    let rootSymbolIDs = Set(configuration.symbols.map(\.id))
+    let renderableLeafSymbolIDs = Set(configuration.symbols.uniqueRenderableLeafSymbols.map(\.id))
+
+    let hasUnknownRootSymbol = placementSnapshot.placedSymbols.contains { descriptor in
+      rootSymbolIDs.contains(descriptor.symbolId) == false
+    }
+    if hasUnknownRootSymbol {
+      throw RenderError.invalidPlacementSnapshot
+    }
+
+    let hasUnknownRenderableLeafSymbol = placementSnapshot.placedSymbols.contains { descriptor in
+      renderableLeafSymbolIDs.contains(descriptor.renderSymbolId) == false
+    }
+    if hasUnknownRenderableLeafSymbol {
+      throw RenderError.invalidPlacementSnapshot
+    }
   }
 }
 

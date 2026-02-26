@@ -42,7 +42,7 @@ public struct RenderOptions {
 }
 
 /// Errors that can occur while exporting rendered content.
-public enum RenderError: Error {
+public enum RenderError: Error, Equatable {
   /// The renderer failed to create a raster image.
   case failedToCreateImage
   /// The output destination (file writer) could not be created.
@@ -51,6 +51,8 @@ public enum RenderError: Error {
   case failedToFinalizeDestination
   /// Export requires an explicit canvas size but none was provided.
   case missingCanvasSize
+  /// A placement snapshot does not match the current canvas configuration.
+  case invalidPlacementSnapshot
 }
 
 /// Export file format.

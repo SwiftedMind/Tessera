@@ -127,6 +127,12 @@ extension TesseraCanvas {
       guard activeComputationKey == key else { return }
 
       cachedPlacedSymbolDescriptors = placedSymbolDescriptors
+      onPlacementSnapshotReady?(
+        makePlacementSnapshot(
+          canvasSize: key.canvasSize,
+          placedSymbolDescriptors: placedSymbolDescriptors,
+        ),
+      )
     }
   }
 
@@ -253,6 +259,22 @@ extension TesseraCanvas {
       pinnedSymbolKeys: pinnedSymbolKeys,
       region: region,
     )
+  }
+
+  func makePlacementSnapshot(
+    canvasSize: CGSize,
+    placedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor],
+  ) -> TesseraCanvas.PlacementSnapshot {
+    let placedSymbols = placedSymbolDescriptors.map {
+      TesseraCanvas.PlacementDescriptor(
+        symbolId: $0.symbolId,
+        renderSymbolId: $0.renderSymbolId,
+        position: $0.position,
+        rotationRadians: $0.rotationRadians,
+        scale: $0.scale,
+      )
+    }
+    return TesseraCanvas.PlacementSnapshot(canvasSize: canvasSize, placedSymbols: placedSymbols)
   }
 
   private func makePinnedSymbolPositionKey(from position: TesseraPlacementPosition) -> (

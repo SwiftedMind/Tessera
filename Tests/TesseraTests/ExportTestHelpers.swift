@@ -220,3 +220,45 @@ func imageContainsVisiblePixels(_ cgImage: CGImage) -> Bool {
 
   return false
 }
+
+func imagesArePixelEqual(_ lhs: CGImage, _ rhs: CGImage) -> Bool {
+  guard lhs.width == rhs.width, lhs.height == rhs.height else {
+    return false
+  }
+  guard let lhsPixels = imagePixelData(lhs), let rhsPixels = imagePixelData(rhs) else {
+    return false
+  }
+
+  return lhsPixels == rhsPixels
+}
+
+private func imagePixelData(_ cgImage: CGImage) -> [UInt8]? {
+  let width = max(cgImage.width, 1)
+  let height = max(cgImage.height, 1)
+
+  let bytesPerPixel = 4
+  let bytesPerRow = bytesPerPixel * width
+
+  var pixelBytes = [UInt8](repeating: 0, count: height * bytesPerRow)
+
+  guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else {
+    return nil
+  }
+
+  let bitmapInfo = CGBitmapInfo.byteOrder32Big
+    .union(CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue))
+  guard let context = CGContext(
+    data: &pixelBytes,
+    width: width,
+    height: height,
+    bitsPerComponent: 8,
+    bytesPerRow: bytesPerRow,
+    space: colorSpace,
+    bitmapInfo: bitmapInfo.rawValue,
+  ) else {
+    return nil
+  }
+
+  context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+  return pixelBytes
+}
