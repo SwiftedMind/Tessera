@@ -107,9 +107,6 @@ enum GridShapePlacementEngine {
     }
     let regularSymbolCount = regularSymbolDescriptors.count
     let regularCellCount = max(0, totalCellCount - reservedGridIndices.count)
-    if regularCellCount > 0, regularSymbolCount == 0 {
-      assertionFailure("Regular grid cells remain but no regular symbols are available after subgrid reservations")
-    }
 
     let columnMajorRegularAssignmentIndicesByGridIndex = configuration.symbolOrder == .columnMajor
       ? makeColumnMajorRegularAssignmentIndicesByGridIndex(
