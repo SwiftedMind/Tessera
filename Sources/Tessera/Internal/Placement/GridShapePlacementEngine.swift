@@ -516,10 +516,7 @@ enum GridShapePlacementEngine {
         }
       }
 
-      guard overlapsExistingSubgrid == false else {
-        assertionFailure("Subgrid ignored: overlapping subgrids are not supported, first valid subgrid wins")
-        continue
-      }
+      guard overlapsExistingSubgrid == false else { continue }
 
       let resolvedSymbolDescriptors = resolveSubgridSymbolDescriptors(
         symbolIDs: subgrid.symbolIDs,
