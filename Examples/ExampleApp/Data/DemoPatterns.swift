@@ -34,7 +34,7 @@ enum DemoConfigurations {
 
   static var gridColumnMajor: Pattern {
     Pattern(
-      symbols: [.gridCross, .gridCrossRotated, .mergedCellDot],
+      symbols: [.gridCross, .gridCrossRotated, .subgridDot],
       placement: .grid(
         TesseraPlacement.Grid(
           columnCount: 7,
@@ -47,9 +47,9 @@ enum DemoConfigurations {
     )
   }
 
-  static var gridMergedCells: Pattern {
+  static var gridSubgrids: Pattern {
     Pattern(
-      symbols: DemoSymbols.gridMergedCells,
+      symbols: DemoSymbols.gridSubgrids,
       placement: .grid(
         TesseraPlacement.Grid(
           columnCount: 10,
@@ -57,30 +57,30 @@ enum DemoConfigurations {
           symbolOrder: .rowMajor,
           seed: 222,
           showsGridOverlay: true,
-          mergedCells: [
+          subgrids: [
             .init(
               at: .init(row: 2, column: 2),
               spanning: .init(rows: 2, columns: 2),
-              symbol: .mergedCellDiamond,
-              symbolSizing: .fitMergedCell,
+              symbols: [.subgridDiamond],
+              symbolOrder: .columnMajor,
             ),
             .init(
               at: .init(row: 2, column: 4),
               spanning: .init(rows: 2, columns: 3),
-              symbol: .mergedCellDiamond,
-              symbolSizing: .fitMergedCell,
+              symbols: [.subgridDiamond],
+              symbolOrder: .rowMajor,
             ),
             .init(
               at: .init(row: 5, column: 1),
               spanning: .init(rows: 3, columns: 2),
-              symbol: .mergedCellDiamond,
-              symbolSizing: .fitMergedCell,
+              symbols: [.subgridDiamond],
+              symbolOrder: .snake,
             ),
             .init(
               at: .init(row: 6, column: 6),
               spanning: .init(rows: 3, columns: 3),
-              symbol: .mergedCellDiamond,
-              symbolSizing: .fitMergedCell,
+              symbols: [.subgridDiamond],
+              symbolOrder: .shuffle,
             ),
           ],
         ),

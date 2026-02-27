@@ -298,8 +298,7 @@ Typical uses:
 - Nudging only one symbol family without changing all grid cells.
 - Building offset motifs while keeping deterministic assignment via `seed`.
 
-Use `mergedCells` to turn multiple base cells into one larger placement cell.
-Each merged cell can provide its own override symbol inline:
+Use `subgrids` to define rectangular areas that use dedicated symbol pools:
 
 ```swift
 let hero = Symbol(collider: .automatic(size: CGSize(width: 60, height: 60))) {
@@ -311,46 +310,36 @@ let pattern = Pattern(
   placement: .grid(
     columns: 10,
     rows: 10,
-    mergedCells: [
+    subgrids: [
       .init(
         at: .init(row: 4, column: 3),
         spanning: .init(rows: 2, columns: 2),
-        symbol: hero,
-        symbolSizing: .fitMergedCell
+        symbols: [hero],
+        symbolOrder: .columnMajor,
+        seed: 9001
       ),
       .init(
         at: .init(row: 4, column: 5),
-        spanning: .init(rows: 2, columns: 1)
+        spanning: .init(rows: 2, columns: 1),
+        symbols: [hero]
       ),
     ]
   )
 )
 ```
 
-If you need explicit ID wiring, use `symbolOverride: .existing(...)`:
-
-```swift
-.init(
-  at: .init(row: 4, column: 3),
-  spanning: .init(rows: 2, columns: 2),
-  symbolOverride: .existing(hero.id),
-  symbolSizing: .fitMergedCell
-)
-```
-
-`mergedCells` behavior:
+`subgrids` behavior:
 
 - Coordinate space: zero-based base grid row/column indices.
 - Rectangle shape: `origin` + `span` (`rows x columns`).
-- Validation: invalid or overlapping merges are ignored; first valid merge wins.
-- `symbolOverride`: explicit override mode (`.none`, `.inline(symbol)`, `.existing(symbolID)`).
-- `symbol`: convenience for inline overrides (recommended).
-- `symbolSizing`: `.natural` or `.fitMergedCell`.
-- By default, symbols used as merged-cell overrides are excluded from regular-cell assignment. Set
-  `excludeMergedSymbolsFromRegularCells: false` to opt out.
-- In debug builds, Tessera asserts if a merged-cell override references an unknown symbol ID.
+- Symbols: each subgrid owns a dedicated `symbols` list.
+- `symbolOrder`: applies locally within the subgrid bounds.
+- `seed`: optional subgrid-local seed for random-based orders (`shuffle`, `randomWeightedPerCell`).
+- Validation: invalid or overlapping subgrids are ignored; first valid subgrid wins.
+- Subgrid symbols are dedicated to subgrids and are excluded from regular-cell assignment.
+- In debug builds, Tessera asserts if a subgrid references unknown symbol IDs.
 - For seamless wrapping + non-zero offset strategies, Tessera may resolve to adjusted row/column counts (for example
-  rounding to even counts). Merge validation is performed against those resolved counts.
+  rounding to even counts). Subgrid validation is performed against those resolved counts.
 
 Use `showsGridOverlay: true` while iterating on layouts to render a debug grid overlay.
 

@@ -175,8 +175,9 @@ import Testing
   #expect(placedWrapped.map(\.position.x) == [175, 275, 375, 75])
 }
 
-@Test func symbolPhaseWithMergedCellsUsesBaseCellUnits() async throws {
-  let symbolID = UUID()
+@Test func symbolPhaseWithSubgridsUsesBaseCellUnits() async throws {
+  let regularID = UUID()
+  let subgridID = UUID()
   let size = CGSize(width: 400, height: 200)
   let configuration = PlacementModel.Grid(
     columnCount: 4,
@@ -184,23 +185,32 @@ import Testing
     offsetStrategy: .none,
     symbolOrder: .rowMajor,
     seed: 31,
-    symbolPhases: [symbolID: .init(x: 0.25, y: 0)],
-    mergedCells: [
-      .init(origin: .init(row: 0, column: 0), span: .init(rows: 1, columns: 2)),
+    symbolPhases: [regularID: .init(x: 0.25, y: 0)],
+    subgrids: [
+      .init(
+        origin: .init(row: 0, column: 0),
+        span: .init(rows: 1, columns: 2),
+        symbolIDs: [subgridID],
+      ),
     ],
   )
 
   let placed = GridShapePlacementEngine.placeSymbolDescriptors(
     in: size,
-    symbolDescriptors: [makeSymbolDescriptor(id: symbolID)],
+    symbolDescriptors: [
+      makeSymbolDescriptor(id: regularID),
+      makeSymbolDescriptor(id: subgridID),
+    ],
     pinnedSymbolDescriptors: [],
     edgeBehavior: .finite,
     configuration: configuration,
   )
 
-  #expect(placed.count == 7)
-  #expect(placed.contains { $0.position == CGPoint(x: 125, y: 50) })
-  #expect(placed.contains { $0.position == CGPoint(x: 150, y: 50) } == false)
+  #expect(placed.count == 8)
+  #expect(placed.contains { $0.symbolId == subgridID && $0.position == CGPoint(x: 50, y: 50) })
+  #expect(placed.contains { $0.symbolId == subgridID && $0.position == CGPoint(x: 150, y: 50) })
+  #expect(placed.contains { $0.symbolId == regularID && $0.position == CGPoint(x: 275, y: 50) })
+  #expect(placed.contains { $0.position == CGPoint(x: 250, y: 50) } == false)
 }
 
 private func makeSymbolDescriptor(id: UUID) -> ShapePlacementEngine.PlacementSymbolDescriptor {

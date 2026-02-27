@@ -21,8 +21,8 @@ enum DemoSymbols {
     [.gridCross, .gridCrossRotated]
   }
 
-  static var gridMergedCells: [Symbol] {
-    [.mergedCellDot]
+  static var gridSubgrids: [Symbol] {
+    [.subgridDot]
   }
 
   static var mosaic: [Symbol] {
@@ -161,9 +161,9 @@ extension Symbol {
     }
   }
 
-  static var mergedCellDot: Symbol {
+  static var subgridDot: Symbol {
     Symbol(
-      id: DemoSymbolIDs.gridMergedCellDot,
+      id: DemoSymbolIDs.gridSubgridDot,
       collider: .shape(.circle(center: .zero, radius: 8)),
     ) {
       Circle()
@@ -172,9 +172,9 @@ extension Symbol {
     }
   }
 
-  static var mergedCellDiamond: Symbol {
+  static var subgridDiamond: Symbol {
     Symbol(
-      id: DemoSymbolIDs.gridMergedCellDiamond,
+      id: DemoSymbolIDs.gridSubgridDiamond,
       collider: .shape(.rectangle(center: .zero, size: CGSize(width: 46, height: 46))),
     ) {
       RoundedRectangle(cornerRadius: 9, style: .continuous)

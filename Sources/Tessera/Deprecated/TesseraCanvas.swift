@@ -154,6 +154,7 @@ public struct TesseraCanvas: View {
     let renderableLeafSymbols = configuration.symbols.uniqueRenderableLeafSymbols
     let gridPlacement = configuration.gridPlacement
     let isGridOverlayEnabled = gridPlacement?.showsGridOverlay == true
+    let knownGridSymbolIDs = Set(configuration.symbols.map(\.id)).union(renderableLeafSymbols.map(\.id))
     let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
     let overlayShapesBySymbolId: [UUID: CollisionOverlayShape] = isCollisionOverlayEnabled
       ? renderableLeafSymbols.reduce(into: [:]) { cache, symbol in
@@ -212,6 +213,7 @@ public struct TesseraCanvas: View {
           configuration: gridPlacement,
           edgeBehavior: edgeBehavior,
           patternOffset: configuration.patternOffset,
+          knownSymbolIDs: knownGridSymbolIDs,
         )
       }
     } symbols: {

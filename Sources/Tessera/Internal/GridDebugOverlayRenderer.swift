@@ -1,6 +1,7 @@
 // By Dennis Müller
 
 import CoreGraphics
+import Foundation
 import SwiftUI
 
 /// Draws debug overlays for grid placement.
@@ -11,6 +12,7 @@ enum GridDebugOverlayRenderer {
     configuration: PlacementModel.Grid,
     edgeBehavior: TesseraEdgeBehavior,
     patternOffset: CGSize = .zero,
+    knownSymbolIDs: Set<UUID>? = nil,
   ) {
     guard size.width > 0, size.height > 0 else { return }
 
@@ -51,25 +53,24 @@ enum GridDebugOverlayRenderer {
       )
     }
 
-    let mergedCells = GridShapePlacementEngine.resolvePlacementCells(
-      mergedCells: configuration.mergedCells,
+    let subgrids = GridShapePlacementEngine.resolveAcceptedSubgridAreas(
+      subgrids: configuration.subgrids,
       grid: resolvedGrid,
-    ).filter { resolvedCell in
-      resolvedCell.rowSpan > 1 || resolvedCell.columnSpan > 1
-    }
-    guard mergedCells.isEmpty == false else { return }
+      knownSymbolIDs: knownSymbolIDs,
+    )
+    guard subgrids.isEmpty == false else { return }
 
-    var mergedFillPath = Path()
-    var mergedStrokePath = Path()
-    for mergedCell in mergedCells {
+    var subgridFillPath = Path()
+    var subgridStrokePath = Path()
+    for subgrid in subgrids {
       let rectangle = CGRect(
-        x: CGFloat(mergedCell.columnIndex) * cellSize.width,
-        y: CGFloat(mergedCell.rowIndex) * cellSize.height,
-        width: CGFloat(mergedCell.columnSpan) * cellSize.width,
-        height: CGFloat(mergedCell.rowSpan) * cellSize.height,
+        x: CGFloat(subgrid.columnIndex) * cellSize.width,
+        y: CGFloat(subgrid.rowIndex) * cellSize.height,
+        width: CGFloat(subgrid.columnCount) * cellSize.width,
+        height: CGFloat(subgrid.rowCount) * cellSize.height,
       )
-      mergedFillPath.addRect(rectangle)
-      mergedStrokePath.addRect(rectangle)
+      subgridFillPath.addRect(rectangle)
+      subgridStrokePath.addRect(rectangle)
     }
 
     for wrapOffset in wrapOffsets {
@@ -77,10 +78,10 @@ enum GridDebugOverlayRenderer {
         translationX: wrapOffset.x + wrappedOffset.width,
         y: wrapOffset.y + wrappedOffset.height,
       )
-      context.fill(mergedFillPath.applying(translation), with: .color(.yellow.opacity(0.08)))
+      context.fill(subgridFillPath.applying(translation), with: .color(.cyan.opacity(0.08)))
       context.stroke(
-        mergedStrokePath.applying(translation),
-        with: .color(.yellow.opacity(0.75)),
+        subgridStrokePath.applying(translation),
+        with: .color(.cyan.opacity(0.75)),
         style: StrokeStyle(lineWidth: 2),
       )
     }

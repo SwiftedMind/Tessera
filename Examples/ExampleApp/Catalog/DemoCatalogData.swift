@@ -33,9 +33,9 @@ enum DemoCatalog {
           systemImage: "arrow.down.to.line.compact",
         ),
         DemoCatalogExample(
-          destination: .mergedGridCells,
-          title: "Merged Grid Cells",
-          summary: "Rectangular grid cell spans",
+          destination: .gridSubgrids,
+          title: "Grid Subgrids",
+          summary: "Dedicated symbol pools in sub-areas",
           systemImage: "square.grid.3x3",
         ),
         DemoCatalogExample(

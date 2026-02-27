@@ -37,8 +37,7 @@ import Testing
   #expect(options.symbolOrder == .rowMajor)
   #expect(options.symbolPhases.isEmpty)
   #expect(options.showsGridOverlay == false)
-  #expect(options.mergedCells.isEmpty)
-  #expect(options.excludeMergedSymbolsFromRegularCells)
+  #expect(options.subgrids.isEmpty)
   #expect(options.steering == .none)
 }
 
@@ -76,22 +75,25 @@ import Testing
   #expect(options.showsGridOverlay)
 }
 
-@Test func gridPlacementFactoryMapsMergedCells() async throws {
-  let merges: [TesseraPlacement.Grid.CellMerge] = [
+@Test func gridPlacementFactoryMapsSubgrids() async throws {
+  let subgrids: [TesseraPlacement.Grid.Subgrid] = [
     .init(
       at: .init(row: 1, column: 2),
       spanning: .init(rows: 2, columns: 3),
-      symbol: Symbol(
-        id: UUID(uuidString: "00000000-0000-0000-0000-0000000000B0")!,
-        collider: .shape(.circle(center: .zero, radius: 1)),
-      ) { Circle() },
-      symbolSizing: .fitMergedCell,
+      symbols: [
+        Symbol(
+          id: UUID(uuidString: "00000000-0000-0000-0000-0000000000B0")!,
+          collider: .shape(.circle(center: .zero, radius: 1)),
+        ) { Circle() },
+      ],
+      symbolOrder: .columnMajor,
+      seed: 777,
     ),
   ]
   let placement = TesseraPlacement.grid(
     columns: 6,
     rows: 4,
-    mergedCells: merges,
+    subgrids: subgrids,
   )
 
   guard case let .grid(options) = placement else {
@@ -99,61 +101,27 @@ import Testing
     return
   }
 
-  #expect(options.mergedCells == merges)
+  #expect(options.subgrids == subgrids)
 }
 
-@Test func cellMergeSymbolOverrideProvidesExplicitModes() async throws {
-  let existingID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B3")!
-  let inlineID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B4")!
-  let inlineSymbol = Symbol(
-    id: inlineID,
-    collider: .shape(.circle(center: .zero, radius: 1)),
-  ) { Circle() }
-
-  var merge = TesseraPlacement.Grid.CellMerge(
-    at: .init(row: 0, column: 1),
-    spanning: .init(rows: 2, columns: 2),
-    symbolOverride: .existing(existingID),
-  )
-
-  if case let .existing(id) = merge.symbolOverride {
-    #expect(id == existingID)
-  } else {
-    Issue.record("Expected existing symbol override mode")
-  }
-
-  merge.symbol = inlineSymbol
-  if case let .inline(symbol) = merge.symbolOverride {
-    #expect(symbol.id == inlineID)
-  } else {
-    Issue.record("Expected inline symbol override mode")
-  }
-
-  let idBased = TesseraPlacement.Grid.CellMerge(
-    at: .init(row: 0, column: 1),
-    spanning: .init(rows: 2, columns: 2),
-    symbolOverride: .existing(inlineID),
-  )
-  #expect(merge == idBased)
-}
-
-@Test func patternInitializerResolvesInlineMergedSymbolOverrides() async throws {
+@Test func patternInitializerResolvesInlineSubgridSymbols() async throws {
   let regularID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B1")!
-  let mergedID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B2")!
+  let subgridID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B2")!
   let regularSymbol = Symbol(id: regularID, collider: .shape(.circle(center: .zero, radius: 1))) { Circle() }
-  let mergedSymbol = Symbol(id: mergedID, collider: .shape(.circle(center: .zero, radius: 2))) { Circle() }
+  let subgridSymbol = Symbol(id: subgridID, collider: .shape(.circle(center: .zero, radius: 2))) { Circle() }
 
   let pattern = Pattern(
     symbols: [regularSymbol],
     placement: .grid(
       columns: 6,
       rows: 4,
-      mergedCells: [
+      subgrids: [
         .init(
           at: .init(row: 1, column: 2),
           spanning: .init(rows: 2, columns: 3),
-          symbol: mergedSymbol,
-          symbolSizing: .fitMergedCell,
+          symbols: [subgridSymbol],
+          symbolOrder: .snake,
+          seed: 505,
         ),
       ],
     ),
@@ -167,58 +135,47 @@ import Testing
     return
   }
 
-  #expect(options.mergedCells.count == 1)
-  #expect(options.mergedCells[0].origin == .init(row: 1, column: 2))
-  #expect(options.mergedCells[0].span == .init(rows: 2, columns: 3))
-  #expect(options.mergedCells[0].symbol?.id == mergedID)
-  #expect(options.mergedCells[0].symbolSizing == .fitMergedCell)
+  #expect(options.subgrids.count == 1)
+  #expect(options.subgrids[0].origin == .init(row: 1, column: 2))
+  #expect(options.subgrids[0].span == .init(rows: 2, columns: 3))
+  #expect(options.subgrids[0].symbols.map(\.id) == [subgridID])
+  #expect(options.subgrids[0].symbolOrder == .snake)
+  #expect(options.subgrids[0].seed == 505)
 
   let legacy = pattern.legacyConfiguration
-  #expect(Set(legacy.symbols.map(\.id)) == Set([regularID, mergedID]))
+  #expect(Set(legacy.symbols.map(\.id)) == Set([regularID, subgridID]))
 
   guard case let .grid(legacyOptions) = legacy.placement else {
     Issue.record("Expected legacy grid placement")
     return
   }
 
-  #expect(legacyOptions.mergedCells.count == 1)
-  #expect(legacyOptions.mergedCells[0].symbolID == mergedID)
-}
-
-@Test func gridPlacementFactoryMapsExcludeMergedSymbolsFromRegularCells() async throws {
-  let placement = TesseraPlacement.grid(
-    columns: 4,
-    rows: 3,
-    excludeMergedSymbolsFromRegularCells: false,
-  )
-
-  guard case let .grid(options) = placement else {
-    Issue.record("Expected grid placement")
-    return
-  }
-
-  #expect(options.excludeMergedSymbolsFromRegularCells == false)
+  #expect(legacyOptions.subgrids.count == 1)
+  #expect(legacyOptions.subgrids[0].symbolIDs == [subgridID])
+  #expect(legacyOptions.subgrids[0].symbolOrder == .snake)
+  #expect(legacyOptions.subgrids[0].seed == 505)
 }
 
 @Test func gridOptionsCanWrapInternalBaseConfiguration() async throws {
-  let mergedID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B5")!
+  let subgridID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B5")!
   let internalBase = PlacementModel.Grid(
     columnCount: 7,
     rowCount: 5,
     offsetStrategy: .checkerShift(fraction: 0.5),
     symbolOrder: .snake,
     seed: 909,
-    symbolPhases: [mergedID: .init(x: 0.25, y: 0.5)],
+    symbolPhases: [subgridID: .init(x: 0.25, y: 0.5)],
     steering: .none,
     showsGridOverlay: true,
-    mergedCells: [
+    subgrids: [
       .init(
         at: .init(row: 1, column: 1),
         spanning: .init(rows: 2, columns: 2),
-        symbolID: mergedID,
+        symbolIDs: [subgridID],
+        symbolOrder: .columnMajor,
+        seed: 123,
       ),
     ],
-    excludeMergedSymbolsFromRegularCells: false,
   )
   let options = TesseraPlacement.Grid(base: internalBase)
 
@@ -228,13 +185,57 @@ import Testing
   #expect(options.symbolOrder == .snake)
   #expect(options.seed == 909)
   #expect(options.showsGridOverlay)
-  #expect(options.excludeMergedSymbolsFromRegularCells == false)
-  #expect(options.mergedCells.count == 1)
-  if case let .existing(symbolID) = options.mergedCells[0].symbolOverride {
-    #expect(symbolID == mergedID)
-  } else {
-    Issue.record("Expected existing symbol override mode")
-  }
+  #expect(options.subgrids.count == 1)
+  #expect(options.subgrids[0].origin == .init(row: 1, column: 1))
+  #expect(options.subgrids[0].span == .init(rows: 2, columns: 2))
+  #expect(options.subgrids[0].symbols.isEmpty)
+  #expect(options.subgrids[0].symbolOrder == .columnMajor)
+  #expect(options.subgrids[0].seed == 123)
+}
+
+@Test func gridOptionsPreserveImportedSubgridIDsWhenAppendingInlineSymbols() async throws {
+  let importedID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B6")!
+  let inlineID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B7")!
+  let internalBase = PlacementModel.Grid(
+    columnCount: 4,
+    rowCount: 4,
+    subgrids: [
+      .init(
+        at: .init(row: 0, column: 0),
+        spanning: .init(rows: 2, columns: 2),
+        symbolIDs: [importedID],
+      ),
+    ],
+  )
+
+  var options = TesseraPlacement.Grid(base: internalBase)
+  options.subgrids[0].symbols.append(
+    Symbol(id: inlineID, collider: .shape(.circle(center: .zero, radius: 1))) { Circle() },
+  )
+
+  let resolved = options.resolvedInternalGridOptions().options
+  #expect(resolved.subgrids[0].symbolIDs == [importedID, inlineID])
+}
+
+@Test func gridOptionsPreserveImportedSubgridIDsWhenInlineSymbolsAreCleared() async throws {
+  let importedID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B8")!
+  let internalBase = PlacementModel.Grid(
+    columnCount: 4,
+    rowCount: 4,
+    subgrids: [
+      .init(
+        at: .init(row: 0, column: 0),
+        spanning: .init(rows: 2, columns: 2),
+        symbolIDs: [importedID],
+      ),
+    ],
+  )
+
+  var options = TesseraPlacement.Grid(base: internalBase)
+  options.subgrids[0].symbols = []
+
+  let resolved = options.resolvedInternalGridOptions().options
+  #expect(resolved.subgrids[0].symbolIDs == [importedID])
 }
 
 @Test func patternOffsetMapsToLegacyPatternOffset() async throws {

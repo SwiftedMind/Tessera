@@ -43,9 +43,9 @@ extension DemoDestination {
   }
 
   @ViewBuilder
-  func mergedGridCellsView() -> some View {
-    DemoExampleScreen(title: "Merged Grid Cells") {
-      Tessera(DemoConfigurations.gridMergedCells)
+  func gridSubgridsView() -> some View {
+    DemoExampleScreen(title: "Grid Subgrids") {
+      Tessera(DemoConfigurations.gridSubgrids)
         .mode(.canvas(edgeBehavior: .finite))
         .seed(.fixed(222))
         .background(DemoPalette.canvasBackground)

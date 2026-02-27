@@ -14,8 +14,8 @@ extension DemoDestination {
       gridPlacementView()
     case .gridColumnMajor:
       gridColumnMajorView()
-    case .mergedGridCells:
-      mergedGridCellsView()
+    case .gridSubgrids:
+      gridSubgridsView()
     case .choiceSymbols:
       choiceSymbolsView()
     case .choiceIndexSequence:

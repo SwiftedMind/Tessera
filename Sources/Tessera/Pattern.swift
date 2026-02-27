@@ -70,16 +70,16 @@ private extension Pattern {
 
     case let .grid(options):
       let resolvedGrid = options.resolvedInternalGridOptions()
-      let allSymbols = symbols.appendingUniqueByID(resolvedGrid.mergedSymbols)
+      let allSymbols = symbols.appendingUniqueByID(resolvedGrid.subgridSymbols)
 
       #if DEBUG
       let knownSymbolIDs = Set(allSymbols.map(\.id))
-      let missingMergedOverrideIDs = Set(
-        resolvedGrid.options.mergedCells.compactMap(\.symbolID).filter { knownSymbolIDs.contains($0) == false },
+      let missingSubgridSymbolIDs = Set(
+        resolvedGrid.options.subgrids.flatMap(\.symbolIDs).filter { knownSymbolIDs.contains($0) == false },
       )
       assert(
-        missingMergedOverrideIDs.isEmpty,
-        "Merged cell override symbol IDs were not found in Pattern.symbols: \(missingMergedOverrideIDs)",
+        missingSubgridSymbolIDs.isEmpty,
+        "Subgrid symbol IDs were not found in Pattern.symbols: \(missingSubgridSymbolIDs)",
       )
       #endif
 

@@ -5,95 +5,93 @@ import Foundation
 public extension PlacementModel {
   /// Configuration for grid placement.
   struct Grid: Hashable, Sendable {
-    /// Symbol sizing behavior for merged-cell symbol overrides.
-    public enum MergedCellSymbolSizing: Hashable, Sendable {
-      /// Keep symbol scale behavior unchanged.
-      case natural
-      /// Scales the symbol to fit inside the merged cell using collision-shape bounds.
-      case fitMergedCell
-    }
-
-    /// A rectangular merged cell definition in base grid coordinates.
+    /// A rectangular subgrid definition in base grid coordinates.
     ///
-    /// - Note: Invalid merges (negative origin, non-positive span, out of bounds, overlap)
+    /// - Note: Invalid subgrids (negative origin, non-positive span, out of bounds, overlap, empty symbols)
     ///   are ignored by the placement engine.
-    public struct CellMerge: Hashable, Sendable {
-      /// Zero-based origin of a merged rectangle in base grid coordinates.
+    public struct Subgrid: Hashable, Sendable {
+      /// Zero-based origin of a subgrid rectangle in base grid coordinates.
       public struct Origin: Hashable, Sendable {
         /// Top row index (zero-based).
         public var row: Int
         /// Leading column index (zero-based).
         public var column: Int
 
-        /// Creates a zero-based merged-cell origin.
+        /// Creates a zero-based subgrid origin.
         public init(row: Int, column: Int) {
           self.row = row
           self.column = column
         }
       }
 
-      /// Span of a merged rectangle in base grid cell counts.
+      /// Span of a subgrid rectangle in base grid cell counts.
       public struct Span: Hashable, Sendable {
-        /// Number of rows to merge.
+        /// Number of rows covered by the subgrid.
         public var rows: Int
-        /// Number of columns to merge.
+        /// Number of columns covered by the subgrid.
         public var columns: Int
 
-        /// Creates a merged-cell span.
+        /// Creates a subgrid span.
         public init(rows: Int, columns: Int) {
           self.rows = rows
           self.columns = columns
         }
       }
 
-      /// Zero-based origin of the merged rectangle in base grid coordinates.
+      /// Zero-based origin of the subgrid rectangle in base grid coordinates.
       public var origin: Origin
-      /// Size of the merged rectangle in base grid cell counts.
+      /// Size of the subgrid rectangle in base grid cell counts.
       public var span: Span
-      /// Optional symbol identifier used specifically for this merged cell.
-      ///
-      /// When `nil`, the merged cell uses regular grid symbol assignment.
-      public var symbolID: UUID?
-      /// Symbol sizing behavior for this merged cell.
-      public var symbolSizing: MergedCellSymbolSizing
+      /// Symbol identifiers dedicated to this subgrid.
+      public var symbolIDs: [UUID]
+      /// Symbol assignment order used within this subgrid.
+      public var symbolOrder: GridSymbolOrder
+      /// Optional subgrid-local seed for deterministic random-based orders.
+      public var seed: UInt64?
 
-      /// Creates a rectangular merged-cell definition.
+      /// Creates a rectangular subgrid definition.
       ///
       /// - Parameters:
       ///   - origin: Zero-based top-leading origin in base grid coordinates.
       ///   - span: Rectangle size in base grid cell counts.
-      ///   - symbolID: Optional symbol identifier used specifically for this merged cell.
-      ///   - symbolSizing: Symbol sizing behavior for this merged cell.
+      ///   - symbolIDs: Symbol identifiers dedicated to this subgrid.
+      ///   - symbolOrder: Symbol assignment order used within this subgrid.
+      ///   - seed: Optional subgrid-local seed.
       public init(
         origin: Origin,
         span: Span,
-        symbolID: UUID? = nil,
-        symbolSizing: MergedCellSymbolSizing = .natural,
+        symbolIDs: [UUID],
+        symbolOrder: GridSymbolOrder = .rowMajor,
+        seed: UInt64? = nil,
       ) {
         self.origin = origin
         self.span = span
-        self.symbolID = symbolID
-        self.symbolSizing = symbolSizing
+        self.symbolIDs = symbolIDs
+        self.symbolOrder = symbolOrder
+        self.seed = seed
       }
 
-      /// Creates a rectangular merged-cell definition.
+      /// Creates a rectangular subgrid definition.
       ///
       /// - Parameters:
       ///   - at: Zero-based top-leading origin in base grid coordinates.
       ///   - spanning: Rectangle size in base grid cell counts.
-      ///   - symbolID: Optional symbol identifier used specifically for this merged cell.
-      ///   - symbolSizing: Symbol sizing behavior for this merged cell.
+      ///   - symbolIDs: Symbol identifiers dedicated to this subgrid.
+      ///   - symbolOrder: Symbol assignment order used within this subgrid.
+      ///   - seed: Optional subgrid-local seed.
       public init(
         at origin: Origin,
         spanning span: Span,
-        symbolID: UUID? = nil,
-        symbolSizing: MergedCellSymbolSizing = .natural,
+        symbolIDs: [UUID],
+        symbolOrder: GridSymbolOrder = .rowMajor,
+        seed: UInt64? = nil,
       ) {
         self.init(
           origin: origin,
           span: span,
-          symbolID: symbolID,
-          symbolSizing: symbolSizing,
+          symbolIDs: symbolIDs,
+          symbolOrder: symbolOrder,
+          seed: seed,
         )
       }
     }
@@ -140,7 +138,7 @@ public extension PlacementModel {
     public var rowCount: Int
     /// Offset strategy applied to grid rows or columns.
     public var offsetStrategy: GridOffsetStrategy
-    /// Order in which symbols are assigned to grid cells.
+    /// Order in which symbols are assigned to regular grid cells.
     public var symbolOrder: GridSymbolOrder
     /// Seed used to drive deterministic randomness for grid symbol assignment.
     ///
@@ -150,20 +148,6 @@ public extension PlacementModel {
     ///
     /// The engine looks up the selected symbol's `id` for each cell and applies the matching phase (if present).
     /// Cells assigned to symbols without an entry use `.init(x: 0, y: 0)`.
-    ///
-    /// This is useful for interleaved motifs or nudging one symbol family relative to others.
-    ///
-    /// Example:
-    /// ```swift
-    /// let primaryID = UUID()
-    /// let secondaryID = UUID()
-    /// let phases: [UUID: TesseraPlacement.Grid.SymbolPhase] = [
-    ///   secondaryID: .init(x: 0.5, y: 0.5),
-    /// ]
-    /// ```
-    ///
-    /// Important: a single grid pass still chooses one symbol per resolved placement cell.
-    /// To render two full lattices on top of each other, overlay two Tessera layers.
     public var symbolPhases: [UUID: SymbolPhase] {
       didSet {
         let canonical = Self.canonicalizedSymbolPhases(symbolPhases)
@@ -177,28 +161,23 @@ public extension PlacementModel {
     public var steering: GridSteering
     /// Whether to draw a debug overlay for the resolved grid.
     public var showsGridOverlay: Bool
-    /// Optional merged-cell rectangles.
+    /// Optional rectangular subgrid definitions.
     ///
-    /// Merge coordinates are interpreted against the resolved grid dimensions used for placement.
-    /// Invalid or overlapping merges are ignored. When merges overlap, the first valid merge wins.
-    public var mergedCells: [CellMerge]
-    /// Whether symbol IDs referenced by `mergedCells.symbolID` should be excluded from regular-cell assignment.
-    public var excludeMergedSymbolsFromRegularCells: Bool
+    /// Subgrid coordinates are interpreted against the resolved grid dimensions used for placement.
+    /// Invalid, overlapping, or symbol-empty subgrids are ignored. When subgrids overlap, the first valid subgrid wins.
+    public var subgrids: [Subgrid]
 
     /// Creates a grid placement configuration.
     /// - Parameters:
     ///   - columnCount: The number of columns in the grid.
     ///   - rowCount: The number of rows in the grid.
     ///   - offsetStrategy: Offset strategy applied to grid rows or columns.
-    ///   - symbolOrder: Order in which symbols are assigned to grid cells.
-    ///   - seed: Seed used to drive deterministic randomness for grid symbol assignment.
+    ///   - symbolOrder: Order in which symbols are assigned to regular grid cells.
+    ///   - seed: Seed used to drive deterministic randomness for regular grid symbol assignment.
     ///   - symbolPhases: Optional per-symbol phase offsets keyed by symbol `id`.
-    ///     Use this when a symbol family needs a deterministic phase shift (for example `0.5, 0.5`).
     ///   - steering: Position-based steering controls for grid placement.
     ///   - showsGridOverlay: Whether to draw a debug overlay for the resolved grid.
-    ///   - mergedCells: Optional rectangular merged-cell definitions.
-    ///   - excludeMergedSymbolsFromRegularCells: Whether merged-cell override symbols should be excluded from regular
-    ///     grid assignment.
+    ///   - subgrids: Optional rectangular subgrid definitions.
     public init(
       columnCount: Int,
       rowCount: Int,
@@ -208,8 +187,7 @@ public extension PlacementModel {
       symbolPhases: [UUID: SymbolPhase] = [:],
       steering: GridSteering = .none,
       showsGridOverlay: Bool = false,
-      mergedCells: [CellMerge] = [],
-      excludeMergedSymbolsFromRegularCells: Bool = true,
+      subgrids: [Subgrid] = [],
     ) {
       self.columnCount = columnCount
       self.rowCount = rowCount
@@ -219,8 +197,7 @@ public extension PlacementModel {
       self.symbolPhases = Self.canonicalizedSymbolPhases(symbolPhases)
       self.steering = steering
       self.showsGridOverlay = showsGridOverlay
-      self.mergedCells = mergedCells
-      self.excludeMergedSymbolsFromRegularCells = excludeMergedSymbolsFromRegularCells
+      self.subgrids = subgrids
     }
 
     private static func canonicalizedSymbolPhases(_ symbolPhases: [UUID: SymbolPhase]) -> [UUID: SymbolPhase] {
