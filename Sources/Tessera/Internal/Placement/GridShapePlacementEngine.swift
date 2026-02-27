@@ -99,11 +99,21 @@ enum GridShapePlacementEngine {
     let subgridCellAssignments = subgridResolution.cellAssignments
     let reservedGridIndices = subgridResolution.reservedGridIndices
 
-    let subgridSymbolIDs = Set(subgridContexts.flatMap { context in
-      context.symbolDescriptors.map(\.id)
+    let dedicatedSubgridSymbolIDs = Set(configuration.subgrids.flatMap { subgrid in
+      resolveSubgridSymbolDescriptors(
+        symbolIDs: subgrid.symbolIDs,
+        topLevelSymbolDescriptorsByID: topLevelSymbolDescriptorsByID,
+        leafSymbolDescriptorsByID: leafSymbolDescriptorsByID,
+      ).map(\.id)
     })
     let regularSymbolDescriptors = symbolDescriptors.filter { descriptor in
-      subgridSymbolIDs.contains(descriptor.id) == false
+      guard dedicatedSubgridSymbolIDs.contains(descriptor.id) == false else {
+        return false
+      }
+
+      return descriptor.renderableLeafDescriptors.contains(where: { leafDescriptor in
+        dedicatedSubgridSymbolIDs.contains(leafDescriptor.id)
+      }) == false
     }
     let regularSymbolCount = regularSymbolDescriptors.count
     let regularCellCount = max(0, totalCellCount - reservedGridIndices.count)

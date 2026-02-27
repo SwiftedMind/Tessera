@@ -461,6 +461,28 @@ import Testing
   #expect(placed.contains { $0.symbolId == secondSubgridSymbol } == false)
 }
 
+@Test func overlappingSubgridSymbolsDoNotLeakIntoRegularCells() async throws {
+  let firstSubgridSymbol = UUID(uuidString: "00000000-0000-0000-0000-000000000074")!
+  let secondSubgridSymbol = UUID(uuidString: "00000000-0000-0000-0000-000000000075")!
+  let placed = placeGrid(
+    size: CGSize(width: 300, height: 300),
+    symbolDescriptors: [
+      makeGridSymbolDescriptor(id: firstSubgridSymbol, allowedRotationRangeDegrees: 0...0),
+      makeGridSymbolDescriptor(id: secondSubgridSymbol, allowedRotationRangeDegrees: 0...0),
+    ],
+    seed: 12,
+    columnCount: 3,
+    rowCount: 3,
+    subgrids: [
+      .init(origin: .init(row: 0, column: 0), span: .init(rows: 2, columns: 2), symbolIDs: [firstSubgridSymbol]),
+      .init(origin: .init(row: 1, column: 1), span: .init(rows: 2, columns: 2), symbolIDs: [secondSubgridSymbol]),
+    ],
+  )
+
+  #expect(placed.count == 4)
+  #expect(placed.allSatisfy { $0.symbolId == firstSubgridSymbol })
+}
+
 @Test func gridPlacementSkipsInvalidSubgrids() async throws {
   let regular = UUID(uuidString: "00000000-0000-0000-0000-000000000076")!
   let subgridSymbol = UUID(uuidString: "00000000-0000-0000-0000-000000000077")!
