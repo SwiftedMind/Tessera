@@ -25,6 +25,10 @@ enum ShapePlacementCollision {
     var broadPhaseRejects = 0
     var circleFastPathChecks = 0
     var polygonChecks = 0
+    var placementOuterAttempts = 0
+    var placementSuccesses = 0
+    var placementFailures = 0
+    var terminatedForSaturation = false
   }
 
   /// Returns whether a candidate placement clears all existing colliders.

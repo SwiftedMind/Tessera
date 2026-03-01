@@ -143,6 +143,12 @@ enum OrganicShapePlacementEngine {
     var choiceSequenceState = ShapePlacementEngine.ChoiceSequenceState()
     var neighboringColliderIndices: [Int] = []
     neighboringColliderIndices.reserveCapacity(32)
+    var saturationStopState = SaturationStopState(remainingTargetCount: remainingTargetCount)
+
+    diagnostics?.placementOuterAttempts = 0
+    diagnostics?.placementSuccesses = 0
+    diagnostics?.placementFailures = 0
+    diagnostics?.terminatedForSaturation = false
 
     for placementAttemptIndex in 0..<remainingTargetCount {
       if Task.isCancelled { return placedDescriptors }
@@ -157,114 +163,120 @@ enum OrganicShapePlacementEngine {
       )
       var choiceRandomGenerator = SeededGenerator(seed: choiceSeed)
       var tentativeChoiceSequenceState = choiceSequenceState
-      guard let selectedRenderSymbol = ShapePlacementEngine.resolveLeafSymbolDescriptor(
+      var didPlaceSymbol = false
+      if let selectedRenderSymbol = ShapePlacementEngine.resolveLeafSymbolDescriptor(
         from: selectedSymbol,
         randomGenerator: &choiceRandomGenerator,
         sequenceState: &tentativeChoiceSequenceState,
-      ) else { continue }
-
-      let baseScale = Double.random(in: selectedRenderSymbol.resolvedScaleRange, using: &randomGenerator)
-      let baseRotationRadians = randomAngleRadians(
-        in: selectedRenderSymbol.allowedRotationRangeDegrees,
-        using: &randomGenerator,
-      )
-
-      guard let selectedPolygons = polygonCache[selectedRenderSymbol.id] else { continue }
-
-      let maximumAttempts = 20
-      var didPlaceSymbol = false
-
-      for _ in 0..<maximumAttempts {
-        if Task.isCancelled { return placedDescriptors }
-
-        guard let position = samplePosition(
-          in: size,
-          region: region,
-          regionPointSampler: regionPointSampler,
-          alphaMask: alphaMask,
-          sparseMaskPointSampler: sparseMaskPointSampler,
+      ), let selectedPolygons = polygonCache[selectedRenderSymbol.id] {
+        let baseScale = Double.random(in: selectedRenderSymbol.resolvedScaleRange, using: &randomGenerator)
+        let baseRotationRadians = randomAngleRadians(
+          in: selectedRenderSymbol.allowedRotationRangeDegrees,
           using: &randomGenerator,
-        ) else { continue }
-
-        let spacingMultiplier = max(
-          0,
-          minimumSpacingMultiplierEvaluator?.value(at: position) ?? 1,
         )
-        let candidateMinimumSpacing = baseMinimumSpacing * CGFloat(spacingMultiplier)
-        let scaleMultiplier = max(
-          0,
-          scaleMultiplierEvaluator?.value(at: position) ?? 1,
-        )
-        let scale = max(0, baseScale * scaleMultiplier)
-        let rotationMultiplier = max(
-          0,
-          rotationMultiplierEvaluator?.value(at: position) ?? 1,
-        )
-        let rotationOffsetDegrees = rotationOffsetDegreesEvaluator?.value(at: position) ?? 0
-        let rotationOffsetRadians = rotationOffsetDegrees * Double.pi / 180
-        let rotationRadians = baseRotationRadians * rotationMultiplier + rotationOffsetRadians
+        let maximumAttempts = 20
 
-        let candidateTransform = CollisionTransform(
-          position: position,
-          rotation: CGFloat(rotationRadians),
-          scale: CGFloat(scale),
-        )
-        let candidateCollisionShape = selectedRenderSymbol.collisionShape
-        let candidateCollision = ShapePlacementCollision.PlacementCandidate(
-          collisionShape: candidateCollisionShape,
-          collisionTransform: candidateTransform,
-          polygons: selectedPolygons,
-          boundingRadius: candidateCollisionShape.boundingRadius(atScale: candidateTransform.scale),
-          minimumSpacing: candidateMinimumSpacing,
-        )
+        for _ in 0..<maximumAttempts {
+          if Task.isCancelled { return placedDescriptors }
 
-        let candidateCellIndex = spatialIndex.cellIndex(for: position, cellSize: cellSize)
-        neighboringColliderIndices.removeAll(keepingCapacity: true)
-        spatialIndex.appendNeighboringColliderIndices(
-          around: candidateCellIndex,
-          to: &neighboringColliderIndices,
-        )
+          guard let position = samplePosition(
+            in: size,
+            region: region,
+            regionPointSampler: regionPointSampler,
+            alphaMask: alphaMask,
+            sparseMaskPointSampler: sparseMaskPointSampler,
+            using: &randomGenerator,
+          ) else { continue }
 
-        guard ShapePlacementCollision.isPlacementValid(
-          candidate: candidateCollision,
-          existingColliderIndices: neighboringColliderIndices,
-          allColliders: colliders,
-          tileSize: size,
-          edgeBehavior: edgeBehavior,
-          wrapOffsets: wrapOffsets,
-          diagnostics: diagnostics,
-        ) else { continue }
+          let spacingMultiplier = max(
+            0,
+            minimumSpacingMultiplierEvaluator?.value(at: position) ?? 1,
+          )
+          let candidateMinimumSpacing = baseMinimumSpacing * CGFloat(spacingMultiplier)
+          let scaleMultiplier = max(
+            0,
+            scaleMultiplierEvaluator?.value(at: position) ?? 1,
+          )
+          let scale = max(0, baseScale * scaleMultiplier)
+          let rotationMultiplier = max(
+            0,
+            rotationMultiplierEvaluator?.value(at: position) ?? 1,
+          )
+          let rotationOffsetDegrees = rotationOffsetDegreesEvaluator?.value(at: position) ?? 0
+          let rotationOffsetRadians = rotationOffsetDegrees * Double.pi / 180
+          let rotationRadians = baseRotationRadians * rotationMultiplier + rotationOffsetRadians
 
-        choiceSequenceState = tentativeChoiceSequenceState
-
-        let candidate = PlacedSymbolDescriptor(
-          symbolId: selectedSymbol.id,
-          renderSymbolId: selectedRenderSymbol.id,
-          position: position,
-          rotationRadians: rotationRadians,
-          scale: CGFloat(scale),
-          collisionShape: candidateCollisionShape,
-        )
-        placedDescriptors.append(candidate)
-
-        colliders.append(
-          PlacedCollider(
+          let candidateTransform = CollisionTransform(
+            position: position,
+            rotation: CGFloat(rotationRadians),
+            scale: CGFloat(scale),
+          )
+          let candidateCollisionShape = selectedRenderSymbol.collisionShape
+          let candidateCollision = ShapePlacementCollision.PlacementCandidate(
             collisionShape: candidateCollisionShape,
             collisionTransform: candidateTransform,
             polygons: selectedPolygons,
-            boundingRadius: candidateCollision.boundingRadius,
+            boundingRadius: candidateCollisionShape.boundingRadius(atScale: candidateTransform.scale),
             minimumSpacing: candidateMinimumSpacing,
-          ),
-        )
-        let newColliderIndex = colliders.count - 1
-        spatialIndex.append(colliderIndex: newColliderIndex, at: position, cellSize: cellSize)
+          )
 
-        didPlaceSymbol = true
-        break
+          let candidateCellIndex = spatialIndex.cellIndex(for: position, cellSize: cellSize)
+          neighboringColliderIndices.removeAll(keepingCapacity: true)
+          spatialIndex.appendNeighboringColliderIndices(
+            around: candidateCellIndex,
+            to: &neighboringColliderIndices,
+          )
+
+          guard ShapePlacementCollision.isPlacementValid(
+            candidate: candidateCollision,
+            existingColliderIndices: neighboringColliderIndices,
+            allColliders: colliders,
+            tileSize: size,
+            edgeBehavior: edgeBehavior,
+            wrapOffsets: wrapOffsets,
+            diagnostics: diagnostics,
+          ) else { continue }
+
+          choiceSequenceState = tentativeChoiceSequenceState
+
+          let candidate = PlacedSymbolDescriptor(
+            symbolId: selectedSymbol.id,
+            renderSymbolId: selectedRenderSymbol.id,
+            position: position,
+            rotationRadians: rotationRadians,
+            scale: CGFloat(scale),
+            collisionShape: candidateCollisionShape,
+          )
+          placedDescriptors.append(candidate)
+
+          colliders.append(
+            PlacedCollider(
+              collisionShape: candidateCollisionShape,
+              collisionTransform: candidateTransform,
+              polygons: selectedPolygons,
+              boundingRadius: candidateCollision.boundingRadius,
+              minimumSpacing: candidateMinimumSpacing,
+            ),
+          )
+          let newColliderIndex = colliders.count - 1
+          spatialIndex.append(colliderIndex: newColliderIndex, at: position, cellSize: cellSize)
+
+          didPlaceSymbol = true
+          break
+        }
       }
 
-      if !didPlaceSymbol {
-        continue
+      if didPlaceSymbol {
+        diagnostics?.placementSuccesses += 1
+      } else {
+        diagnostics?.placementFailures += 1
+      }
+      let reachedSaturationLimit = saturationStopState.recordAttempt(didPlaceSymbol: didPlaceSymbol)
+      diagnostics?.placementOuterAttempts = saturationStopState.outerAttempts
+
+      if reachedSaturationLimit {
+        diagnostics?.terminatedForSaturation = true
+        break
       }
     }
 
@@ -447,6 +459,61 @@ enum OrganicShapePlacementEngine {
     }
     seed ^= seed >> 31
     return seed
+  }
+
+  private struct SaturationStopState {
+    private let windowSize = 128
+    private let minimumAttemptsBeforeEarlyStop = 128
+    private let missStreakLimit: Int
+    private let zeroSuccessWindowLimit = 2
+
+    private var consecutiveMisses = 0
+    private var windowOutcomes: [Bool]
+    private var windowOutcomeCount = 0
+    private var windowInsertIndex = 0
+    private var windowSuccessCount = 0
+    private var consecutiveZeroSuccessWindows = 0
+
+    var outerAttempts = 0
+
+    init(remainingTargetCount: Int) {
+      missStreakLimit = min(512, max(128, remainingTargetCount / 10))
+      windowOutcomes = Array(repeating: false, count: windowSize)
+    }
+
+    mutating func recordAttempt(didPlaceSymbol: Bool) -> Bool {
+      outerAttempts += 1
+
+      if didPlaceSymbol {
+        consecutiveMisses = 0
+      } else {
+        consecutiveMisses += 1
+      }
+
+      if windowOutcomeCount < windowSize {
+        windowOutcomeCount += 1
+      } else if windowOutcomes[windowInsertIndex] {
+        windowSuccessCount -= 1
+      }
+
+      windowOutcomes[windowInsertIndex] = didPlaceSymbol
+      if didPlaceSymbol {
+        windowSuccessCount += 1
+      }
+      windowInsertIndex = (windowInsertIndex + 1) % windowSize
+
+      if windowOutcomeCount == windowSize {
+        if windowSuccessCount == 0 {
+          consecutiveZeroSuccessWindows += 1
+        } else {
+          consecutiveZeroSuccessWindows = 0
+        }
+      }
+
+      guard outerAttempts >= minimumAttemptsBeforeEarlyStop else { return false }
+
+      return consecutiveMisses >= missStreakLimit || consecutiveZeroSuccessWindows >= zeroSuccessWindowLimit
+    }
   }
 
   private static func maximumBoundingRadius(
