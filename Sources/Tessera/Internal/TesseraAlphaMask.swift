@@ -13,7 +13,9 @@ struct TesseraAlphaMask: Sendable {
   var invert: Bool
 
   func contains(_ point: CGPoint) -> Bool {
+    let pixelCount = expectedPixelCount
     guard size.width > 0, size.height > 0 else { return false }
+    guard pixelCount > 0, alphaBytes.count >= pixelCount else { return false }
 
     let normalizedX = point.x / size.width
     let normalizedY = point.y / size.height
@@ -38,14 +40,15 @@ struct TesseraAlphaMask: Sendable {
   }
 
   var filledFraction: Double {
-    guard alphaBytes.isEmpty == false else { return 0 }
+    let pixelCount = expectedPixelCount
+    guard pixelCount > 0, alphaBytes.count >= pixelCount else { return 0 }
 
     var count = 0
-    for value in alphaBytes where value >= thresholdByte {
+    for value in alphaBytes.prefix(pixelCount) where value >= thresholdByte {
       count += 1
     }
 
-    let fraction = Double(count) / Double(alphaBytes.count)
+    let fraction = Double(count) / Double(pixelCount)
     return invert ? 1 - fraction : fraction
   }
 
@@ -81,13 +84,15 @@ struct TesseraAlphaMask: Sendable {
 
   func maskImage() -> CGImage? {
     guard pixelsWide > 0, pixelsHigh > 0 else { return nil }
-    guard alphaBytes.isEmpty == false else { return nil }
+
+    let pixelCount = expectedPixelCount
+    guard pixelCount > 0, alphaBytes.count >= pixelCount else { return nil }
 
     let bytesPerPixel = 4
     let bytesPerRow = pixelsWide * bytesPerPixel
     var pixelBytes = [UInt8](repeating: 0, count: pixelsHigh * bytesPerRow)
 
-    for index in 0..<alphaBytes.count {
+    for index in 0..<pixelCount {
       let sample = alphaBytes[index]
       let visible = sample >= thresholdByte
       let masked = invert ? !visible : visible
@@ -130,6 +135,12 @@ struct TesseraAlphaMask: Sendable {
         .frame(width: size.width, height: size.height),
     )
   }
+
+  private var expectedPixelCount: Int {
+    guard pixelsWide > 0, pixelsHigh > 0 else { return 0 }
+
+    return pixelsWide * pixelsHigh
+  }
 }
 
 @MainActor
@@ -151,6 +162,7 @@ enum TesseraAlphaMaskRenderer {
     guard let cgImage = renderer.cgImage else { return nil }
 
     let alphaBytes = rasterize(cgImage, into: CGSize(width: pixelWidth, height: pixelHeight))
+    guard alphaBytes.count == pixelWidth * pixelHeight else { return nil }
 
     let clampedThreshold = max(0, min(1, Double(region.alphaThreshold)))
     let thresholdByte = UInt8(clamping: Int((clampedThreshold * 255).rounded()))

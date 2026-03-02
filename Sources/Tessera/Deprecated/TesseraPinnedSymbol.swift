@@ -7,7 +7,7 @@ import SwiftUI
 /// A fixed view placed once into a finite tessera canvas.
 ///
 /// Fixed symbols participate in collision checks so generated symbols fill around them.
-public struct TesseraPinnedSymbol: Identifiable {
+public struct TesseraPinnedSymbol: Identifiable, @unchecked Sendable {
   /// Stable identity for the pinned symbol.
   public var id: UUID
   /// Center position inside the canvas.

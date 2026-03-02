@@ -220,6 +220,15 @@ enum OrganicShapePlacementEngine {
             minimumSpacing: candidateMinimumSpacing,
           )
 
+          if let alphaMask,
+             ShapePlacementMaskConstraint.isPlacementInsideMask(
+               alphaMask,
+               collisionTransform: candidateTransform,
+               polygons: selectedPolygons,
+             ) == false {
+            continue
+          }
+
           let candidateCellIndex = spatialIndex.cellIndex(for: position, cellSize: cellSize)
           neighboringColliderIndices.removeAll(keepingCapacity: true)
           spatialIndex.appendNeighboringColliderIndices(

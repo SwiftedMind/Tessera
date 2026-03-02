@@ -14,7 +14,7 @@ import Testing
   let temporaryDirectory = FileManager.default.temporaryDirectory
   let fileName = UUID().uuidString
 
-  let exportedURL = try tile.export(
+  let exportedURL = try await tile.export(
     .png,
     options: .init(
       directory: temporaryDirectory,
@@ -32,7 +32,7 @@ import Testing
   let temporaryDirectory = FileManager.default.temporaryDirectory
   let fileName = UUID().uuidString
 
-  let exportedURL = try tile.export(
+  let exportedURL = try await tile.export(
     .pdf,
     options: .init(
       directory: temporaryDirectory,

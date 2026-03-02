@@ -25,6 +25,25 @@ extension DemoDestination {
     }
   }
 
+  /// Live canvas example using mosaics without explicit snapshot APIs.
+  @ViewBuilder
+  func mosaicCanvasView() -> some View {
+    DemoExampleScreen(title: "Mosaic Canvas (Live)") {
+      Tessera(DemoConfigurations.mosaicSnapshot)
+        .mode(.canvas(edgeBehavior: .finite))
+        .seed(.fixed(2602))
+        .debugOverlay(.mosaicMasks(opacity: 0.22))
+        .background(DemoPalette.canvasBackground)
+    }
+  }
+
+  @ViewBuilder
+  func mosaicSnapshotView() -> some View {
+    DemoExampleScreen(title: "Mosaic Snapshot") {
+      MosaicSnapshotCanvasExample()
+    }
+  }
+
   @ViewBuilder
   func gridPlacementView() -> some View {
     DemoExampleScreen(title: "Grid Placement") {
@@ -84,5 +103,86 @@ extension DemoDestination {
         .regionRendering(.clipped)
         .background(DemoPalette.canvasBackground)
     }
+  }
+}
+
+/// Snapshot-first mosaic demo that computes once and then renders from a cached snapshot.
+private struct MosaicSnapshotCanvasExample: View {
+  private static let cacheVersion = "v3"
+  @State private var snapshot: TesseraSnapshot?
+  @State private var errorMessage: String?
+
+  var body: some View {
+    GeometryReader { proxy in
+      ZStack {
+        DemoPalette.canvasBackground
+
+        if let snapshot {
+          TesseraSnapshotView(
+            snapshot: snapshot,
+            debugOverlay: .mosaicMasks(opacity: 0.22),
+          )
+        } else if let errorMessage {
+          Text(errorMessage)
+            .font(.footnote)
+            .multilineTextAlignment(.center)
+            .foregroundStyle(DemoPalette.strokePrimary)
+            .padding(24)
+        } else {
+          ProgressView("Computing Snapshot…")
+            .tint(DemoPalette.strokePrimary)
+            .foregroundStyle(DemoPalette.strokePrimary)
+        }
+      }
+      .task(id: snapshotTaskID(for: proxy.size)) {
+        await updateSnapshot(for: proxy.size)
+      }
+    }
+  }
+
+  private func snapshotTaskID(for size: CGSize) -> String {
+    "\(Self.cacheVersion)-\(Int(size.width.rounded()))x\(Int(size.height.rounded()))"
+  }
+
+  @MainActor
+  private func updateSnapshot(for size: CGSize) async {
+    guard size.width > 2, size.height > 2 else { return }
+
+    let cacheKey = snapshotTaskID(for: size)
+
+    if let cachedSnapshot = await DemoMosaicSnapshotCache.shared.snapshot(for: cacheKey) {
+      snapshot = cachedSnapshot
+      errorMessage = nil
+      return
+    }
+
+    do {
+      let renderer = TesseraRenderer(DemoConfigurations.mosaicSnapshot)
+      let computedSnapshot = try await renderer.makeSnapshot(
+        mode: .canvas(size: size, edgeBehavior: .finite),
+        seed: .fixed(2602),
+      )
+      await DemoMosaicSnapshotCache.shared.store(computedSnapshot, for: cacheKey)
+      snapshot = computedSnapshot
+      errorMessage = nil
+    } catch is CancellationError {
+      // Ignore stale computations when view size changes quickly.
+    } catch {
+      errorMessage = "Snapshot failed: \(error.localizedDescription)"
+    }
+  }
+}
+
+/// Per-size snapshot cache used by the demo screen to avoid recomputation while navigating.
+private actor DemoMosaicSnapshotCache {
+  static let shared = DemoMosaicSnapshotCache()
+  private var storage: [String: TesseraSnapshot] = [:]
+
+  func snapshot(for key: String) -> TesseraSnapshot? {
+    storage[key]
+  }
+
+  func store(_ snapshot: TesseraSnapshot, for key: String) {
+    storage[key] = snapshot
   }
 }

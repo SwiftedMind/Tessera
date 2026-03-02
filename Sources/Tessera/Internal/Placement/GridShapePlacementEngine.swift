@@ -375,6 +375,16 @@ enum GridShapePlacementEngine {
           rotation: CGFloat(rotationRadians),
           scale: CGFloat(scale),
         )
+
+        if let alphaMask,
+           ShapePlacementMaskConstraint.isPlacementInsideMask(
+             alphaMask,
+             collisionTransform: candidateTransform,
+             polygons: selectedPolygons,
+           ) == false {
+          continue
+        }
+
         let candidateCollision = ShapePlacementCollision.PlacementCandidate(
           collisionShape: candidateCollisionShape,
           collisionTransform: candidateTransform,

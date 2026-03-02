@@ -29,6 +29,14 @@ enum DemoSymbols {
     [.circleRing, .roundedSquareSmall, .singleBar, .diamondOutline, .triangleFill]
   }
 
+  static var mosaicCore: [Symbol] {
+    [.mosaicDotFill, .mosaicBarFill, .mosaicDiamondFill]
+  }
+
+  static var mosaicAccent: [Symbol] {
+    [.mosaicSmallRing, .mosaicTriangleFill]
+  }
+
   static var rotationBars: [Symbol] {
     [.rotationBarBold, .rotationBarLight]
   }
@@ -180,6 +188,79 @@ extension Symbol {
       RoundedRectangle(cornerRadius: 9, style: .continuous)
         .stroke(DemoPalette.strokePrimary.opacity(0.88), lineWidth: 2)
         .frame(width: 34, height: 34)
+    }
+  }
+
+  static var mosaicMaskBlob: Symbol {
+    Symbol(collider: .automatic(size: CGSize(width: 260, height: 170))) {
+      RoundedRectangle(cornerRadius: 56, style: .continuous)
+        .fill(Color.white)
+        .frame(width: 250, height: 160)
+        .rotationEffect(.degrees(-8))
+    }
+  }
+
+  static var mosaicMaskDiamond: Symbol {
+    Symbol(collider: .automatic(size: CGSize(width: 190, height: 190))) {
+      RoundedRectangle(cornerRadius: 26, style: .continuous)
+        .fill(Color.white)
+        .frame(width: 170, height: 170)
+        .rotationEffect(.degrees(45))
+    }
+  }
+
+  static var mosaicDotFill: Symbol {
+    Symbol(
+      collider: .shape(.circle(center: .zero, radius: 8)),
+    ) {
+      Circle()
+        .fill(DemoPalette.blue.opacity(0.88))
+        .frame(width: 16, height: 16)
+    }
+  }
+
+  static var mosaicBarFill: Symbol {
+    Symbol(
+      collider: .shape(.rectangle(center: .zero, size: CGSize(width: 24, height: 8))),
+    ) {
+      Capsule()
+        .fill(DemoPalette.amber.opacity(0.86))
+        .frame(width: 22, height: 6)
+    }
+  }
+
+  static var mosaicDiamondFill: Symbol {
+    Symbol(
+      collider: .shape(.rectangle(center: .zero, size: CGSize(width: 20, height: 20))),
+    ) {
+      RoundedRectangle(cornerRadius: 4, style: .continuous)
+        .fill(DemoPalette.teal.opacity(0.85))
+        .frame(width: 14, height: 14)
+        .rotationEffect(.degrees(45))
+    }
+  }
+
+  static var mosaicSmallRing: Symbol {
+    Symbol(
+      collider: .shape(.circle(center: .zero, radius: 8)),
+    ) {
+      Circle()
+        .stroke(DemoPalette.strokePrimary.opacity(0.9), lineWidth: 2)
+        .frame(width: 16, height: 16)
+    }
+  }
+
+  static var mosaicTriangleFill: Symbol {
+    Symbol(
+      collider: .shape(.polygon(points: [
+        CGPoint(x: 0, y: 9),
+        CGPoint(x: 9, y: -8),
+        CGPoint(x: -9, y: -8),
+      ])),
+    ) {
+      TriangleShape()
+        .fill(DemoPalette.coral.opacity(0.82))
+        .frame(width: 18, height: 17)
     }
   }
 }

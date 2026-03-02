@@ -21,6 +21,18 @@ enum DemoCatalog {
           systemImage: "rectangle.and.pencil.and.ellipsis",
         ),
         DemoCatalogExample(
+          destination: .mosaicCanvas,
+          title: "Mosaic Canvas (Live)",
+          summary: "Native mosaics using standard Tessera canvas",
+          systemImage: "rectangle.stack.fill",
+        ),
+        DemoCatalogExample(
+          destination: .mosaicSnapshot,
+          title: "Mosaic Snapshot",
+          summary: "Native mosaics with snapshot reuse",
+          systemImage: "square.grid.3x3.square",
+        ),
+        DemoCatalogExample(
           destination: .gridPlacement,
           title: "Grid Placement",
           summary: "Interleaved lattice via symbol phases",

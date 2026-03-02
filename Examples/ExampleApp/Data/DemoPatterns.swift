@@ -1,5 +1,6 @@
 // By Dennis Müller
 
+import CoreGraphics
 import Tessera
 
 enum DemoConfigurations {
@@ -115,6 +116,67 @@ enum DemoConfigurations {
           maximumSymbolCount: 175,
         ),
       ),
+    )
+  }
+
+  static var mosaicSnapshot: Pattern {
+    Pattern(
+      symbols: DemoSymbols.organic,
+      placement: .organic(
+        TesseraPlacement.Organic(
+          seed: 2602,
+          minimumSpacing: 10,
+          density: 0.42,
+          baseScaleRange: 0.75...1.05,
+          maximumSymbolCount: 120,
+        ),
+      ),
+      mosaics: [
+        Mosaic(
+          mask: MosaicMask(
+            symbol: .mosaicMaskBlob,
+            position: .centered(offset: CGSize(width: -90, height: -40)),
+            rotation: .degrees(-12),
+            scale: 1.05,
+            alphaThreshold: 0.45,
+            pixelScale: 2,
+            sampling: .bilinear,
+          ),
+          symbols: DemoSymbols.mosaicCore,
+          placement: .organic(
+            TesseraPlacement.Organic(
+              seed: 2603,
+              minimumSpacing: 8,
+              density: 0.5,
+              baseScaleRange: 0.75...1.5,
+              maximumSymbolCount: 100,
+            ),
+          ),
+          rendering: .unclipped,
+        ),
+        Mosaic(
+          mask: MosaicMask(
+            symbol: .mosaicMaskDiamond,
+            position: .centered(offset: CGSize(width: 118, height: 88)),
+            rotation: .degrees(10),
+            scale: 0.95,
+            alphaThreshold: 0.35,
+            pixelScale: 2,
+            sampling: .bilinear,
+          ),
+          symbols: DemoSymbols.mosaicAccent,
+          placement: .organic(
+            TesseraPlacement.Organic(
+              seed: 2604,
+              minimumSpacing: 7,
+              density: 0.58,
+              baseScaleRange: 0.85...1.5,
+              maximumSymbolCount: 100,
+            ),
+          ),
+          rendering: .unclipped,
+        ),
+      ],
     )
   }
 

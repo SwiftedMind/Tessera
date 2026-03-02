@@ -4,7 +4,7 @@ import CoreGraphics
 import SwiftUI
 
 /// Describes where a fixed placement should appear inside a tessera canvas.
-public enum TesseraPlacementPosition: Hashable {
+public enum TesseraPlacementPosition: Hashable, Sendable {
   /// Absolute position in canvas coordinates (origin at top-left).
   case absolute(CGPoint)
   /// Relative position as a `UnitPoint` within the canvas, with an optional point offset.

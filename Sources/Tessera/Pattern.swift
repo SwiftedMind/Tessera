@@ -7,11 +7,13 @@ import Foundation
 ///
 /// `Pattern` describes what can be placed (`symbols`) and how those symbols are placed (`placement`).
 /// Concrete size is chosen later by `Tessera.mode(_:)`.
-public struct Pattern {
+public struct Pattern: @unchecked Sendable {
   /// Symbols that may be placed by the engine.
   public var symbols: [Symbol]
   /// Placement strategy and options.
   public var placement: TesseraPlacement
+  /// Mosaic definitions rendered natively as part of the pattern.
+  public var mosaics: [Mosaic]
   /// Offset applied to all generated symbols before wrapping.
   public var offset: CGSize
 
@@ -31,10 +33,12 @@ public struct Pattern {
   public init(
     symbols: [Symbol],
     placement: TesseraPlacement = .organic(),
+    mosaics: [Mosaic] = [],
     offset: CGSize = .zero,
   ) {
     self.symbols = symbols
     self.placement = placement
+    self.mosaics = mosaics
     self.offset = offset
   }
 
@@ -44,7 +48,10 @@ public struct Pattern {
   }
 
   var legacyConfiguration: TesseraConfiguration {
-    let resolved = resolvedPattern()
+    let resolved = TesseraPlacementResolver.resolve(
+      symbols: symbols,
+      placement: placement,
+    )
     return TesseraConfiguration(
       symbols: resolved.symbols,
       placement: resolved.placement,
@@ -53,50 +60,9 @@ public struct Pattern {
   }
 
   var placementSeed: UInt64? {
-    switch placement {
-    case let .organic(options):
-      options.seed
-    case let .grid(options):
-      options.seed
-    }
-  }
-}
-
-private extension Pattern {
-  func resolvedPattern() -> (symbols: [Symbol], placement: PlacementModel) {
-    switch placement {
-    case let .organic(options):
-      return (symbols: symbols, placement: .organic(options))
-
-    case let .grid(options):
-      let resolvedGrid = options.resolvedInternalGridOptions()
-      let allSymbols = symbols.appendingUniqueByID(resolvedGrid.subgridSymbols)
-
-      #if DEBUG
-      let knownSymbolIDs = Set(allSymbols.map(\.id))
-      let missingSubgridSymbolIDs = Set(
-        resolvedGrid.options.subgrids.flatMap(\.symbolIDs).filter { knownSymbolIDs.contains($0) == false },
-      )
-      assert(
-        missingSubgridSymbolIDs.isEmpty,
-        "Subgrid symbol IDs were not found in Pattern.symbols: \(missingSubgridSymbolIDs)",
-      )
-      #endif
-
-      return (symbols: allSymbols, placement: .grid(resolvedGrid.options))
-    }
-  }
-}
-
-private extension [Symbol] {
-  func appendingUniqueByID(_ additionalSymbols: [Symbol]) -> [Symbol] {
-    guard additionalSymbols.isEmpty == false else { return self }
-
-    var result = self
-    var seenIDs = Set(result.map(\.id))
-    for symbol in additionalSymbols where seenIDs.insert(symbol.id).inserted {
-      result.append(symbol)
-    }
-    return result
+    TesseraPlacementResolver.resolve(
+      symbols: symbols,
+      placement: placement,
+    ).placementSeed
   }
 }

@@ -17,6 +17,7 @@ public struct RenderOptions {
   /// Working color mode used for rendering.
   public var colorMode: ColorRenderingMode
 
+  /// Creates rendering options for PNG/PDF export.
   public init(
     targetPixelSize: CGSize? = nil,
     scale: CGFloat? = nil,
@@ -53,6 +54,10 @@ public enum RenderError: Error, Equatable {
   case missingCanvasSize
   /// A placement snapshot does not match the current canvas configuration.
   case invalidPlacementSnapshot
+  /// A provided snapshot does not match the current renderer fingerprint.
+  case snapshotFingerprintMismatch
+  /// Mosaic configuration is invalid and cannot be rendered.
+  case invalidMosaicConfiguration
 }
 
 /// Export file format.
@@ -104,7 +109,7 @@ public extension Tessera {
   ///
   /// Example:
   /// ```swift
-  /// let url = try Tessera(pattern)
+  /// let url = try await Tessera(pattern)
   ///   .mode(.tile(size: .init(width: 256, height: 256)))
   ///   .export(
   ///     .png,
@@ -117,48 +122,49 @@ public extension Tessera {
     _ format: ExportFormat,
     options: ExportOptions,
     canvasSize: CGSize? = nil,
-  ) throws -> URL {
-    let exportSeed = resolvedSeed(fallbackToAutomatic: false) ?? Pattern.randomSeed()
-
+  ) async throws -> URL {
+    let resolvedMode: Mode
     switch mode {
-    case let .canvas(edgeBehavior):
-      guard let canvasSize else {
+    case let .canvas(size, edgeBehavior):
+      guard let resolvedCanvasSize = size ?? canvasSize else {
         throw RenderError.missingCanvasSize
       }
 
-      let canvas = TesseraCanvas(
-        pattern.legacyConfiguration,
-        pinnedSymbols: pinnedSymbols,
-        seed: exportSeed,
-        edgeBehavior: edgeBehavior,
-        region: region,
-        regionRendering: regionRendering,
-        rendersAsynchronously: rendersAsynchronously,
-      )
-
-      return try canvas.export(
-        format,
-        options: options,
-        canvasSize: canvasSize,
-      )
-
-    case let .tile(size), let .tiled(size):
-      let canvas = TesseraCanvas(
-        pattern.legacyConfiguration,
-        pinnedSymbols: pinnedSymbols,
-        seed: exportSeed,
-        edgeBehavior: .seamlessWrapping,
-        region: region,
-        regionRendering: regionRendering,
-        rendersAsynchronously: rendersAsynchronously,
-      )
-
-      return try canvas.export(
-        format,
-        options: options,
-        canvasSize: size,
-      )
+      resolvedMode = .canvas(size: resolvedCanvasSize, edgeBehavior: edgeBehavior)
+    case let .tile(size):
+      resolvedMode = .tile(size: size)
+    case let .tiled(tileSize):
+      resolvedMode = .tiled(tileSize: tileSize)
     }
+
+    let exportSeedMode: Seed = switch seed {
+    case .automatic:
+      if pattern.placementSeed != nil {
+        .automatic
+      } else {
+        .fixed(Pattern.randomSeed())
+      }
+    case let .fixed(value):
+      .fixed(value)
+    }
+
+    let pattern = pattern
+    let region = region
+    let regionRendering = regionRendering
+    let pinnedSymbols = pinnedSymbols
+    let renderer = TesseraRenderer(pattern)
+    let snapshot = try await renderer.makeSnapshot(
+      mode: resolvedMode,
+      seed: exportSeedMode,
+      region: region,
+      regionRendering: regionRendering,
+      pinnedSymbols: pinnedSymbols,
+    )
+    return try renderer.export(
+      format,
+      snapshot: snapshot,
+      options: options,
+    )
   }
 }
 

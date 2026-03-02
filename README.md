@@ -19,6 +19,8 @@ Tessera is a Swift package for building seamless, repeating patterns from regula
 - Wrap tile edges toroidally for seamless repetition.
 - Set a seed for deterministic output, or omit it for randomized layouts.
 - Fill polygon regions or alpha-mask regions.
+- Define native mosaics with symbol-derived alpha masks.
+- Reuse precomputed snapshots across multiple renders and exports.
 - Export to PNG or vector-friendly PDF.
 
 ## Table of Contents
@@ -34,10 +36,12 @@ Tessera is a Swift package for building seamless, repeating patterns from regula
 - [Advanced guides](#advanced-guides)
   - [Polygon regions](#polygon-regions)
   - [Alpha mask regions](#alpha-mask-regions)
+  - [Mosaics](#mosaics)
   - [Grid placement](#grid-placement)
   - [Choice symbols](#choice-symbols)
   - [Spatial steering](#spatial-steering)
   - [Pinned symbols](#pinned-symbols)
+  - [Snapshot-first rendering](#snapshot-first-rendering)
   - [Exporting](#exporting)
   - [Collision Shape Editor](#collision-shape-editor)
 - [Reference](#reference)
@@ -243,6 +247,39 @@ let region = Region.alphaMask(
 
 > Note: For view-based masks, the view is sized by the mapping; use view modifiers such as `.aspectRatio` to preserve
 > the shape’s proportions. Increase `pixelScale` when you need sharper edges at the cost of extra placement work.
+
+### Mosaics
+
+A mosaic carves out an area with a mask symbol, fills that area with its own symbols, and leaves the remaining area to the base pattern.
+
+```swift
+let mosaicMask = MosaicMask(
+  symbol: Symbol(collider: .automatic(size: CGSize(width: 180, height: 180))) {
+    Image(systemName: "star.fill")
+      .font(.system(size: 180))
+      .foregroundStyle(.white)
+  },
+  position: .centered(),
+  pixelScale: 2
+)
+
+let mosaic = Mosaic(
+  mask: mosaicMask,
+  symbols: [
+    Symbol(collider: .automatic(size: CGSize(width: 24, height: 24))) {
+      Circle().fill(.yellow).frame(width: 24, height: 24)
+    }
+  ],
+  placement: .grid(columns: 8, rows: 8),
+  rendering: .clipped
+)
+
+let pattern = Pattern(
+  symbols: baseSymbols,
+  placement: .organic(minimumSpacing: 10, density: 0.7),
+  mosaics: [mosaic]
+)
+```
 
 ### Grid placement
 
@@ -591,6 +628,36 @@ struct HeroCard: View {
         .foregroundStyle(.primary)
     }
   }
+}
+```
+
+### Snapshot-first rendering
+
+Use `TesseraRenderer` when you want one deterministic placement pass that you can render or export multiple times:
+
+```swift
+let renderer = TesseraRenderer(pattern)
+let snapshot = try await renderer.makeSnapshot(
+  mode: .canvas(size: CGSize(width: 600, height: 400), edgeBehavior: .finite),
+  seed: .fixed(42)
+)
+
+let view = TesseraSnapshotView(snapshot: snapshot)
+
+// Optional: visualize effective mosaic masks below symbols.
+let debugView = TesseraSnapshotView(
+  snapshot: snapshot,
+  debugOverlay: .mosaicMasks(opacity: 0.22)
+)
+```
+
+To stream progress:
+
+```swift
+for try await event in renderer.makeSnapshotEvents(
+  mode: .tile(size: CGSize(width: 256, height: 256))
+) {
+  print(event)
 }
 ```
 

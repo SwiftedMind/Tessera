@@ -6,7 +6,7 @@ import Foundation
 ///
 /// This public surface keeps authoring ergonomic while still resolving to the internal
 /// engine-facing `PlacementModel` at render time.
-public enum TesseraPlacement {
+public enum TesseraPlacement: Sendable {
   /// Organic placement configuration type.
   public typealias Organic = PlacementModel.Organic
   /// Grid row/column offset strategy.
@@ -30,7 +30,7 @@ public enum TesseraPlacement {
   /// Grid option fields are forwarded to `base` so we keep a single source of truth for
   /// engine-facing placement behavior (`PlacementModel.Grid`), while subgrid authoring
   /// overlays can carry inline symbol definitions.
-  public struct Grid {
+  public struct Grid: Sendable {
     /// Alias for `PlacementModel.Grid.SymbolPhase`.
     public typealias SymbolPhase = PlacementModel.Grid.SymbolPhase
     /// Alias for `PlacementModel.Grid.Subgrid.Origin`.
@@ -39,7 +39,7 @@ public enum TesseraPlacement {
     public typealias Span = PlacementModel.Grid.Subgrid.Span
 
     /// Public subgrid configuration for grid placement.
-    public struct Subgrid: Hashable {
+    public struct Subgrid: Hashable, Sendable {
       /// Zero-based top-leading origin in base grid coordinates.
       public var origin: Origin
       /// Rectangle size in base grid cell counts.

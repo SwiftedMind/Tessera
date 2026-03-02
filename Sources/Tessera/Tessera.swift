@@ -27,10 +27,13 @@ public struct Tessera: View {
   public var regionRendering: RegionRendering
   /// Whether drawing should be done asynchronously in the underlying SwiftUI canvas.
   public var rendersAsynchronously: Bool
+  /// Optional debug overlay rendered beneath symbols.
+  public var debugOverlay: TesseraDebugOverlay
   /// Callback that reports whether Tessera is actively computing placements.
   public var onComputationStateChange: ((Bool) -> Void)?
 
   @State private var automaticSeed: UInt64 = Pattern.randomSeed()
+  @State private var snapshot: TesseraSnapshot?
 
   /// Creates a Tessera renderer for a pattern.
   ///
@@ -49,81 +52,108 @@ public struct Tessera: View {
     pinnedSymbols = []
     regionRendering = .clipped
     rendersAsynchronously = false
+    debugOverlay = .none
     onComputationStateChange = nil
   }
 
   /// Renders Tessera using the current mode and options.
   public var body: some View {
-    switch mode {
-    case let .canvas(edgeBehavior):
-      TesseraCanvas(
-        pattern.legacyConfiguration,
-        pinnedSymbols: pinnedSymbols,
-        seed: resolvedSeed(fallbackToAutomatic: true),
-        edgeBehavior: edgeBehavior,
-        region: region,
-        regionRendering: regionRendering,
-        rendersAsynchronously: rendersAsynchronously,
-        onComputationStateChange: onComputationStateChange,
-      )
-    case let .tile(size):
-      tileCanvas(tileSize: size)
-    case let .tiled(tileSize):
-      tiledCanvas(tileSize: tileSize)
+    Group {
+      switch mode {
+      case let .canvas(size: nil, edgeBehavior: edgeBehavior):
+        GeometryReader { proxy in
+          snapshotBackedContent(
+            resolvedMode: .canvas(size: proxy.size, edgeBehavior: edgeBehavior),
+          )
+        }
+      default:
+        snapshotBackedContent(resolvedMode: mode)
+      }
     }
   }
 
-  private func tileCanvas(tileSize: CGSize) -> some View {
-    TesseraCanvas(
-      pattern.legacyConfiguration,
-      pinnedSymbols: pinnedSymbols,
-      seed: resolvedSeed(fallbackToAutomatic: true),
-      edgeBehavior: .seamlessWrapping,
+  @ViewBuilder
+  private func snapshotBackedContent(resolvedMode: Mode) -> some View {
+    let resolvedSize = resolvedMode.snapshotResolvedSize
+    let pattern = pattern
+    let resolvedSeedMode = resolvedSeedMode
+    let resolvedSeedValue = resolveSeedValue(for: resolvedSeedMode, pattern: pattern)
+    let region = region
+    let regionRendering = regionRendering
+    let pinnedSymbols = pinnedSymbols
+    let debugOverlay = debugOverlay
+    let onComputationStateChange = onComputationStateChange
+    let requestKey = SnapshotRequestKey.make(
+      mode: resolvedMode,
+      resolvedSeed: resolvedSeedValue,
       region: region,
       regionRendering: regionRendering,
-      rendersAsynchronously: rendersAsynchronously,
-      onComputationStateChange: onComputationStateChange,
+      pinnedSymbols: pinnedSymbols,
     )
-    .frame(width: tileSize.width, height: tileSize.height)
-  }
+    let taskKey = SnapshotTaskKey(
+      requestFingerprint: TesseraFingerprintBuilder.fingerprint(
+        pattern: pattern,
+        requestKey: requestKey,
+      ),
+    )
 
-  private func tiledCanvas(tileSize: CGSize) -> some View {
-    let rendersAsynchronously = rendersAsynchronously
-
-    return Canvas(
-      opaque: false,
-      colorMode: .nonLinear,
-      rendersAsynchronously: rendersAsynchronously,
-    ) { context, size in
-      guard tileSize.width > 0, tileSize.height > 0 else { return }
-      guard let tile = context.resolveSymbol(id: 0) else { return }
-
-      let columns = Int(ceil(size.width / tileSize.width))
-      let rows = Int(ceil(size.height / tileSize.height))
-
-      for row in 0..<rows {
-        for column in 0..<columns {
-          let x = CGFloat(column) * tileSize.width + tileSize.width / 2
-          let y = CGFloat(row) * tileSize.height + tileSize.height / 2
-          context.draw(tile, at: CGPoint(x: x, y: y), anchor: .center)
-        }
+    Group {
+      if let snapshot {
+        TesseraSnapshotView(
+          snapshot: snapshot,
+          rendersAsynchronously: rendersAsynchronously,
+          debugOverlay: debugOverlay,
+        )
+      } else {
+        Color.clear
       }
-    } symbols: {
-      tileCanvas(tileSize: tileSize)
-        .frame(width: tileSize.width, height: tileSize.height)
-        .tag(0)
+    }
+    .frame(
+      width: resolvedMode.frameSize?.width,
+      height: resolvedMode.frameSize?.height,
+    )
+    .task(id: taskKey) {
+      guard resolvedSize.width > 0, resolvedSize.height > 0 else { return }
+
+      onComputationStateChange?(true)
+      defer { onComputationStateChange?(false) }
+
+      do {
+        let renderer = TesseraRenderer(pattern)
+        let computedSnapshot = try await renderer.makeSnapshot(
+          mode: resolvedMode,
+          seed: resolvedSeedMode,
+          region: region,
+          regionRendering: regionRendering,
+          pinnedSymbols: pinnedSymbols,
+        )
+        guard Task.isCancelled == false else { return }
+
+        snapshot = computedSnapshot
+      } catch {
+        // Keep the previous snapshot visible on failures.
+      }
     }
   }
 
-  func resolvedSeed(fallbackToAutomatic: Bool) -> UInt64? {
+  var resolvedSeedMode: Seed {
     switch seed {
     case .automatic:
-      if let placementSeed = pattern.placementSeed {
-        return placementSeed
+      if pattern.placementSeed != nil {
+        return .automatic
       }
-      return fallbackToAutomatic ? automaticSeed : nil
+      return .fixed(automaticSeed)
     case let .fixed(value):
-      return value
+      return .fixed(value)
+    }
+  }
+
+  func resolveSeedValue(for seedMode: Seed, pattern: Pattern) -> UInt64 {
+    switch seedMode {
+    case .automatic:
+      pattern.placementSeed ?? automaticSeed
+    case let .fixed(value):
+      value
     }
   }
 }
@@ -171,6 +201,13 @@ public extension Tessera {
     return copy
   }
 
+  /// Returns a copy configured with a debug overlay.
+  func debugOverlay(_ overlay: TesseraDebugOverlay) -> Tessera {
+    var copy = self
+    copy.debugOverlay = overlay
+    return copy
+  }
+
   /// Returns a copy configured with a computation-state callback.
   func onComputationStateChange(_ action: @escaping (Bool) -> Void) -> Tessera {
     var copy = self
@@ -186,7 +223,10 @@ public enum Mode: Hashable, Sendable {
   /// Generate exactly one seamless tile at a fixed size.
   case tile(size: CGSize)
   /// Generate one finite canvas composition.
-  case canvas(edgeBehavior: EdgeBehavior = .finite)
+  ///
+  /// Pass `size` when using snapshot APIs directly.
+  /// In live SwiftUI rendering, `nil` size resolves from layout.
+  case canvas(size: CGSize? = nil, edgeBehavior: EdgeBehavior = .finite)
 }
 
 /// Seed behavior used for deterministic pattern generation.
@@ -195,4 +235,30 @@ public enum Seed: Hashable, Sendable {
   case automatic
   /// Force a specific seed value.
   case fixed(UInt64)
+}
+
+private extension Mode {
+  var snapshotResolvedSize: CGSize {
+    switch self {
+    case let .tile(size), let .tiled(tileSize: size):
+      size
+    case let .canvas(size, _):
+      size ?? .zero
+    }
+  }
+
+  var frameSize: CGSize? {
+    switch self {
+    case let .tile(size):
+      size
+    case let .canvas(size, _):
+      size
+    case .tiled:
+      nil
+    }
+  }
+}
+
+private struct SnapshotTaskKey: Hashable {
+  var requestFingerprint: UInt64
 }

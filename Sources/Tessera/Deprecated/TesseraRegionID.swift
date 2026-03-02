@@ -12,6 +12,14 @@ public struct TesseraRegionID: Hashable, @unchecked Sendable {
   }
 }
 
+extension TesseraRegionID {
+  /// Stable, process-independent representation used for deterministic fingerprints.
+  var deterministicFingerprintComponent: String {
+    let base = rawValue.base
+    return "\(String(reflecting: type(of: base))):\(String(reflecting: base))"
+  }
+}
+
 extension TesseraRegionID: ExpressibleByStringLiteral {
   /// Creates a region cache key from a string literal.
   public init(stringLiteral value: StringLiteralType) {

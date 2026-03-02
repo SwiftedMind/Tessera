@@ -1,5 +1,66 @@
 # Migration Guide
 
+## 4.0 → 5.0
+
+Tessera 5.0 introduces native mosaics and a snapshot-first rendering pipeline.
+
+### Pattern adds mosaics
+
+Before:
+
+```swift
+let pattern = Pattern(
+  symbols: symbols,
+  placement: .organic(minimumSpacing: 10, density: 0.6)
+)
+```
+
+After:
+
+```swift
+let pattern = Pattern(
+  symbols: symbols,
+  placement: .organic(minimumSpacing: 10, density: 0.6),
+  mosaics: [mosaic]
+)
+```
+
+### New snapshot-first renderer
+
+Use `TesseraRenderer` to compute once and render/export many times:
+
+```swift
+let renderer = TesseraRenderer(pattern)
+let snapshot = try await renderer.makeSnapshot(
+  mode: .canvas(size: CGSize(width: 600, height: 400), edgeBehavior: .finite),
+  seed: .fixed(42)
+)
+let view = TesseraSnapshotView(snapshot: snapshot)
+```
+
+### Export API is now async
+
+Before:
+
+```swift
+try Tessera(pattern)
+  .mode(.tile(size: .init(width: 256, height: 256)))
+  .export(.png, options: .init(directory: directory, fileName: "pattern"))
+```
+
+After:
+
+```swift
+try await Tessera(pattern)
+  .mode(.tile(size: .init(width: 256, height: 256)))
+  .export(.png, options: .init(directory: directory, fileName: "pattern"))
+```
+
+### Canvas mode size in snapshot workflows
+
+For live SwiftUI layout, `.canvas(size: nil, edgeBehavior: ...)` still resolves from layout.
+For snapshot workflows, provide `.canvas(size: ...)` so computation has a concrete size.
+
 ## 3.x → 4.0
 
 Tessera 4.0 introduces a progressive-disclosure API with a single primary entry point: `Tessera`.

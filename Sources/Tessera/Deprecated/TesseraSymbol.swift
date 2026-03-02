@@ -15,7 +15,7 @@ public enum TesseraSymbolChoiceStrategy: Hashable, Sendable {
 }
 
 /// Describes a drawable symbol that can appear inside a tessera tile.
-public struct TesseraSymbol: Identifiable {
+public struct TesseraSymbol: Identifiable, @unchecked Sendable {
   /// Stable identity for the symbol.
   public var id: UUID
   /// Relative probability of being selected during placement as a top-level symbol.

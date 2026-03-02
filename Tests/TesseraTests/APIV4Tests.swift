@@ -324,7 +324,7 @@ import Testing
   )
 
   do {
-    _ = try tessera.export(.png, options: options)
+    _ = try await tessera.export(.png, options: options)
     Issue.record("Expected .missingCanvasSize export error")
   } catch let error as RenderError {
     switch error {

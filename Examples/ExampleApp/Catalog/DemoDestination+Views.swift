@@ -10,6 +10,10 @@ extension DemoDestination {
       tiledCanvasView()
     case .finiteCanvas:
       finiteCanvasView()
+    case .mosaicCanvas:
+      mosaicCanvasView()
+    case .mosaicSnapshot:
+      mosaicSnapshotView()
     case .gridPlacement:
       gridPlacementView()
     case .gridColumnMajor:

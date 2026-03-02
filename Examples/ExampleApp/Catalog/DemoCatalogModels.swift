@@ -34,6 +34,8 @@ struct DemoCatalogExample: Identifiable {
 enum DemoDestination: String, Hashable, Identifiable {
   case tiledCanvas
   case finiteCanvas
+  case mosaicCanvas
+  case mosaicSnapshot
   case gridPlacement
   case gridColumnMajor
   case gridSubgrids
