@@ -19,7 +19,7 @@ Tessera is a Swift package for building seamless, repeating patterns from regula
 - Wrap tile edges toroidally for seamless repetition.
 - Set a seed for deterministic output, or omit it for randomized layouts.
 - Fill polygon regions or alpha-mask regions.
-- Define native mosaics with symbol-derived alpha masks.
+- Define native mosaics with collision-shape-derived masks.
 - Reuse precomputed snapshots across multiple renders and exports.
 - Export to PNG or vector-friendly PDF.
 
@@ -217,7 +217,7 @@ let region = Region.polygon(path, flatness: 2)
 ### Alpha mask regions
 
 - Constrain placement using the alpha channel from a SwiftUI view or image.
-- Tessera rasterizes the mask at `pixelScale` and treats alpha ≥ `alphaThreshold` as inside.
+- Tessera samples the mask at `pixelScale` and treats alpha ≥ `alphaThreshold` as inside.
 - Use `.regionRendering(.unclipped)` to draw outside the mask while keeping placement constrained.
 
 ```swift
@@ -259,8 +259,7 @@ let mosaicMask = MosaicMask(
       .font(.system(size: 180))
       .foregroundStyle(.white)
   },
-  position: .centered(),
-  pixelScale: 2
+  position: .centered()
 )
 
 let mosaic = Mosaic(
@@ -734,7 +733,7 @@ let pngURLAt3x = try tessera.export(
 Rendering options (`RenderOptions`):
 
 - `targetPixelSize`: Desired output size in pixels (derives scale from content size).
-- `scale`: Explicit rasterization scale when `targetPixelSize` is `nil` (defaults to 2).
+- `scale`: Explicit render scale when `targetPixelSize` is `nil` (defaults to 2).
 - `showsCollisionOverlay`: Whether to draw collision overlays while exporting (defaults to `false`).
 - `isOpaque`, `colorMode`: Forwarded to `ImageRenderer`.
 - `backgroundColor` (export function parameter): Optional fill rendered behind the export (defaults to none).

@@ -19,15 +19,48 @@ enum ShapePlacementMaskConstraint {
     polygons: [CollisionPolygon],
     mode: Mode,
   ) -> Bool {
-    guard alphaMask.contains(collisionTransform.position) else { return false }
+    isPlacementInsideMask(
+      contains: alphaMask.contains,
+      collisionTransform: collisionTransform,
+      polygons: polygons,
+      mode: mode,
+    )
+  }
+
+  /// Returns `true` when all required sampled points satisfy the provided inclusion closure.
+  static func isPlacementInsideMask(
+    contains: (CGPoint) -> Bool,
+    collisionTransform: CollisionTransform,
+    polygons: [CollisionPolygon],
+    mode: Mode,
+  ) -> Bool {
+    guard contains(collisionTransform.position) else { return false }
     guard mode == .sampledCollisionGeometry else { return true }
     guard polygons.isEmpty == false else { return true }
 
-    for point in sampledPoints(
-      collisionTransform: collisionTransform,
-      polygons: polygons,
-    ) where alphaMask.contains(point) == false {
-      return false
+    for polygon in polygons {
+      if contains(CollisionMath.applyTransform(polygon.localCenter, using: collisionTransform)) == false {
+        return false
+      }
+
+      let points = polygon.points
+      guard points.isEmpty == false else { continue }
+
+      for index in points.indices {
+        let pointA = points[index]
+        let pointB = points[(index + 1) % points.count]
+        if contains(CollisionMath.applyTransform(pointA, using: collisionTransform)) == false {
+          return false
+        }
+
+        let midpoint = CGPoint(
+          x: (pointA.x + pointB.x) / 2,
+          y: (pointA.y + pointB.y) / 2,
+        )
+        if contains(CollisionMath.applyTransform(midpoint, using: collisionTransform)) == false {
+          return false
+        }
+      }
     }
 
     return true

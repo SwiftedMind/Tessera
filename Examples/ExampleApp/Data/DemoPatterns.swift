@@ -138,9 +138,6 @@ enum DemoConfigurations {
             position: .centered(offset: CGSize(width: -90, height: -40)),
             rotation: .degrees(-12),
             scale: 1.05,
-            alphaThreshold: 0.45,
-            pixelScale: 2,
-            sampling: .bilinear,
           ),
           symbols: DemoSymbols.mosaicCore,
           placement: .grid(
@@ -151,7 +148,7 @@ enum DemoConfigurations {
               seed: 2603,
             ),
           ),
-          rendering: .unclipped,
+          rendering: .clipped,
         ),
         Mosaic(
           mask: MosaicMask(
@@ -159,9 +156,6 @@ enum DemoConfigurations {
             position: .centered(offset: CGSize(width: 118, height: 88)),
             rotation: .degrees(10),
             scale: 0.95,
-            alphaThreshold: 0.35,
-            pixelScale: 2,
-            sampling: .bilinear,
           ),
           symbols: DemoSymbols.mosaicAccent,
           placement: .organic(
@@ -173,7 +167,7 @@ enum DemoConfigurations {
               maximumSymbolCount: 100,
             ),
           ),
-          rendering: .unclipped,
+          rendering: .clipped,
         ),
       ],
     )

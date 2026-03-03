@@ -26,7 +26,7 @@ public struct TesseraFingerprint: Hashable, Sendable {
 public enum TesseraComputationEvent: Sendable {
   /// Snapshot planning started.
   case started
-  /// Mosaic masks are being rasterized.
+  /// Mosaic mask coverage is being prepared.
   case preparingMasks(completed: Int, total: Int)
   /// Mosaic placement layers are being computed.
   case placingMosaics(completed: Int, total: Int)

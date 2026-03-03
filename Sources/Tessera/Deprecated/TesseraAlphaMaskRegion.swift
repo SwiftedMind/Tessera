@@ -153,7 +153,7 @@ public extension TesseraCanvasRegion {
   }
 }
 
-/// A rasterized alpha mask used to constrain symbol placement.
+/// An alpha mask used to constrain symbol placement.
 ///
 /// The mask is mapped into the resolved canvas size using `mapping` and `padding`, mirroring polygon mapping.
 public struct TesseraAlphaMaskRegion: Hashable, Sendable {

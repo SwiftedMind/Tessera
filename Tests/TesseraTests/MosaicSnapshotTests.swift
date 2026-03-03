@@ -42,7 +42,6 @@ import Testing
     mask: MosaicMask(
       symbol: fullMaskSymbol,
       position: .centered(),
-      pixelScale: 1,
     ),
     symbols: [mosaicFillSymbol],
     placement: .grid(columns: 1, rows: 1),
@@ -74,13 +73,13 @@ import Testing
 
   let mosaicA = Mosaic(
     id: UUID(uuidString: "00000000-0000-0000-0000-0000000000C1")!,
-    mask: MosaicMask(symbol: fullMaskSymbol, pixelScale: 1),
+    mask: MosaicMask(symbol: fullMaskSymbol),
     symbols: [fillSymbol],
     placement: .grid(columns: 1, rows: 1),
   )
   let mosaicB = Mosaic(
     id: UUID(uuidString: "00000000-0000-0000-0000-0000000000C2")!,
-    mask: MosaicMask(symbol: fullMaskSymbol, pixelScale: 1),
+    mask: MosaicMask(symbol: fullMaskSymbol),
     symbols: [fillSymbol],
     placement: .grid(columns: 1, rows: 1),
   )
@@ -291,8 +290,6 @@ import Testing
         mask: MosaicMask(
           symbol: maskSymbol,
           position: .centered(),
-          pixelScale: 2,
-          sampling: .bilinear,
         ),
         symbols: [mosaicSymbol],
         placement: .organic(
@@ -353,7 +350,7 @@ import Testing
     placement: .grid(columns: 1, rows: 1),
     mosaics: [
       Mosaic(
-        mask: MosaicMask(symbol: maskSymbol, position: .centered(), pixelScale: 2),
+        mask: MosaicMask(symbol: maskSymbol, position: .centered()),
         symbols: [mosaicSymbol],
         placement: .grid(columns: 1, rows: 1),
         rendering: .contained,
@@ -365,7 +362,7 @@ import Testing
     placement: .grid(columns: 1, rows: 1),
     mosaics: [
       Mosaic(
-        mask: MosaicMask(symbol: maskSymbol, position: .centered(), pixelScale: 2),
+        mask: MosaicMask(symbol: maskSymbol, position: .centered()),
         symbols: [mosaicSymbol],
         placement: .grid(columns: 1, rows: 1),
         rendering: .clipped,
@@ -377,7 +374,7 @@ import Testing
     placement: .grid(columns: 1, rows: 1),
     mosaics: [
       Mosaic(
-        mask: MosaicMask(symbol: maskSymbol, position: .centered(), pixelScale: 2),
+        mask: MosaicMask(symbol: maskSymbol, position: .centered()),
         symbols: [mosaicSymbol],
         placement: .grid(columns: 1, rows: 1),
         rendering: .unclipped,
@@ -433,7 +430,7 @@ import Testing
     placement: .grid(columns: 1, rows: 1),
     mosaics: [
       Mosaic(
-        mask: MosaicMask(symbol: maskSymbol, position: .centered(), pixelScale: 2),
+        mask: MosaicMask(symbol: maskSymbol, position: .centered()),
         symbols: [mosaicSymbol],
         placement: .grid(columns: 10, rows: 10),
       ),
@@ -444,7 +441,7 @@ import Testing
     placement: .grid(columns: 1, rows: 1),
     mosaics: [
       Mosaic(
-        mask: MosaicMask(symbol: maskSymbol, position: .centered(), pixelScale: 2),
+        mask: MosaicMask(symbol: maskSymbol, position: .centered()),
         symbols: [mosaicSymbol],
         placement: .grid(columns: 10, rows: 10),
         rendering: .clipped,
@@ -456,7 +453,7 @@ import Testing
     placement: .grid(columns: 1, rows: 1),
     mosaics: [
       Mosaic(
-        mask: MosaicMask(symbol: maskSymbol, position: .centered(), pixelScale: 2),
+        mask: MosaicMask(symbol: maskSymbol, position: .centered()),
         symbols: [mosaicSymbol],
         placement: .grid(columns: 10, rows: 10),
         rendering: .contained,
@@ -502,7 +499,7 @@ import Testing
     placement: .grid(columns: 1, rows: 1),
     mosaics: [
       Mosaic(
-        mask: MosaicMask(symbol: maskSymbol, position: .centered(), pixelScale: 2),
+        mask: MosaicMask(symbol: maskSymbol, position: .centered()),
         symbols: [mosaicSymbol],
         placement: .grid(columns: 4, rows: 4),
         rendering: .contained,
@@ -514,7 +511,7 @@ import Testing
     placement: .grid(columns: 1, rows: 1),
     mosaics: [
       Mosaic(
-        mask: MosaicMask(symbol: maskSymbol, position: .centered(), pixelScale: 2),
+        mask: MosaicMask(symbol: maskSymbol, position: .centered()),
         symbols: [mosaicSymbol],
         placement: .grid(columns: 4, rows: 4),
         rendering: .clipped,
@@ -526,7 +523,7 @@ import Testing
     placement: .grid(columns: 1, rows: 1),
     mosaics: [
       Mosaic(
-        mask: MosaicMask(symbol: maskSymbol, position: .centered(), pixelScale: 2),
+        mask: MosaicMask(symbol: maskSymbol, position: .centered()),
         symbols: [mosaicSymbol],
         placement: .grid(columns: 4, rows: 4),
         rendering: .unclipped,
@@ -558,7 +555,7 @@ import Testing
       .fill(Color.red)
       .frame(width: 4, height: 4)
   }
-  let maskSymbol = Symbol(collider: .automatic(size: CGSize(width: 80, height: 80))) {
+  let maskSymbol = Symbol(collider: .shape(.rectangle(center: .zero, size: CGSize(width: 80, height: 80)))) {
     Rectangle()
       .fill(Color.white)
       .frame(width: 80, height: 80)
@@ -572,8 +569,6 @@ import Testing
         mask: MosaicMask(
           symbol: maskSymbol,
           position: .centered(),
-          pixelScale: 2,
-          sampling: .nearest,
         ),
         symbols: [mosaicSymbol],
         placement: .grid(columns: 10, rows: 10),
@@ -616,7 +611,7 @@ import Testing
       .fill(Color.red)
       .frame(width: 4, height: 4)
   }
-  let emptyMaskSymbol = Symbol(collider: .automatic(size: CGSize(width: 120, height: 120))) {
+  let emptyMaskSymbol = Symbol(collider: .shape(.circle(center: .zero, radius: 0))) {
     Rectangle()
       .fill(Color.clear)
       .frame(width: 120, height: 120)
@@ -627,7 +622,7 @@ import Testing
     placement: .grid(columns: 1, rows: 1),
     mosaics: [
       Mosaic(
-        mask: MosaicMask(symbol: emptyMaskSymbol, position: .centered(), pixelScale: 2),
+        mask: MosaicMask(symbol: emptyMaskSymbol, position: .centered()),
         symbols: [mosaicSymbol],
         placement: .grid(columns: 10, rows: 10),
         rendering: .clipped,
@@ -645,6 +640,217 @@ import Testing
   #expect(layer.placements.isEmpty)
 }
 
+@Test @MainActor func mosaicMaskUsesCollisionShapeInsteadOfViewAlpha() async throws {
+  let mosaicSymbol = Symbol(collider: .shape(.circle(center: .zero, radius: 4))) {
+    Circle()
+      .fill(Color.red)
+      .frame(width: 8, height: 8)
+  }
+  let transparentMaskSymbol = Symbol(collider: .shape(.rectangle(center: .zero, size: CGSize(width: 72, height: 72)))) {
+    Rectangle()
+      .fill(Color.clear)
+      .frame(width: 72, height: 72)
+  }
+
+  let pattern = Pattern(
+    symbols: [],
+    placement: .grid(columns: 1, rows: 1),
+    mosaics: [
+      Mosaic(
+        mask: MosaicMask(symbol: transparentMaskSymbol, position: .centered()),
+        symbols: [mosaicSymbol],
+        placement: .grid(columns: 2, rows: 2),
+        rendering: .clipped,
+      ),
+    ],
+  )
+
+  let snapshot = try await TesseraRenderer(pattern).makeSnapshot(
+    mode: .canvas(size: CGSize(width: 160, height: 160), edgeBehavior: .finite),
+    seed: .fixed(11),
+  )
+
+  let layer = try #require(snapshot.renderModel.mosaics.first)
+  #expect(layer.mask.filledFraction > 0.1)
+  #expect(layer.placements.count == 4)
+}
+
+@Test @MainActor func clippedMosaicsIntersectSymbolMaskAndEffectiveMask() async throws {
+  let redFillSymbol = Symbol(
+    rotation: .degrees(0)...(.degrees(0)),
+    scale: 1...1,
+    collider: .shape(.rectangle(center: .zero, size: CGSize(width: 100, height: 120))),
+  ) {
+    Rectangle()
+      .fill(Color.red)
+      .frame(width: 100, height: 120)
+  }
+  let greenFillSymbol = Symbol(
+    rotation: .degrees(0)...(.degrees(0)),
+    scale: 1...1,
+    collider: .shape(.rectangle(center: .zero, size: CGSize(width: 80, height: 120))),
+  ) {
+    Rectangle()
+      .fill(Color.green)
+      .frame(width: 80, height: 120)
+  }
+  let rectangularMaskSymbol = Symbol(collider: .shape(.rectangle(
+    center: .zero,
+    size: CGSize(width: 80, height: 120),
+  ))) {
+    Rectangle()
+      .fill(Color.white)
+      .frame(width: 80, height: 120)
+  }
+
+  let pattern = Pattern(
+    symbols: [],
+    placement: .grid(columns: 1, rows: 1),
+    mosaics: [
+      Mosaic(
+        id: UUID(uuidString: "00000000-0000-0000-0000-0000000000D1")!,
+        mask: MosaicMask(
+          symbol: rectangularMaskSymbol,
+          position: .absolute(CGPoint(x: 40, y: 60)),
+        ),
+        symbols: [redFillSymbol],
+        placement: .grid(columns: 1, rows: 1),
+        rendering: .clipped,
+        offset: CGSize(width: -30, height: 0),
+      ),
+      Mosaic(
+        id: UUID(uuidString: "00000000-0000-0000-0000-0000000000D2")!,
+        mask: MosaicMask(
+          symbol: rectangularMaskSymbol,
+          position: .absolute(CGPoint(x: 80, y: 60)),
+        ),
+        symbols: [greenFillSymbol],
+        placement: .grid(columns: 1, rows: 1),
+        rendering: .clipped,
+        offset: CGSize(width: 30, height: 0),
+      ),
+    ],
+  )
+  let renderer = TesseraRenderer(pattern)
+  let snapshot = try await renderer.makeSnapshot(
+    mode: .canvas(size: CGSize(width: 120, height: 120), edgeBehavior: .finite),
+    seed: .fixed(42),
+  )
+  let temporaryDirectory = FileManager.default.temporaryDirectory
+  let fileName = UUID().uuidString
+  let exportedURL = try renderer.export(
+    .png,
+    snapshot: snapshot,
+    options: .init(directory: temporaryDirectory, fileName: fileName),
+  )
+  defer { try? FileManager.default.removeItem(at: exportedURL) }
+
+  #expect(snapshot.renderModel.mosaics.count == 2)
+  let secondLayer = try #require(snapshot.renderModel.mosaics.last)
+  #expect(secondLayer.placements.isEmpty == false)
+
+  let exportedImage = try cgImageFromPNGFile(at: exportedURL)
+  let overlapPixel = try pixelComponents(in: exportedImage, x: 70, y: 60)
+
+  #expect(overlapPixel.alpha > 200)
+  #expect(Int(overlapPixel.red) - Int(overlapPixel.green) > 60)
+}
+
+@Test func newerSnapshotRequestCancelsPreviousComputationEvents() async throws {
+  let renderer = makeCancellationStressRenderer()
+  let mode = Mode.canvas(size: CGSize(width: 1200, height: 1200), edgeBehavior: .finite)
+
+  async let firstEventKindsTask = collectEventKinds(
+    from: renderer.makeSnapshotEvents(mode: mode, seed: Seed.fixed(1001)),
+  )
+  try await Task.sleep(nanoseconds: 20_000_000)
+  let secondEventKinds = try await collectEventKinds(
+    from: renderer.makeSnapshotEvents(mode: mode, seed: Seed.fixed(1002)),
+  )
+  let firstEventKinds = try await firstEventKindsTask
+
+  #expect(firstEventKinds.contains(EventKind.started))
+  #expect(firstEventKinds.contains(EventKind.completed) == false)
+  #expect(secondEventKinds.contains(EventKind.completed))
+}
+
+@Test func circleMaskNormalizesNegativeRadius() throws {
+  let circleMaskSymbol = Symbol(collider: .shape(.circle(center: .zero, radius: -24))) {
+    Circle()
+      .fill(Color.white)
+      .frame(width: 48, height: 48)
+  }
+  let mask = MosaicMask(
+    symbol: circleMaskSymbol,
+    position: .absolute(CGPoint(x: 72, y: 84)),
+  )
+  let shapeMask = MosaicShapeMask(
+    mosaicMask: mask,
+    canvasSize: CGSize(width: 200, height: 200),
+  )
+  let bounds = try #require(shapeMask.bounds)
+  let epsilon: CGFloat = 0.001
+
+  #expect(abs(bounds.width - 48) <= epsilon)
+  #expect(abs(bounds.height - 48) <= epsilon)
+  #expect(shapeMask.contains(CGPoint(x: 72, y: 84)))
+  #expect(shapeMask.contains(CGPoint(x: 95.9, y: 84)))
+  #expect(shapeMask.contains(CGPoint(x: 96.2, y: 84)) == false)
+}
+
+@Test func mosaicDebugMaskPathUsesExactCircleCurve() throws {
+  let circleMaskSymbol = Symbol(collider: .shape(.circle(center: .zero, radius: 24))) {
+    Circle()
+      .fill(Color.white)
+      .frame(width: 48, height: 48)
+  }
+  let mask = MosaicMask(
+    symbol: circleMaskSymbol,
+    position: .absolute(CGPoint(x: 72, y: 84)),
+    scale: 1.5,
+  )
+  let shapeMask = MosaicShapeMask(
+    mosaicMask: mask,
+    canvasSize: CGSize(width: 200, height: 200),
+  )
+  let debugPath = try #require(shapeMask.debugCGPath())
+
+  let elementTypes = cgPathElementTypes(debugPath)
+  #expect(elementTypes.contains(.addCurveToPoint))
+  #expect(debugPath.contains(CGPoint(x: 72, y: 84)))
+
+  let expectedBounds = try #require(shapeMask.bounds)
+  let actualBounds = debugPath.boundingBoxOfPath
+  expectRectApproximatelyEqual(actualBounds, expectedBounds)
+}
+
+@Test func mosaicDebugMaskPathUsesExactTransformedRectangle() throws {
+  let rectangleMaskSymbol = Symbol(collider: .shape(.rectangle(center: .zero, size: CGSize(width: 80, height: 40)))) {
+    Rectangle()
+      .fill(Color.white)
+      .frame(width: 80, height: 40)
+  }
+  let mask = MosaicMask(
+    symbol: rectangleMaskSymbol,
+    position: .absolute(CGPoint(x: 110, y: 90)),
+    rotation: .degrees(31),
+    scale: 1.2,
+  )
+  let shapeMask = MosaicShapeMask(
+    mosaicMask: mask,
+    canvasSize: CGSize(width: 260, height: 220),
+  )
+  let debugPath = try #require(shapeMask.debugCGPath())
+
+  let elementTypes = cgPathElementTypes(debugPath)
+  #expect(elementTypes.contains(.addCurveToPoint) == false)
+  #expect(elementTypes.contains(.addLineToPoint))
+
+  let expectedBounds = try #require(shapeMask.bounds)
+  let actualBounds = debugPath.boundingBoxOfPath
+  expectRectApproximatelyEqual(actualBounds, expectedBounds)
+}
+
 private func sampledCollisionPoints(
   for symbol: Symbol,
   placement: SnapshotPlacementDescriptor,
@@ -659,6 +865,88 @@ private func sampledCollisionPoints(
     collisionTransform: collisionTransform,
     polygons: polygons,
   )
+}
+
+private func makeCancellationStressRenderer() -> TesseraRenderer {
+  let mosaicFillSymbol = Symbol(collider: .shape(.circle(center: .zero, radius: 5))) {
+    Circle()
+      .fill(Color.red)
+      .frame(width: 10, height: 10)
+  }
+  let maskSymbol = Symbol(
+    collider: .shape(
+      .roundedRectangle(
+        size: CGSize(width: 960, height: 960),
+        cornerRadius: 180,
+      ),
+    ),
+  ) {
+    RoundedRectangle(cornerRadius: 180, style: .continuous)
+      .fill(Color.white)
+      .frame(width: 960, height: 960)
+  }
+
+  let pattern = Pattern(
+    symbols: [],
+    placement: .grid(columns: 1, rows: 1),
+    mosaics: [
+      Mosaic(
+        mask: MosaicMask(symbol: maskSymbol, position: .centered()),
+        symbols: [mosaicFillSymbol],
+        placement: .grid(columns: 72, rows: 72),
+        rendering: .clipped,
+      ),
+    ],
+  )
+  return TesseraRenderer(pattern)
+}
+
+private enum EventKind: Equatable {
+  case started
+  case preparingMasks
+  case placingMosaics
+  case placingBaseSymbols
+  case completed
+}
+
+private func collectEventKinds(
+  from stream: AsyncThrowingStream<TesseraComputationEvent, Error>,
+) async throws -> [EventKind] {
+  var eventKinds: [EventKind] = []
+  for try await event in stream {
+    switch event {
+    case .started:
+      eventKinds.append(.started)
+    case .preparingMasks:
+      eventKinds.append(.preparingMasks)
+    case .placingMosaics:
+      eventKinds.append(.placingMosaics)
+    case .placingBaseSymbols:
+      eventKinds.append(.placingBaseSymbols)
+    case .completed:
+      eventKinds.append(.completed)
+    }
+  }
+  return eventKinds
+}
+
+private func cgPathElementTypes(_ path: CGPath) -> [CGPathElementType] {
+  var elementTypes: [CGPathElementType] = []
+  path.applyWithBlock { pointer in
+    elementTypes.append(pointer.pointee.type)
+  }
+  return elementTypes
+}
+
+private func expectRectApproximatelyEqual(
+  _ lhs: CGRect,
+  _ rhs: CGRect,
+  tolerance: CGFloat = 0.001,
+) {
+  #expect(abs(lhs.minX - rhs.minX) <= tolerance)
+  #expect(abs(lhs.minY - rhs.minY) <= tolerance)
+  #expect(abs(lhs.width - rhs.width) <= tolerance)
+  #expect(abs(lhs.height - rhs.height) <= tolerance)
 }
 
 private func makeOpaqueTestAlphaMask() -> TesseraAlphaMask {

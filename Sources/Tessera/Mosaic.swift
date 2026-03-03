@@ -28,24 +28,21 @@ extension MosaicRendering {
   }
 }
 
-/// Describes a symbol-derived alpha mask used by a mosaic.
+/// Describes a collision-shape-derived mask used by a mosaic.
 public struct MosaicMask: Identifiable, @unchecked Sendable {
   /// Stable identity for this mask.
   public var id: UUID
-  /// Symbol used as the visual source for alpha-mask rasterization.
+  /// Symbol used for mosaic mask behavior.
+  ///
+  /// Placement planning uses the symbol's collision shape for performance,
+  /// while render clipping/debug overlays use the symbol's rendered alpha.
   public var symbol: Symbol
   /// Center position of the mask in canvas/tile coordinates.
   public var position: PinnedPosition
-  /// Rotation applied to the mask symbol while rasterizing.
+  /// Rotation applied to the mask shape while resolving mask coverage.
   public var rotation: Angle
-  /// Scale applied to the mask symbol while rasterizing.
+  /// Scale applied to the mask shape while resolving mask coverage.
   public var scale: CGFloat
-  /// Inclusion threshold in the `0...1` range.
-  public var alphaThreshold: CGFloat
-  /// Rasterization scale used for alpha sampling.
-  public var pixelScale: CGFloat
-  /// Sampling strategy used while reading alpha values.
-  public var sampling: AlphaMask.Sampling
 
   /// Creates a mosaic mask definition.
   public init(
@@ -54,18 +51,12 @@ public struct MosaicMask: Identifiable, @unchecked Sendable {
     position: PinnedPosition = .centered(),
     rotation: Angle = .zero,
     scale: CGFloat = 1,
-    alphaThreshold: CGFloat = 0.5,
-    pixelScale: CGFloat = 2,
-    sampling: AlphaMask.Sampling = .nearest,
   ) {
     self.id = id
     self.symbol = symbol
     self.position = position
     self.rotation = rotation
     self.scale = scale
-    self.alphaThreshold = alphaThreshold
-    self.pixelScale = pixelScale
-    self.sampling = sampling
   }
 }
 

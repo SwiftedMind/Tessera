@@ -19,6 +19,7 @@ struct MosaicPlacementPlanner: Sendable {
   var inputs: Inputs
 
   /// Computes one deterministic snapshot from the provided planner inputs.
+  @concurrent
   func makeSnapshot(
     onEvent: @Sendable (TesseraComputationEvent) -> Void,
   ) async throws -> TesseraSnapshot {
@@ -28,42 +29,14 @@ struct MosaicPlacementPlanner: Sendable {
       inputs.region.resolvedAlphaMask(in: inputs.resolvedSize)
     }
 
-    onEvent(.preparingMasks(completed: 0, total: inputs.pattern.mosaics.count))
-    let rawMosaicMasks = try await rasterizeRawMosaicMasks(
-      mosaics: inputs.pattern.mosaics,
-      onEvent: onEvent,
-    )
-
-    let effectiveMosaicMasks = inputs.pattern.mosaics.enumerated().map { index, _ in
-      let previous = Array(rawMosaicMasks.prefix(index))
-      return MaskRasterizer.subtractingUnion(
-        mask: rawMosaicMasks[index],
-        previousMasks: previous,
-        globalMask: resolvedGlobalAlphaMask,
-      )
-    }
-
-    let exclusionUnionMask = MaskRasterizer.unionMask(
-      masks: effectiveMosaicMasks,
-      canvasSize: inputs.resolvedSize,
-      pixelScale: max(
-        inputs.pattern.mosaics.map(\.mask.pixelScale).max() ?? 1,
-        resolvedGlobalAlphaMask?.pixelScale ?? 1,
-      ),
-    )
-    let baseAllowedMask = makeBaseAllowedMask(
+    let maskPreparation = try await prepareMosaicAndBaseMasks(
       globalMask: resolvedGlobalAlphaMask,
-      excludedMask: exclusionUnionMask,
-      canvasSize: inputs.resolvedSize,
-      pixelScale: max(
-        inputs.pattern.mosaics.map(\.mask.pixelScale).max() ?? 1,
-        resolvedGlobalAlphaMask?.pixelScale ?? 1,
-      ),
+      onEvent: onEvent,
     )
 
     onEvent(.placingMosaics(completed: 0, total: inputs.pattern.mosaics.count))
     let mosaicPlacements = try await placeMosaicLayers(
-      effectiveMasks: effectiveMosaicMasks,
+      effectiveMasks: maskPreparation.effectiveMasks,
       edgeBehavior: edgeBehavior,
       resolvedRegion: resolvedRegion,
       onEvent: onEvent,
@@ -73,7 +46,7 @@ struct MosaicPlacementPlanner: Sendable {
     let basePlacement = placeBaseLayer(
       edgeBehavior: edgeBehavior,
       resolvedRegion: resolvedRegion,
-      baseAllowedMask: baseAllowedMask,
+      baseAllowedMask: maskPreparation.baseAllowedMask,
     )
 
     let requestKey = makeRequestKey()
@@ -106,27 +79,170 @@ struct MosaicPlacementPlanner: Sendable {
 }
 
 private extension MosaicPlacementPlanner {
-  /// Rasterizes declaration-order mosaic masks before overlap resolution.
-  func rasterizeRawMosaicMasks(
+  /// Prepares effective mosaic masks and base-layer allowed area using collision-shape-derived coverage.
+  static let mosaicMaskPixelScale: CGFloat = 2
+
+  @concurrent
+  func prepareMosaicAndBaseMasks(
+    globalMask: TesseraAlphaMask?,
+    onEvent: @Sendable (TesseraComputationEvent) -> Void,
+  ) async throws -> (
+    effectiveMasks: [TesseraAlphaMask],
+    baseAllowedMask: TesseraAlphaMask?,
+  ) {
+    let mosaics = inputs.pattern.mosaics
+    guard mosaics.isEmpty == false else {
+      return (
+        effectiveMasks: [],
+        baseAllowedMask: globalMask,
+      )
+    }
+
+    onEvent(.preparingMasks(completed: 0, total: mosaics.count))
+    let rawShapeMasks = try await buildRawMosaicShapeMasks(
+      mosaics: mosaics,
+      onEvent: onEvent,
+    )
+    let rasterGrid = ShapeMaskRasterGrid(
+      canvasSize: inputs.resolvedSize,
+      pixelScale: resolvedMaskPixelScale(globalMask: globalMask),
+    )
+    let globalCoverage = globalMask.map { mask in
+      rasterGrid.alignedCoverage(for: mask)
+    }
+    let effectiveMaskRasterization = try buildEffectiveMosaicMasks(
+      rawShapeMasks: rawShapeMasks,
+      mosaics: mosaics,
+      globalCoverage: globalCoverage,
+      rasterGrid: rasterGrid,
+    )
+    let baseAllowedMask = makeBaseAllowedMask(
+      globalCoverage: globalCoverage,
+      excludedCoverage: effectiveMaskRasterization.exclusionCoverage,
+      rasterGrid: rasterGrid,
+    )
+    return (
+      effectiveMasks: effectiveMaskRasterization.effectiveMasks,
+      baseAllowedMask: baseAllowedMask,
+    )
+  }
+
+  /// Builds raw shape masks in parallel before declaration-order overlap resolution.
+  @concurrent
+  func buildRawMosaicShapeMasks(
     mosaics: [Mosaic],
     onEvent: @Sendable (TesseraComputationEvent) -> Void,
-  ) async throws -> [TesseraAlphaMask] {
-    var masks: [TesseraAlphaMask] = []
-    masks.reserveCapacity(mosaics.count)
-    for (index, mosaic) in mosaics.enumerated() {
-      let rawMask = try await MainActor.run {
-        try MaskRasterizer.rasterize(
-          mosaicMask: mosaic.mask,
-          canvasSize: inputs.resolvedSize,
-        )
+  ) async throws -> [MosaicShapeMask] {
+    var rawMasks = [MosaicShapeMask?](repeating: nil, count: mosaics.count)
+    var completed = 0
+
+    try await withThrowingTaskGroup(of: (Int, MosaicShapeMask).self) { group in
+      for (index, mosaic) in mosaics.enumerated() {
+        group.addTask {
+          try Task.checkCancellation()
+          return (
+            index,
+            MosaicShapeMask(
+              mosaicMask: mosaic.mask,
+              canvasSize: inputs.resolvedSize,
+            ),
+          )
+        }
       }
-      masks.append(rawMask)
-      onEvent(.preparingMasks(completed: index + 1, total: mosaics.count))
+
+      for try await (index, rawMask) in group {
+        rawMasks[index] = rawMask
+        completed += 1
+        onEvent(.preparingMasks(completed: completed, total: mosaics.count))
+      }
     }
-    return masks
+
+    let resolvedMasks = rawMasks.compactMap(\.self)
+    guard resolvedMasks.count == mosaics.count else {
+      throw CancellationError()
+    }
+
+    return resolvedMasks
+  }
+
+  /// Converts raw shape masks into first-wins effective alpha masks and returns exclusion coverage.
+  func buildEffectiveMosaicMasks(
+    rawShapeMasks: [MosaicShapeMask],
+    mosaics: [Mosaic],
+    globalCoverage: [UInt8]?,
+    rasterGrid: ShapeMaskRasterGrid,
+  ) throws -> (effectiveMasks: [TesseraAlphaMask], exclusionCoverage: [UInt8]) {
+    var exclusionCoverage = [UInt8](repeating: 0, count: rasterGrid.pixelCount)
+    var effectiveMasks: [TesseraAlphaMask] = []
+    effectiveMasks.reserveCapacity(mosaics.count)
+
+    for (index, _) in mosaics.enumerated() {
+      try Task.checkCancellation()
+
+      let shapeMask = rawShapeMasks[index]
+      var alphaBytes = [UInt8](repeating: 0, count: rasterGrid.pixelCount)
+      guard let pixelRange = rasterGrid.pixelRange(for: shapeMask.bounds) else {
+        effectiveMasks.append(
+          rasterGrid.makeMask(alphaBytes: alphaBytes),
+        )
+        continue
+      }
+
+      for pixelY in pixelRange.y {
+        if (pixelY - pixelRange.y.lowerBound).isMultiple(of: 8) {
+          try Task.checkCancellation()
+        }
+        for pixelX in pixelRange.x {
+          let coverageIndex = pixelY * rasterGrid.pixelsWide + pixelX
+          if exclusionCoverage[coverageIndex] != 0 {
+            continue
+          }
+          if let globalCoverage, globalCoverage[coverageIndex] == 0 {
+            continue
+          }
+          let point = rasterGrid.point(pixelX: pixelX, pixelY: pixelY)
+          if shapeMask.contains(point) {
+            alphaBytes[coverageIndex] = 255
+            exclusionCoverage[coverageIndex] = 255
+          }
+        }
+      }
+
+      effectiveMasks.append(
+        rasterGrid.makeMask(alphaBytes: alphaBytes),
+      )
+    }
+
+    return (effectiveMasks: effectiveMasks, exclusionCoverage: exclusionCoverage)
+  }
+
+  func resolvedMaskPixelScale(globalMask: TesseraAlphaMask?) -> CGFloat {
+    max(
+      Self.mosaicMaskPixelScale,
+      globalMask?.pixelScale ?? 1,
+    )
+  }
+
+  /// Builds the base-layer allowed-area mask by removing all mosaic coverage.
+  func makeBaseAllowedMask(
+    globalCoverage: [UInt8]?,
+    excludedCoverage: [UInt8],
+    rasterGrid: ShapeMaskRasterGrid,
+  ) -> TesseraAlphaMask? {
+    guard globalCoverage != nil || excludedCoverage.contains(where: { $0 != 0 }) else { return nil }
+
+    var bytes = [UInt8](repeating: 0, count: rasterGrid.pixelCount)
+    for index in bytes.indices {
+      let inGlobal = globalCoverage?[index] != 0 || globalCoverage == nil
+      let inExcluded = excludedCoverage[index] != 0
+      bytes[index] = (inGlobal && inExcluded == false) ? 255 : 0
+    }
+
+    return rasterGrid.makeMask(alphaBytes: bytes)
   }
 
   /// Places symbols for each mosaic layer in parallel after effective masks are known.
+  @concurrent
   func placeMosaicLayers(
     effectiveMasks: [TesseraAlphaMask],
     edgeBehavior: TesseraEdgeBehavior,
@@ -202,6 +318,7 @@ private extension MosaicPlacementPlanner {
 
       var completed = 0
       for try await (index, layer) in group {
+        try Task.checkCancellation()
         layers[index] = layer
         completed += 1
         onEvent(.placingMosaics(completed: completed, total: mosaics.count))
@@ -231,6 +348,7 @@ private extension MosaicPlacementPlanner {
         )
       },
       mask: mask,
+      maskDefinition: mosaic.mask,
       rendering: mosaic.rendering,
       offset: mosaic.offset,
     )
@@ -281,44 +399,6 @@ private extension MosaicPlacementPlanner {
           scale: $0.scale,
         )
       },
-    )
-  }
-
-  /// Builds the base-layer allowed-area mask by removing all mosaic coverage.
-  func makeBaseAllowedMask(
-    globalMask: TesseraAlphaMask?,
-    excludedMask: TesseraAlphaMask?,
-    canvasSize: CGSize,
-    pixelScale: CGFloat,
-  ) -> TesseraAlphaMask? {
-    guard globalMask != nil || excludedMask != nil else { return nil }
-
-    let clampedScale = max(pixelScale, 0.1)
-    let width = max(Int((canvasSize.width * clampedScale).rounded(.up)), 1)
-    let height = max(Int((canvasSize.height * clampedScale).rounded(.up)), 1)
-    var bytes = [UInt8](repeating: 0, count: width * height)
-
-    for y in 0..<height {
-      for x in 0..<width {
-        let point = CGPoint(
-          x: (CGFloat(x) + 0.5) / CGFloat(width) * canvasSize.width,
-          y: (CGFloat(y) + 0.5) / CGFloat(height) * canvasSize.height,
-        )
-        let inGlobal = globalMask?.contains(point) ?? true
-        let inExcluded = excludedMask?.contains(point) ?? false
-        let isAllowed = inGlobal && inExcluded == false
-        bytes[y * width + x] = isAllowed ? 255 : 0
-      }
-    }
-
-    return TesseraAlphaMask(
-      size: canvasSize,
-      pixelsWide: width,
-      pixelsHigh: height,
-      alphaBytes: bytes,
-      thresholdByte: 128,
-      sampling: .nearest,
-      invert: false,
     )
   }
 
@@ -527,9 +607,6 @@ enum TesseraFingerprintBuilder {
     }
     hasher.combine(mask.rotation.radians)
     hasher.combine(mask.scale)
-    hasher.combine(mask.alphaThreshold)
-    hasher.combine(mask.pixelScale)
-    hasher.combine(mask.sampling == .nearest)
   }
 
   private static func combine(symbol: Symbol, into hasher: inout DeterministicHasher) {

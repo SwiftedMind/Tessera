@@ -266,6 +266,7 @@ private struct SnapshotExportRenderView<Content: View>: View {
 /// Actor that serializes snapshot computations and drops stale completions.
 actor SnapshotComputationActor {
   private var activeComputationID: UInt64 = 0
+  private var activeComputationTask: Task<TesseraSnapshot, Error>?
 
   func compute(
     pattern: Pattern,
@@ -275,11 +276,12 @@ actor SnapshotComputationActor {
     region: Region,
     regionRendering: RegionRendering,
     pinnedSymbols: [PinnedSymbol],
-    onEvent: @Sendable (TesseraComputationEvent) -> Void,
+    onEvent: @escaping @Sendable (TesseraComputationEvent) -> Void,
   ) async throws -> TesseraSnapshot {
     activeComputationID &+= 1
     let computationID = activeComputationID
     onEvent(.started)
+    activeComputationTask?.cancel()
 
     let planner = MosaicPlacementPlanner(
       inputs: .init(
@@ -292,13 +294,28 @@ actor SnapshotComputationActor {
         pinnedSymbols: pinnedSymbols,
       ),
     )
-    let snapshot = try await planner.makeSnapshot(onEvent: onEvent)
-    guard computationID == activeComputationID else {
-      throw CancellationError()
+    let computationTask = Task {
+      try await planner.makeSnapshot(onEvent: onEvent)
     }
+    activeComputationTask = computationTask
 
-    onEvent(.completed(snapshot))
-    return snapshot
+    do {
+      let snapshot = try await computationTask.value
+      guard computationID == activeComputationID else {
+        throw CancellationError()
+      }
+
+      onEvent(.completed(snapshot))
+      if computationID == activeComputationID {
+        activeComputationTask = nil
+      }
+      return snapshot
+    } catch {
+      if computationID == activeComputationID {
+        activeComputationTask = nil
+      }
+      throw error
+    }
   }
 }
 

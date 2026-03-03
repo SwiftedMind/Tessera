@@ -74,7 +74,7 @@ public enum TesseraPolygonFitMode: Sendable, Hashable {
   case stretch
 }
 
-// Defines a rasterized alpha mask used for placement.
+// Defines an alpha mask used for placement.
 
 public extension TesseraPolygonMapping {
   /// Compares mapping mode and alignment values.

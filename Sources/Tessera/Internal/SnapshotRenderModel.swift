@@ -48,6 +48,7 @@ struct SnapshotMosaicLayer: Identifiable, @unchecked Sendable {
   var symbols: [Symbol]
   var placements: [SnapshotPlacementDescriptor]
   var mask: TesseraAlphaMask
+  var maskDefinition: MosaicMask
   var rendering: MosaicRendering
   var offset: CGSize
 }

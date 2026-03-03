@@ -116,11 +116,7 @@ extension Symbol {
 
   static var triangleFill: Symbol {
     Symbol(
-      collider: .shape(.polygon(points: [
-        CGPoint(x: 0, y: 12),
-        CGPoint(x: 14, y: -12),
-        CGPoint(x: -14, y: -12),
-      ])),
+      collider: .shape(.triangle(size: CGSize(width: 28, height: 24))),
     ) {
       TriangleShape()
         .fill(DemoPalette.coral.opacity(0.82))
@@ -192,7 +188,7 @@ extension Symbol {
   }
 
   static var mosaicMaskBlob: Symbol {
-    Symbol(collider: .automatic(size: CGSize(width: 260, height: 170))) {
+    Symbol(collider: .shape(.roundedRectangle(size: CGSize(width: 250, height: 160), cornerRadius: 56))) {
       RoundedRectangle(cornerRadius: 56, style: .continuous)
         .fill(Color.white)
         .frame(width: 250, height: 160)
@@ -201,7 +197,7 @@ extension Symbol {
   }
 
   static var mosaicMaskDiamond: Symbol {
-    Symbol(collider: .automatic(size: CGSize(width: 190, height: 190))) {
+    Symbol(collider: .shape(.roundedRectangle(size: CGSize(width: 170, height: 170), cornerRadius: 26))) {
       RoundedRectangle(cornerRadius: 26, style: .continuous)
         .fill(Color.white)
         .frame(width: 170, height: 170)
@@ -252,11 +248,7 @@ extension Symbol {
 
   static var mosaicTriangleFill: Symbol {
     Symbol(
-      collider: .shape(.polygon(points: [
-        CGPoint(x: 0, y: 9),
-        CGPoint(x: 9, y: -8),
-        CGPoint(x: -9, y: -8),
-      ])),
+      collider: .shape(.triangle(size: CGSize(width: 18, height: 17))),
     ) {
       TriangleShape()
         .fill(DemoPalette.coral.opacity(0.82))

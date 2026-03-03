@@ -90,14 +90,24 @@ struct SnapshotStaticCanvasView: View {
                 rendersAsynchronously: rendersAsynchronously,
               )
 
-              if mosaic.rendering.clipsToMask,
-                 let maskView = SnapshotMaskImageCache.maskView(
-                   for: mosaic.mask,
-                   snapshotFingerprint: snapshotFingerprint,
-                   role: .mosaic(mosaic.id),
-                 ) {
-                mosaicLayer.mask {
-                  maskView
+              if mosaic.rendering.clipsToMask {
+                let symbolMaskedLayer = mosaicLayer.mask {
+                  SnapshotMosaicMaskSymbolView(
+                    mask: mosaic.maskDefinition,
+                    size: snapshot.size,
+                  )
+                }
+
+                if let effectiveMaskView = SnapshotMaskImageCache.maskView(
+                  for: mosaic.mask,
+                  snapshotFingerprint: snapshotFingerprint,
+                  role: .mosaic(mosaic.id),
+                ) {
+                  symbolMaskedLayer.mask {
+                    effectiveMaskView
+                  }
+                } else {
+                  symbolMaskedLayer
                 }
               } else {
                 mosaicLayer
@@ -145,16 +155,21 @@ private struct SnapshotMosaicMaskDebugOverlayView: View {
     if let opacity = debugOverlay.resolvedMosaicMaskOpacity, mosaics.isEmpty == false {
       let overlay = ZStack {
         ForEach(Array(mosaics.enumerated()), id: \.element.id) { index, mosaic in
-          if let maskView = SnapshotMaskImageCache.maskView(
+          let symbolMask = SnapshotMosaicMaskSymbolView(
+            mask: mosaic.maskDefinition,
+            size: size,
+          )
+          let tinted = Rectangle().fill(debugColor(for: index).opacity(opacity))
+          if let effectiveMaskView = SnapshotMaskImageCache.maskView(
             for: mosaic.mask,
             snapshotFingerprint: snapshotFingerprint,
             role: .mosaic(mosaic.id),
           ) {
-            Rectangle()
-              .fill(debugColor(for: index).opacity(opacity))
-              .mask {
-                maskView
-              }
+            tinted
+              .mask { symbolMask }
+              .mask { effectiveMaskView }
+          } else {
+            tinted.mask { symbolMask }
           }
         }
       }
@@ -180,6 +195,19 @@ private struct SnapshotMosaicMaskDebugOverlayView: View {
       .mint,
     ]
     return palette[index % palette.count]
+  }
+}
+
+private struct SnapshotMosaicMaskSymbolView: View {
+  var mask: MosaicMask
+  var size: CGSize
+
+  var body: some View {
+    mask.symbol.makeView()
+      .rotationEffect(mask.rotation)
+      .scaleEffect(mask.scale)
+      .position(mask.position.resolvedPoint(in: size))
+      .frame(width: size.width, height: size.height, alignment: .topLeading)
   }
 }
 
