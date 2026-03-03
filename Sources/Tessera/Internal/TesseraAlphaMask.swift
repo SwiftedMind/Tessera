@@ -52,6 +52,63 @@ struct TesseraAlphaMask: Sendable {
     return invert ? 1 - fraction : fraction
   }
 
+  /// Returns the smallest canvas-space rectangle that contains all visible mask pixels.
+  func filledBounds() -> CGRect? {
+    let pixelCount = expectedPixelCount
+    guard size.width > 0, size.height > 0 else { return nil }
+    guard pixelsWide > 0, pixelsHigh > 0 else { return nil }
+    guard pixelCount > 0, alphaBytes.count >= pixelCount else { return nil }
+
+    var minPixelX = pixelsWide
+    var minPixelY = pixelsHigh
+    var maxPixelX = -1
+    var maxPixelY = -1
+
+    for pixelY in 0..<pixelsHigh {
+      let rowStart = pixelY * pixelsWide
+      for pixelX in 0..<pixelsWide {
+        let sample = alphaBytes[rowStart + pixelX]
+        let visible = sample >= thresholdByte
+        let included = invert ? !visible : visible
+        guard included else { continue }
+
+        minPixelX = min(minPixelX, pixelX)
+        minPixelY = min(minPixelY, pixelY)
+        maxPixelX = max(maxPixelX, pixelX)
+        maxPixelY = max(maxPixelY, pixelY)
+      }
+    }
+
+    guard maxPixelX >= minPixelX, maxPixelY >= minPixelY else { return nil }
+
+    var expandedMinPixelX = minPixelX
+    var expandedMinPixelY = minPixelY
+    var expandedMaxPixelX = maxPixelX
+    var expandedMaxPixelY = maxPixelY
+
+    if sampling == .bilinear {
+      // Bilinear sampling may accept points just outside thresholded source pixels.
+      expandedMinPixelX = max(0, expandedMinPixelX - 1)
+      expandedMinPixelY = max(0, expandedMinPixelY - 1)
+      expandedMaxPixelX = min(pixelsWide - 1, expandedMaxPixelX + 1)
+      expandedMaxPixelY = min(pixelsHigh - 1, expandedMaxPixelY + 1)
+    }
+
+    let pixelWidthInPoints = size.width / CGFloat(pixelsWide)
+    let pixelHeightInPoints = size.height / CGFloat(pixelsHigh)
+    let bounds = CGRect(
+      x: CGFloat(expandedMinPixelX) * pixelWidthInPoints,
+      y: CGFloat(expandedMinPixelY) * pixelHeightInPoints,
+      width: CGFloat(expandedMaxPixelX - expandedMinPixelX + 1) * pixelWidthInPoints,
+      height: CGFloat(expandedMaxPixelY - expandedMinPixelY + 1) * pixelHeightInPoints,
+    )
+    let canvasBounds = CGRect(origin: .zero, size: size)
+    let clampedBounds = bounds.intersection(canvasBounds)
+    guard clampedBounds.isNull == false, clampedBounds.isEmpty == false else { return nil }
+
+    return clampedBounds
+  }
+
   private func bilinearSample(normalizedX: CGFloat, normalizedY: CGFloat) -> UInt8 {
     let x = normalizedX * CGFloat(pixelsWide - 1)
     let y = normalizedY * CGFloat(pixelsHigh - 1)

@@ -143,13 +143,12 @@ enum DemoConfigurations {
             sampling: .bilinear,
           ),
           symbols: DemoSymbols.mosaicCore,
-          placement: .organic(
-            TesseraPlacement.Organic(
+          placement: .grid(
+            TesseraPlacement.Grid(
+              columnCount: 10,
+              rowCount: 10,
+              symbolOrder: .rowMajor,
               seed: 2603,
-              minimumSpacing: 8,
-              density: 0.5,
-              baseScaleRange: 0.75...1.5,
-              maximumSymbolCount: 100,
             ),
           ),
           rendering: .unclipped,

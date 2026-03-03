@@ -4,13 +4,23 @@ import CoreGraphics
 
 /// Shared mask-boundary validation used by organic and grid placement engines.
 enum ShapePlacementMaskConstraint {
+  /// Defines how strictly collision geometry must stay inside an alpha mask.
+  enum Mode: Sendable {
+    /// Requires only the placement center point to be inside the mask.
+    case centerPoint
+    /// Requires sampled collision geometry points to stay inside the mask.
+    case sampledCollisionGeometry
+  }
+
   /// Returns `true` when the candidate collision geometry stays inside the mask.
   static func isPlacementInsideMask(
     _ alphaMask: TesseraAlphaMask,
     collisionTransform: CollisionTransform,
     polygons: [CollisionPolygon],
+    mode: Mode,
   ) -> Bool {
     guard alphaMask.contains(collisionTransform.position) else { return false }
+    guard mode == .sampledCollisionGeometry else { return true }
     guard polygons.isEmpty == false else { return true }
 
     for point in sampledPoints(

@@ -90,7 +90,7 @@ struct SnapshotStaticCanvasView: View {
                 rendersAsynchronously: rendersAsynchronously,
               )
 
-              if mosaic.rendering == .clipped,
+              if mosaic.rendering.clipsToMask,
                  let maskView = SnapshotMaskImageCache.maskView(
                    for: mosaic.mask,
                    snapshotFingerprint: snapshotFingerprint,

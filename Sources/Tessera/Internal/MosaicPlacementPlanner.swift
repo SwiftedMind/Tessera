@@ -155,11 +155,26 @@ private extension MosaicPlacementPlanner {
             from: resolved.symbols,
             placement: resolved.placement,
           )
+          let maskConstraintMode = maskConstraintMode(for: mosaic.rendering)
+          let gridPlacementBounds = gridPlacementBounds(
+            for: resolved.placement,
+            alphaMask: effectiveMasks[index],
+          )
+          if case .grid = resolved.placement, gridPlacementBounds == nil {
+            let snapshotLayer = makeSnapshotMosaicLayer(
+              mosaic: mosaic,
+              symbols: resolved.symbols,
+              placements: [],
+              mask: effectiveMasks[index],
+            )
+            return (index, snapshotLayer)
+          }
           let pinnedSymbolDescriptors = makePinnedSymbolDescriptors(
             for: inputs.resolvedSize,
             pinnedSymbols: inputs.pinnedSymbols,
             region: resolvedRegion,
             alphaMask: effectiveMasks[index],
+            maskConstraintMode: maskConstraintMode,
           )
           var generator = SeededGenerator(seed: seed(for: resolved.placement))
           let placed = ShapePlacementEngine.placeSymbolDescriptors(
@@ -170,24 +185,16 @@ private extension MosaicPlacementPlanner {
             placement: resolved.placement,
             region: resolvedRegion,
             alphaMask: effectiveMasks[index],
+            gridPlacementBounds: gridPlacementBounds,
+            maskConstraintMode: maskConstraintMode,
             randomGenerator: &generator,
           )
 
-          let snapshotLayer = SnapshotMosaicLayer(
-            id: mosaic.id,
+          let snapshotLayer = makeSnapshotMosaicLayer(
+            mosaic: mosaic,
             symbols: resolved.symbols,
-            placements: placed.map {
-              SnapshotPlacementDescriptor(
-                symbolId: $0.symbolId,
-                renderSymbolId: $0.renderSymbolId,
-                position: $0.position,
-                rotationRadians: $0.rotationRadians,
-                scale: $0.scale,
-              )
-            },
+            placements: placed,
             mask: effectiveMasks[index],
-            rendering: mosaic.rendering,
-            offset: mosaic.offset,
           )
           return (index, snapshotLayer)
         }
@@ -202,6 +209,31 @@ private extension MosaicPlacementPlanner {
     }
 
     return layers.compactMap(\.self)
+  }
+
+  /// Creates a snapshot mosaic layer from resolved symbols and placed descriptors.
+  func makeSnapshotMosaicLayer(
+    mosaic: Mosaic,
+    symbols: [Symbol],
+    placements: [ShapePlacementEngine.PlacedSymbolDescriptor],
+    mask: TesseraAlphaMask,
+  ) -> SnapshotMosaicLayer {
+    SnapshotMosaicLayer(
+      id: mosaic.id,
+      symbols: symbols,
+      placements: placements.map {
+        SnapshotPlacementDescriptor(
+          symbolId: $0.symbolId,
+          renderSymbolId: $0.renderSymbolId,
+          position: $0.position,
+          rotationRadians: $0.rotationRadians,
+          scale: $0.scale,
+        )
+      },
+      mask: mask,
+      rendering: mosaic.rendering,
+      offset: mosaic.offset,
+    )
   }
 
   /// Places base-layer symbols in the global allowed area outside mosaic masks.
@@ -307,6 +339,7 @@ private extension MosaicPlacementPlanner {
     pinnedSymbols: [PinnedSymbol],
     region: TesseraResolvedPolygonRegion?,
     alphaMask: TesseraAlphaMask?,
+    maskConstraintMode: ShapePlacementMaskConstraint.Mode = .sampledCollisionGeometry,
   ) -> [ShapePlacementEngine.PinnedSymbolDescriptor] {
     pinnedSymbols.compactMap { pinnedSymbol in
       let position = pinnedSymbol.resolvedPosition(in: canvasSize)
@@ -329,6 +362,7 @@ private extension MosaicPlacementPlanner {
           alphaMask,
           collisionTransform: collisionTransform,
           polygons: polygons,
+          mode: maskConstraintMode,
         ) == false {
           return nil
         }
@@ -359,6 +393,28 @@ private extension MosaicPlacementPlanner {
     case .polygon, .alphaMask:
       return .finite
     }
+  }
+
+  /// Resolves placement mask constraints from the mosaic rendering mode.
+  func maskConstraintMode(for rendering: MosaicRendering) -> ShapePlacementMaskConstraint.Mode {
+    switch rendering {
+    case .contained:
+      .sampledCollisionGeometry
+    case .clipped:
+      .centerPoint
+    case .unclipped:
+      .centerPoint
+    }
+  }
+
+  /// Resolves canvas-space bounds for grid placement inside a mosaic mask.
+  func gridPlacementBounds(
+    for placement: PlacementModel,
+    alphaMask: TesseraAlphaMask?,
+  ) -> CGRect? {
+    guard case .grid = placement else { return nil }
+
+    return alphaMask?.filledBounds()
   }
 
   /// Applies a deterministic seed to public placement options.
@@ -438,12 +494,23 @@ enum TesseraFingerprintBuilder {
   private static func combine(mosaic: Mosaic, into hasher: inout DeterministicHasher) {
     hasher.combine(mosaic.id)
     hasher.combine(mosaic.offset)
-    hasher.combine(mosaic.rendering == .clipped)
+    combine(mosaicRendering: mosaic.rendering, into: &hasher)
     combine(mask: mosaic.mask, into: &hasher)
     hasher.combineSequence(mosaic.symbols) { hasher, symbol in
       combine(symbol: symbol, into: &hasher)
     }
     combine(placement: mosaic.placement, into: &hasher)
+  }
+
+  private static func combine(mosaicRendering: MosaicRendering, into hasher: inout DeterministicHasher) {
+    switch mosaicRendering {
+    case .contained:
+      hasher.combine(0)
+    case .clipped:
+      hasher.combine(1)
+    case .unclipped:
+      hasher.combine(2)
+    }
   }
 
   private static func combine(mask: MosaicMask, into hasher: inout DeterministicHasher) {

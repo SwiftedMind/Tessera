@@ -88,6 +88,8 @@ enum ShapePlacementEngine {
   ///   - placement: The placement mode configuration to use.
   ///   - region: Optional polygon region in tile space used to constrain placement.
   ///   - alphaMask: Optional alpha mask used to constrain placement.
+  ///   - gridPlacementBounds: Optional canvas-space bounds used to resolve grid cell size and centers.
+  ///   - maskConstraintMode: How strictly the alpha mask constrains collision geometry.
   ///   - randomGenerator: The random number generator that drives placement.
   /// - Returns: The placed symbol descriptors for the tile.
   static func placeSymbolDescriptors(
@@ -98,6 +100,8 @@ enum ShapePlacementEngine {
     placement: PlacementModel,
     region: TesseraResolvedPolygonRegion? = nil,
     alphaMask: TesseraAlphaMask? = nil,
+    gridPlacementBounds: CGRect? = nil,
+    maskConstraintMode: ShapePlacementMaskConstraint.Mode = .sampledCollisionGeometry,
     randomGenerator: inout some RandomNumberGenerator,
   ) -> [PlacedSymbolDescriptor] {
     guard !symbolDescriptors.isEmpty else { return [] }
@@ -112,6 +116,7 @@ enum ShapePlacementEngine {
         configuration: organicConfiguration,
         region: region,
         alphaMask: alphaMask,
+        maskConstraintMode: maskConstraintMode,
         randomGenerator: &randomGenerator,
       )
     case let .grid(gridConfiguration):
@@ -123,6 +128,8 @@ enum ShapePlacementEngine {
         configuration: gridConfiguration,
         region: region,
         alphaMask: alphaMask,
+        placementBounds: gridPlacementBounds,
+        maskConstraintMode: maskConstraintMode,
       )
     }
   }

@@ -20,6 +20,7 @@ enum OrganicShapePlacementEngine {
   ///   - configuration: The organic placement configuration.
   ///   - region: Optional polygon region in tile space used to constrain placement.
   ///   - alphaMask: Optional alpha mask used to constrain placement.
+  ///   - maskConstraintMode: How strictly the alpha mask constrains collision geometry.
   ///   - randomGenerator: The random number generator that drives placement.
   ///   - diagnostics: Optional collision diagnostics for profiling.
   /// - Returns: The placed symbol descriptors for the tile.
@@ -31,6 +32,7 @@ enum OrganicShapePlacementEngine {
     configuration: PlacementModel.Organic,
     region: TesseraResolvedPolygonRegion? = nil,
     alphaMask: TesseraAlphaMask? = nil,
+    maskConstraintMode: ShapePlacementMaskConstraint.Mode = .sampledCollisionGeometry,
     randomGenerator: inout some RandomNumberGenerator,
     diagnostics: ShapePlacementCollision.Diagnostics? = nil,
   ) -> [PlacedSymbolDescriptor] {
@@ -225,6 +227,7 @@ enum OrganicShapePlacementEngine {
                alphaMask,
                collisionTransform: candidateTransform,
                polygons: selectedPolygons,
+               mode: maskConstraintMode,
              ) == false {
             continue
           }

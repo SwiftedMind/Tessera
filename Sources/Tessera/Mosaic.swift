@@ -4,11 +4,28 @@ import CoreGraphics
 import SwiftUI
 
 /// Rendering strategy for mosaic symbol content at mask boundaries.
+///
+/// Compatibility note: Tessera currently treats post-cutover rendering semantics as pre-release,
+/// so mode behavior may evolve before the next release tag without migration shims.
 public enum MosaicRendering: Hashable, Sendable {
-  /// Clips rendered mosaic content to the mask.
+  /// Requires sampled collision geometry to stay inside the mask.
+  case contained
+  /// Clips rendered mosaic content to the mask while only requiring symbol center points to stay inside.
   case clipped
-  /// Leaves mosaic content unclipped while still constraining placement to the mask.
+  /// Leaves mosaic content unclipped and only requires symbol center points to stay inside the mask.
   case unclipped
+}
+
+extension MosaicRendering {
+  /// Indicates whether rendered mosaic content is clipped to the mask.
+  var clipsToMask: Bool {
+    switch self {
+    case .contained, .clipped:
+      true
+    case .unclipped:
+      false
+    }
+  }
 }
 
 /// Describes a symbol-derived alpha mask used by a mosaic.

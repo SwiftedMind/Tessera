@@ -193,6 +193,12 @@ import Testing
   #expect(fingerprintA != fingerprintB)
 }
 
+@Test func mosaicRenderingClipModeMatrixIsStable() {
+  #expect(MosaicRendering.contained.clipsToMask)
+  #expect(MosaicRendering.clipped.clipsToMask)
+  #expect(MosaicRendering.unclipped.clipsToMask == false)
+}
+
 @Test @MainActor func snapshotMaskImageCacheRetainsAllMaskRolesForActiveSnapshot() {
   SnapshotMaskImageCache.testingReset()
   defer { SnapshotMaskImageCache.testingReset() }
@@ -298,6 +304,7 @@ import Testing
             maximumSymbolCount: 120,
           ),
         ),
+        rendering: .contained,
       ),
     ],
   )
@@ -327,6 +334,315 @@ import Testing
       #expect(mosaicLayer.mask.contains(point))
     }
   }
+}
+
+@Test @MainActor func mosaicRenderingModesExposeContainedAndBoundaryCrossingPlacement() async throws {
+  let mosaicSymbol = Symbol(collider: .shape(.rectangle(center: .zero, size: CGSize(width: 84, height: 84)))) {
+    Rectangle()
+      .fill(Color.red)
+      .frame(width: 84, height: 84)
+  }
+  let maskSymbol = Symbol(collider: .automatic(size: CGSize(width: 44, height: 44))) {
+    Circle()
+      .fill(Color.white)
+      .frame(width: 44, height: 44)
+  }
+
+  let containedPattern = Pattern(
+    symbols: [],
+    placement: .grid(columns: 1, rows: 1),
+    mosaics: [
+      Mosaic(
+        mask: MosaicMask(symbol: maskSymbol, position: .centered(), pixelScale: 2),
+        symbols: [mosaicSymbol],
+        placement: .grid(columns: 1, rows: 1),
+        rendering: .contained,
+      ),
+    ],
+  )
+  let clippedPattern = Pattern(
+    symbols: [],
+    placement: .grid(columns: 1, rows: 1),
+    mosaics: [
+      Mosaic(
+        mask: MosaicMask(symbol: maskSymbol, position: .centered(), pixelScale: 2),
+        symbols: [mosaicSymbol],
+        placement: .grid(columns: 1, rows: 1),
+        rendering: .clipped,
+      ),
+    ],
+  )
+  let unclippedPattern = Pattern(
+    symbols: [],
+    placement: .grid(columns: 1, rows: 1),
+    mosaics: [
+      Mosaic(
+        mask: MosaicMask(symbol: maskSymbol, position: .centered(), pixelScale: 2),
+        symbols: [mosaicSymbol],
+        placement: .grid(columns: 1, rows: 1),
+        rendering: .unclipped,
+      ),
+    ],
+  )
+
+  let containedSnapshot = try await TesseraRenderer(containedPattern).makeSnapshot(
+    mode: .canvas(size: CGSize(width: 120, height: 120), edgeBehavior: .finite),
+  )
+  let clippedSnapshot = try await TesseraRenderer(clippedPattern).makeSnapshot(
+    mode: .canvas(size: CGSize(width: 120, height: 120), edgeBehavior: .finite),
+  )
+  let unclippedSnapshot = try await TesseraRenderer(unclippedPattern).makeSnapshot(
+    mode: .canvas(size: CGSize(width: 120, height: 120), edgeBehavior: .finite),
+  )
+
+  let containedLayer = try #require(containedSnapshot.renderModel.mosaics.first)
+  let clippedLayer = try #require(clippedSnapshot.renderModel.mosaics.first)
+  let unclippedLayer = try #require(unclippedSnapshot.renderModel.mosaics.first)
+
+  #expect(containedLayer.placements.isEmpty)
+  #expect(clippedLayer.placements.count == 1)
+  #expect(unclippedLayer.placements.count == 1)
+
+  let clippedPlacement = try #require(clippedLayer.placements.first)
+  #expect(clippedLayer.mask.contains(clippedPlacement.position))
+  #expect(sampledCollisionPoints(for: mosaicSymbol, placement: clippedPlacement).contains { point in
+    clippedLayer.mask.contains(point) == false
+  })
+
+  let unclippedPlacement = try #require(unclippedLayer.placements.first)
+  #expect(unclippedLayer.mask.contains(unclippedPlacement.position))
+  #expect(sampledCollisionPoints(for: mosaicSymbol, placement: unclippedPlacement).contains { point in
+    unclippedLayer.mask.contains(point) == false
+  })
+}
+
+@Test @MainActor func defaultMosaicRenderingMatchesClippedGridPlacementBehavior() async throws {
+  let mosaicSymbol = Symbol(collider: .shape(.rectangle(center: .zero, size: CGSize(width: 56, height: 56)))) {
+    Rectangle()
+      .fill(Color.red)
+      .frame(width: 56, height: 56)
+  }
+  let maskSymbol = Symbol(collider: .automatic(size: CGSize(width: 180, height: 180))) {
+    Circle()
+      .fill(Color.white)
+      .frame(width: 180, height: 180)
+  }
+
+  let defaultPattern = Pattern(
+    symbols: [],
+    placement: .grid(columns: 1, rows: 1),
+    mosaics: [
+      Mosaic(
+        mask: MosaicMask(symbol: maskSymbol, position: .centered(), pixelScale: 2),
+        symbols: [mosaicSymbol],
+        placement: .grid(columns: 10, rows: 10),
+      ),
+    ],
+  )
+  let clippedPattern = Pattern(
+    symbols: [],
+    placement: .grid(columns: 1, rows: 1),
+    mosaics: [
+      Mosaic(
+        mask: MosaicMask(symbol: maskSymbol, position: .centered(), pixelScale: 2),
+        symbols: [mosaicSymbol],
+        placement: .grid(columns: 10, rows: 10),
+        rendering: .clipped,
+      ),
+    ],
+  )
+  let containedPattern = Pattern(
+    symbols: [],
+    placement: .grid(columns: 1, rows: 1),
+    mosaics: [
+      Mosaic(
+        mask: MosaicMask(symbol: maskSymbol, position: .centered(), pixelScale: 2),
+        symbols: [mosaicSymbol],
+        placement: .grid(columns: 10, rows: 10),
+        rendering: .contained,
+      ),
+    ],
+  )
+
+  let defaultSnapshot = try await TesseraRenderer(defaultPattern).makeSnapshot(
+    mode: .canvas(size: CGSize(width: 220, height: 220), edgeBehavior: .finite),
+    seed: .fixed(7),
+  )
+  let clippedSnapshot = try await TesseraRenderer(clippedPattern).makeSnapshot(
+    mode: .canvas(size: CGSize(width: 220, height: 220), edgeBehavior: .finite),
+    seed: .fixed(7),
+  )
+  let containedSnapshot = try await TesseraRenderer(containedPattern).makeSnapshot(
+    mode: .canvas(size: CGSize(width: 220, height: 220), edgeBehavior: .finite),
+    seed: .fixed(7),
+  )
+
+  let defaultLayer = try #require(defaultSnapshot.renderModel.mosaics.first)
+  let clippedLayer = try #require(clippedSnapshot.renderModel.mosaics.first)
+  let containedLayer = try #require(containedSnapshot.renderModel.mosaics.first)
+
+  #expect(defaultLayer.placements.count == clippedLayer.placements.count)
+  #expect(defaultLayer.placements.count > containedLayer.placements.count)
+}
+
+@Test @MainActor func mosaicRenderingModesProduceDistinctSnapshotFingerprints() async throws {
+  let mosaicSymbol = Symbol(collider: .shape(.rectangle(center: .zero, size: CGSize(width: 40, height: 40)))) {
+    Rectangle()
+      .fill(Color.red)
+      .frame(width: 40, height: 40)
+  }
+  let maskSymbol = Symbol(collider: .automatic(size: CGSize(width: 90, height: 90))) {
+    Circle()
+      .fill(Color.white)
+      .frame(width: 90, height: 90)
+  }
+
+  let containedPattern = Pattern(
+    symbols: [],
+    placement: .grid(columns: 1, rows: 1),
+    mosaics: [
+      Mosaic(
+        mask: MosaicMask(symbol: maskSymbol, position: .centered(), pixelScale: 2),
+        symbols: [mosaicSymbol],
+        placement: .grid(columns: 4, rows: 4),
+        rendering: .contained,
+      ),
+    ],
+  )
+  let clippedPattern = Pattern(
+    symbols: [],
+    placement: .grid(columns: 1, rows: 1),
+    mosaics: [
+      Mosaic(
+        mask: MosaicMask(symbol: maskSymbol, position: .centered(), pixelScale: 2),
+        symbols: [mosaicSymbol],
+        placement: .grid(columns: 4, rows: 4),
+        rendering: .clipped,
+      ),
+    ],
+  )
+  let unclippedPattern = Pattern(
+    symbols: [],
+    placement: .grid(columns: 1, rows: 1),
+    mosaics: [
+      Mosaic(
+        mask: MosaicMask(symbol: maskSymbol, position: .centered(), pixelScale: 2),
+        symbols: [mosaicSymbol],
+        placement: .grid(columns: 4, rows: 4),
+        rendering: .unclipped,
+      ),
+    ],
+  )
+
+  let containedSnapshot = try await TesseraRenderer(containedPattern).makeSnapshot(
+    mode: .canvas(size: CGSize(width: 160, height: 160), edgeBehavior: .finite),
+    seed: .fixed(91),
+  )
+  let clippedSnapshot = try await TesseraRenderer(clippedPattern).makeSnapshot(
+    mode: .canvas(size: CGSize(width: 160, height: 160), edgeBehavior: .finite),
+    seed: .fixed(91),
+  )
+  let unclippedSnapshot = try await TesseraRenderer(unclippedPattern).makeSnapshot(
+    mode: .canvas(size: CGSize(width: 160, height: 160), edgeBehavior: .finite),
+    seed: .fixed(91),
+  )
+
+  #expect(containedSnapshot.fingerprint != clippedSnapshot.fingerprint)
+  #expect(containedSnapshot.fingerprint != unclippedSnapshot.fingerprint)
+  #expect(clippedSnapshot.fingerprint != unclippedSnapshot.fingerprint)
+}
+
+@Test @MainActor func mosaicGridResolvesCellCountInsideMaskBounds() async throws {
+  let mosaicSymbol = Symbol(collider: .shape(.circle(center: .zero, radius: 2))) {
+    Circle()
+      .fill(Color.red)
+      .frame(width: 4, height: 4)
+  }
+  let maskSymbol = Symbol(collider: .automatic(size: CGSize(width: 80, height: 80))) {
+    Rectangle()
+      .fill(Color.white)
+      .frame(width: 80, height: 80)
+  }
+
+  let pattern = Pattern(
+    symbols: [],
+    placement: .grid(columns: 1, rows: 1),
+    mosaics: [
+      Mosaic(
+        mask: MosaicMask(
+          symbol: maskSymbol,
+          position: .centered(),
+          pixelScale: 2,
+          sampling: .nearest,
+        ),
+        symbols: [mosaicSymbol],
+        placement: .grid(columns: 10, rows: 10),
+        rendering: .clipped,
+      ),
+    ],
+  )
+
+  let snapshot = try await TesseraRenderer(pattern).makeSnapshot(
+    mode: .canvas(size: CGSize(width: 200, height: 200), edgeBehavior: .finite),
+  )
+
+  let layer = try #require(snapshot.renderModel.mosaics.first)
+  #expect(layer.placements.count == 100)
+}
+
+@Test func bilinearMaskFilledBoundsIncludesInterpolatedEdgeArea() throws {
+  let mask = TesseraAlphaMask(
+    size: CGSize(width: 100, height: 100),
+    pixelsWide: 2,
+    pixelsHigh: 2,
+    alphaBytes: [
+      255, 0,
+      0, 0,
+    ],
+    thresholdByte: 40,
+    sampling: .bilinear,
+    invert: false,
+  )
+  let interpolatedPoint = CGPoint(x: 75, y: 25)
+  #expect(mask.contains(interpolatedPoint))
+
+  let bounds = try #require(mask.filledBounds())
+  #expect(bounds.contains(interpolatedPoint))
+}
+
+@Test @MainActor func emptyMosaicMaskShortCircuitsGridPlacements() async throws {
+  let mosaicSymbol = Symbol(collider: .shape(.circle(center: .zero, radius: 2))) {
+    Circle()
+      .fill(Color.red)
+      .frame(width: 4, height: 4)
+  }
+  let emptyMaskSymbol = Symbol(collider: .automatic(size: CGSize(width: 120, height: 120))) {
+    Rectangle()
+      .fill(Color.clear)
+      .frame(width: 120, height: 120)
+  }
+
+  let pattern = Pattern(
+    symbols: [],
+    placement: .grid(columns: 1, rows: 1),
+    mosaics: [
+      Mosaic(
+        mask: MosaicMask(symbol: emptyMaskSymbol, position: .centered(), pixelScale: 2),
+        symbols: [mosaicSymbol],
+        placement: .grid(columns: 10, rows: 10),
+        rendering: .clipped,
+      ),
+    ],
+  )
+
+  let snapshot = try await TesseraRenderer(pattern).makeSnapshot(
+    mode: .canvas(size: CGSize(width: 240, height: 240), edgeBehavior: .finite),
+    seed: .fixed(2),
+  )
+
+  let layer = try #require(snapshot.renderModel.mosaics.first)
+  #expect(layer.mask.filledFraction == 0)
+  #expect(layer.placements.isEmpty)
 }
 
 private func sampledCollisionPoints(

@@ -46,6 +46,8 @@ enum GridShapePlacementEngine {
   ///   - configuration: The grid placement configuration.
   ///   - region: Optional polygon region in tile space used to constrain placement.
   ///   - alphaMask: Optional alpha mask used to constrain placement.
+  ///   - placementBounds: Optional canvas-space bounds used to resolve grid cell size and centers.
+  ///   - maskConstraintMode: How strictly the alpha mask constrains collision geometry.
   /// - Returns: The placed symbol descriptors for the tile.
   static func placeSymbolDescriptors(
     in size: CGSize,
@@ -55,14 +57,20 @@ enum GridShapePlacementEngine {
     configuration: PlacementModel.Grid,
     region: TesseraResolvedPolygonRegion? = nil,
     alphaMask: TesseraAlphaMask? = nil,
+    placementBounds: CGRect? = nil,
+    maskConstraintMode: ShapePlacementMaskConstraint.Mode = .sampledCollisionGeometry,
   ) -> [PlacedSymbolDescriptor] {
     guard size.width > 0, size.height > 0 else { return [] }
 
     let symbolCount = symbolDescriptors.count
     guard symbolCount > 0 else { return [] }
 
+    let placementRect = resolvedPlacementRect(
+      in: size,
+      placementBounds: placementBounds,
+    )
     let resolvedGrid = resolveGrid(
-      for: size,
+      for: placementRect.size,
       configuration: configuration,
       edgeBehavior: edgeBehavior,
     )
@@ -318,8 +326,8 @@ enum GridShapePlacementEngine {
           cellSize: resolvedGrid.cellSize,
         )
         var position = CGPoint(
-          x: basePosition.x + offset.width + symbolPhaseOffset.width,
-          y: basePosition.y + offset.height + symbolPhaseOffset.height,
+          x: placementRect.minX + basePosition.x + offset.width + symbolPhaseOffset.width,
+          y: placementRect.minY + basePosition.y + offset.height + symbolPhaseOffset.height,
         )
 
         switch edgeBehavior {
@@ -381,6 +389,7 @@ enum GridShapePlacementEngine {
              alphaMask,
              collisionTransform: candidateTransform,
              polygons: selectedPolygons,
+             mode: maskConstraintMode,
            ) == false {
           continue
         }
@@ -734,6 +743,21 @@ enum GridShapePlacementEngine {
       rowCount: rowCount,
       cellSize: resolvedCellSize,
     )
+  }
+
+  private static func resolvedPlacementRect(
+    in canvasSize: CGSize,
+    placementBounds: CGRect?,
+  ) -> CGRect {
+    let canvasBounds = CGRect(origin: .zero, size: canvasSize)
+    guard let placementBounds else { return canvasBounds }
+
+    let clampedBounds = placementBounds.standardized.intersection(canvasBounds)
+    guard clampedBounds.isNull == false, clampedBounds.isEmpty == false else {
+      return canvasBounds
+    }
+
+    return clampedBounds
   }
 
   private static func makeColumnMajorRegularAssignmentIndicesByGridIndex(
