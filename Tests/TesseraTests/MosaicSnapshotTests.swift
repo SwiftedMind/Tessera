@@ -193,6 +193,73 @@ import Testing
   #expect(fingerprintA != fingerprintB)
 }
 
+@Test @MainActor func snapshotMaskImageCacheRetainsAllMaskRolesForActiveSnapshot() {
+  SnapshotMaskImageCache.testingReset()
+  defer { SnapshotMaskImageCache.testingReset() }
+
+  let mask = makeOpaqueTestAlphaMask()
+  let snapshotFingerprint: UInt64 = 0xC0FFEE
+  let mosaicIDs = (0..<12).map { _ in UUID() }
+
+  #expect(SnapshotMaskImageCache.maskView(
+    for: mask,
+    snapshotFingerprint: snapshotFingerprint,
+    role: .globalRegionMask,
+  ) != nil)
+
+  for mosaicID in mosaicIDs {
+    #expect(SnapshotMaskImageCache.maskView(
+      for: mask,
+      snapshotFingerprint: snapshotFingerprint,
+      role: .mosaic(mosaicID),
+    ) != nil)
+  }
+
+  let generatedAfterFirstPass = SnapshotMaskImageCache.testingGeneratedImageCount()
+  #expect(generatedAfterFirstPass == mosaicIDs.count + 1)
+
+  #expect(SnapshotMaskImageCache.maskView(
+    for: mask,
+    snapshotFingerprint: snapshotFingerprint,
+    role: .globalRegionMask,
+  ) != nil)
+
+  for mosaicID in mosaicIDs {
+    #expect(SnapshotMaskImageCache.maskView(
+      for: mask,
+      snapshotFingerprint: snapshotFingerprint,
+      role: .mosaic(mosaicID),
+    ) != nil)
+  }
+
+  #expect(SnapshotMaskImageCache.testingGeneratedImageCount() == generatedAfterFirstPass)
+}
+
+@Test @MainActor func snapshotMaskImageCacheEvictsLeastRecentlyUsedSnapshots() {
+  SnapshotMaskImageCache.testingReset()
+  defer { SnapshotMaskImageCache.testingReset() }
+
+  let mask = makeOpaqueTestAlphaMask()
+  for index in 0...SnapshotMaskImageCache.maximumSnapshotCount {
+    #expect(SnapshotMaskImageCache.maskView(
+      for: mask,
+      snapshotFingerprint: UInt64(index),
+      role: .globalRegionMask,
+    ) != nil)
+  }
+
+  let generatedAfterFirstPass = SnapshotMaskImageCache.testingGeneratedImageCount()
+  #expect(generatedAfterFirstPass == SnapshotMaskImageCache.maximumSnapshotCount + 1)
+
+  #expect(SnapshotMaskImageCache.maskView(
+    for: mask,
+    snapshotFingerprint: 0,
+    role: .globalRegionMask,
+  ) != nil)
+
+  #expect(SnapshotMaskImageCache.testingGeneratedImageCount() == generatedAfterFirstPass + 1)
+}
+
 @Test @MainActor func placementsRespectMosaicMaskBoundaries() async throws {
   let baseSymbol = Symbol(collider: .shape(.rectangle(center: .zero, size: CGSize(width: 28, height: 28)))) {
     RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -275,5 +342,17 @@ private func sampledCollisionPoints(
   return ShapePlacementMaskConstraint.sampledPoints(
     collisionTransform: collisionTransform,
     polygons: polygons,
+  )
+}
+
+private func makeOpaqueTestAlphaMask() -> TesseraAlphaMask {
+  TesseraAlphaMask(
+    size: CGSize(width: 2, height: 2),
+    pixelsWide: 2,
+    pixelsHigh: 2,
+    alphaBytes: [255, 255, 255, 255],
+    thresholdByte: 128,
+    sampling: .nearest,
+    invert: false,
   )
 }

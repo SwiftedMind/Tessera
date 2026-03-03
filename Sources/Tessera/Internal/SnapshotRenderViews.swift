@@ -41,10 +41,20 @@ struct SnapshotStaticCanvasView: View {
 
   var body: some View {
     let renderModel = snapshot.renderModel
+    let snapshotFingerprint = snapshot.fingerprint.rawValue
     let shouldClipPolygon = renderModel.region.isPolygon && renderModel.regionRendering == .clipped
     let shouldClipAlphaMask = renderModel.region.isAlphaMask && renderModel.regionRendering == .clipped
     let clipPath = shouldClipPolygon ? renderModel.region.clipPath(in: snapshot.size) : nil
-    let globalAlphaMaskView = shouldClipAlphaMask ? renderModel.resolvedGlobalAlphaMask?.maskView() : nil
+    let globalAlphaMaskView: AnyView? = if shouldClipAlphaMask,
+                                           let globalMask = renderModel.resolvedGlobalAlphaMask {
+      SnapshotMaskImageCache.maskView(
+        for: globalMask,
+        snapshotFingerprint: snapshotFingerprint,
+        role: .globalRegionMask,
+      )
+    } else {
+      nil
+    }
 
     let baseLayer = SnapshotPlacementCanvasView(
       symbols: renderModel.baseSymbols.uniqueRenderableLeafSymbols,
@@ -63,6 +73,7 @@ struct SnapshotStaticCanvasView: View {
           size: snapshot.size,
           clipPath: clipPath,
           debugOverlay: debugOverlay,
+          snapshotFingerprint: snapshotFingerprint,
         )
       }
       .overlay {
@@ -80,7 +91,11 @@ struct SnapshotStaticCanvasView: View {
               )
 
               if mosaic.rendering == .clipped,
-                 let maskView = mosaic.mask.maskView() {
+                 let maskView = SnapshotMaskImageCache.maskView(
+                   for: mosaic.mask,
+                   snapshotFingerprint: snapshotFingerprint,
+                   role: .mosaic(mosaic.id),
+                 ) {
                 mosaicLayer.mask {
                   maskView
                 }
@@ -123,13 +138,18 @@ private struct SnapshotMosaicMaskDebugOverlayView: View {
   var size: CGSize
   var clipPath: Path?
   var debugOverlay: TesseraDebugOverlay
+  var snapshotFingerprint: UInt64
 
   @ViewBuilder
   var body: some View {
     if let opacity = debugOverlay.resolvedMosaicMaskOpacity, mosaics.isEmpty == false {
       let overlay = ZStack {
         ForEach(Array(mosaics.enumerated()), id: \.element.id) { index, mosaic in
-          if let maskView = mosaic.mask.maskView() {
+          if let maskView = SnapshotMaskImageCache.maskView(
+            for: mosaic.mask,
+            snapshotFingerprint: snapshotFingerprint,
+            role: .mosaic(mosaic.id),
+          ) {
             Rectangle()
               .fill(debugColor(for: index).opacity(opacity))
               .mask {
@@ -161,6 +181,95 @@ private struct SnapshotMosaicMaskDebugOverlayView: View {
     ]
     return palette[index % palette.count]
   }
+}
+
+@MainActor
+enum SnapshotMaskImageCache {
+  enum Role: Hashable {
+    case globalRegionMask
+    case mosaic(UUID)
+  }
+
+  static let maximumSnapshotCount = 4
+  static var imagesBySnapshotFingerprint: [UInt64: [Role: CGImage]] = [:]
+  static var recentSnapshotFingerprints: [UInt64] = []
+
+  #if DEBUG
+  static var generatedImageCount = 0
+  #endif
+
+  static func maskView(
+    for mask: TesseraAlphaMask,
+    snapshotFingerprint: UInt64,
+    role: Role,
+  ) -> AnyView? {
+    guard let image = image(
+      for: mask,
+      snapshotFingerprint: snapshotFingerprint,
+      role: role,
+    ) else {
+      return nil
+    }
+
+    let scale = max(mask.pixelScale, 0.1)
+    return AnyView(
+      Image(decorative: image, scale: scale, orientation: .up)
+        .interpolation(.none)
+        .frame(width: mask.size.width, height: mask.size.height),
+    )
+  }
+
+  private static func image(
+    for mask: TesseraAlphaMask,
+    snapshotFingerprint: UInt64,
+    role: Role,
+  ) -> CGImage? {
+    if let cachedImage = imagesBySnapshotFingerprint[snapshotFingerprint]?[role] {
+      markSnapshotAsRecentlyUsed(snapshotFingerprint)
+      return cachedImage
+    }
+
+    guard let generatedImage = mask.maskImage() else { return nil }
+
+    #if DEBUG
+    generatedImageCount += 1
+    #endif
+
+    var snapshotImages = imagesBySnapshotFingerprint[snapshotFingerprint] ?? [:]
+    snapshotImages[role] = generatedImage
+    imagesBySnapshotFingerprint[snapshotFingerprint] = snapshotImages
+    markSnapshotAsRecentlyUsed(snapshotFingerprint)
+    pruneIfNeeded()
+    return generatedImage
+  }
+
+  private static func markSnapshotAsRecentlyUsed(_ snapshotFingerprint: UInt64) {
+    if let existingIndex = recentSnapshotFingerprints.firstIndex(of: snapshotFingerprint) {
+      recentSnapshotFingerprints.remove(at: existingIndex)
+    }
+    recentSnapshotFingerprints.append(snapshotFingerprint)
+  }
+
+  static func pruneIfNeeded() {
+    guard imagesBySnapshotFingerprint.count > maximumSnapshotCount else { return }
+
+    while imagesBySnapshotFingerprint.count > maximumSnapshotCount, recentSnapshotFingerprints.isEmpty == false {
+      let oldestSnapshotFingerprint = recentSnapshotFingerprints.removeFirst()
+      imagesBySnapshotFingerprint.removeValue(forKey: oldestSnapshotFingerprint)
+    }
+  }
+
+  #if DEBUG
+  static func testingReset() {
+    imagesBySnapshotFingerprint.removeAll()
+    recentSnapshotFingerprints.removeAll()
+    generatedImageCount = 0
+  }
+
+  static func testingGeneratedImageCount() -> Int {
+    generatedImageCount
+  }
+  #endif
 }
 
 /// Draws generated symbol placements for one render layer.
