@@ -147,19 +147,17 @@ struct TesseraAlphaMask: Sendable {
 
     let bytesPerPixel = 4
     let bytesPerRow = pixelsWide * bytesPerPixel
-    var pixelBytes = [UInt8](repeating: 0, count: pixelsHigh * bytesPerRow)
+    var pixelBytes = [UInt8](repeating: 0, count: pixelCount * bytesPerPixel)
 
     for index in 0..<pixelCount {
       let sample = alphaBytes[index]
       let visible = sample >= thresholdByte
       let masked = invert ? !visible : visible
-      let alphaValue: UInt8 = masked ? 255 : 0
-
-      let byteOffset = index * bytesPerPixel
-      pixelBytes[byteOffset] = 255
-      pixelBytes[byteOffset + 1] = 255
-      pixelBytes[byteOffset + 2] = 255
-      pixelBytes[byteOffset + 3] = alphaValue
+      let offset = index * bytesPerPixel
+      pixelBytes[offset] = 255
+      pixelBytes[offset + 1] = 255
+      pixelBytes[offset + 2] = 255
+      pixelBytes[offset + 3] = masked ? 255 : 0
     }
 
     guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else { return nil }
@@ -197,6 +195,49 @@ struct TesseraAlphaMask: Sendable {
     guard pixelsWide > 0, pixelsHigh > 0 else { return 0 }
 
     return pixelsWide * pixelsHigh
+  }
+}
+
+extension TesseraAlphaMask: DiscretePlacementMask {
+  var rasterSize: CGSize {
+    size
+  }
+
+  var rasterPixelsWide: Int {
+    pixelsWide
+  }
+
+  var rasterPixelsHigh: Int {
+    pixelsHigh
+  }
+
+  var nearestAccessor: NearestMaskAccessor? {
+    guard sampling == .nearest else { return nil }
+
+    let pixelCount = pixelsWide * pixelsHigh
+    guard pixelCount > 0, alphaBytes.count >= pixelCount else { return nil }
+
+    return NearestMaskAccessor(
+      canvasSize: size,
+      fullPixelsWide: pixelsWide,
+      fullPixelsHigh: pixelsHigh,
+      sliceOriginX: 0,
+      sliceOriginY: 0,
+      slicePixelsWide: pixelsWide,
+      slicePixelsHigh: pixelsHigh,
+      alphaBytes: alphaBytes,
+      thresholdByte: thresholdByte,
+      invert: invert,
+    )
+  }
+
+  func forEachRasterSample(_ body: (_ fullIndex: Int, _ sample: UInt8) -> Void) {
+    let pixelCount = pixelsWide * pixelsHigh
+    guard pixelCount > 0, alphaBytes.count >= pixelCount else { return }
+
+    for index in 0..<pixelCount {
+      body(index, alphaBytes[index])
+    }
   }
 }
 

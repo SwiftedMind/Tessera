@@ -14,16 +14,18 @@ enum ShapePlacementMaskConstraint {
 
   /// Returns `true` when the candidate collision geometry stays inside the mask.
   static func isPlacementInsideMask(
-    _ alphaMask: TesseraAlphaMask,
+    _ alphaMask: any PlacementMask,
     collisionTransform: CollisionTransform,
     polygons: [CollisionPolygon],
     mode: Mode,
+    centerAlreadyValidated: Bool = false,
   ) -> Bool {
     isPlacementInsideMask(
-      contains: alphaMask.contains,
+      contains: PlacementMaskContainment.containsFunction(for: alphaMask),
       collisionTransform: collisionTransform,
       polygons: polygons,
       mode: mode,
+      centerAlreadyValidated: centerAlreadyValidated,
     )
   }
 
@@ -33,8 +35,11 @@ enum ShapePlacementMaskConstraint {
     collisionTransform: CollisionTransform,
     polygons: [CollisionPolygon],
     mode: Mode,
+    centerAlreadyValidated: Bool = false,
   ) -> Bool {
-    guard contains(collisionTransform.position) else { return false }
+    if centerAlreadyValidated == false, contains(collisionTransform.position) == false {
+      return false
+    }
     guard mode == .sampledCollisionGeometry else { return true }
     guard polygons.isEmpty == false else { return true }
 

@@ -56,7 +56,7 @@ enum GridShapePlacementEngine {
     edgeBehavior: TesseraEdgeBehavior,
     configuration: PlacementModel.Grid,
     region: TesseraResolvedPolygonRegion? = nil,
-    alphaMask: TesseraAlphaMask? = nil,
+    alphaMask: (any PlacementMask)? = nil,
     placementBounds: CGRect? = nil,
     maskConstraintMode: ShapePlacementMaskConstraint.Mode = .sampledCollisionGeometry,
   ) -> [PlacedSymbolDescriptor] {
@@ -149,6 +149,7 @@ enum GridShapePlacementEngine {
 
     let normalizedOffset = normalizedOffsetAmount(from: configuration.offsetStrategy)
     let wrapOffsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: edgeBehavior)
+    let maskContains = alphaMask.map { PlacementMaskContainment.containsFunction(for: $0) }
 
     let pinnedColliders: [PlacedCollider] = pinnedSymbolDescriptors.map { pinnedSymbol in
       let collisionTransform = CollisionTransform(
@@ -344,7 +345,7 @@ enum GridShapePlacementEngine {
           continue
         }
 
-        if let alphaMask, alphaMask.contains(position) == false {
+        if let maskContains, maskContains(position) == false {
           continue
         }
 
@@ -384,12 +385,13 @@ enum GridShapePlacementEngine {
           scale: CGFloat(scale),
         )
 
-        if let alphaMask,
+        if let maskContains,
            ShapePlacementMaskConstraint.isPlacementInsideMask(
-             alphaMask,
+             contains: maskContains,
              collisionTransform: candidateTransform,
              polygons: selectedPolygons,
              mode: maskConstraintMode,
+             centerAlreadyValidated: true,
            ) == false {
           continue
         }

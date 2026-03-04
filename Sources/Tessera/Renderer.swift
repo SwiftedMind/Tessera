@@ -31,7 +31,7 @@ public struct TesseraRenderer: Sendable {
     let resolvedSize = try resolveSize(for: mode)
     let resolvedSeed = resolveSeed(seed)
 
-    return try await computationActor.compute(
+    let snapshot = try await computationActor.compute(
       pattern: pattern,
       mode: mode,
       resolvedSize: resolvedSize,
@@ -40,6 +40,7 @@ public struct TesseraRenderer: Sendable {
       regionRendering: regionRendering,
       pinnedSymbols: pinnedSymbols,
     ) { _ in }
+    return snapshot
   }
 
   /// Computes a reusable snapshot while emitting progress events.

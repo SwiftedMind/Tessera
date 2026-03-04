@@ -22,7 +22,7 @@ enum ShapePlacementEngine {
     pinnedSymbols: [TesseraPinnedSymbol] = [],
     edgeBehavior: TesseraEdgeBehavior = .seamlessWrapping,
     region: TesseraResolvedPolygonRegion? = nil,
-    alphaMask: TesseraAlphaMask? = nil,
+    alphaMask: (any PlacementMask)? = nil,
     randomGenerator: inout some RandomNumberGenerator,
   ) -> [PlacedSymbol] {
     guard !configuration.symbols.isEmpty else { return [] }
@@ -99,7 +99,7 @@ enum ShapePlacementEngine {
     edgeBehavior: TesseraEdgeBehavior = .seamlessWrapping,
     placement: PlacementModel,
     region: TesseraResolvedPolygonRegion? = nil,
-    alphaMask: TesseraAlphaMask? = nil,
+    alphaMask: (any PlacementMask)? = nil,
     gridPlacementBounds: CGRect? = nil,
     maskConstraintMode: ShapePlacementMaskConstraint.Mode = .sampledCollisionGeometry,
     randomGenerator: inout some RandomNumberGenerator,

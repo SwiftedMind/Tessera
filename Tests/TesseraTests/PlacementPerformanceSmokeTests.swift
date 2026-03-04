@@ -229,6 +229,135 @@ import Testing
   #expect(diagnosticsA.terminatedForSaturation == diagnosticsB.terminatedForSaturation)
 }
 
+@Test func gridCenterPointMaskValidationChecksCenterOnlyOncePerCell() async throws {
+  let size = CGSize(width: 120, height: 80)
+  let placement = PlacementModel.Grid(
+    columnCount: 4,
+    rowCount: 3,
+    seed: 9,
+  )
+  let symbolDescriptor = makePerformanceSymbolDescriptor(
+    id: UUID(uuidString: "00000000-0000-0000-0000-000000000208")!,
+    collisionShape: .rectangle(center: .zero, size: CGSize(width: 6, height: 6)),
+  )
+  let counter = Counter()
+  let mask = CountingPlacementMask(counter: counter)
+
+  let placed = GridShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: [symbolDescriptor],
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .finite,
+    configuration: placement,
+    alphaMask: mask,
+    maskConstraintMode: .centerPoint,
+  )
+
+  #expect(placed.count == placement.rowCount * placement.columnCount)
+  #expect(counter.value == placement.rowCount * placement.columnCount)
+}
+
+@Test func sliceAlphaMaskContainsMatchesDenseMaskForSampledPoints() async throws {
+  let rasterSize = CGSize(width: 160, height: 120)
+  let rasterPixelsWide = 160
+  let rasterPixelsHigh = 120
+  let slice = SliceAlphaMask(
+    rasterSize: rasterSize,
+    rasterPixelsWide: rasterPixelsWide,
+    rasterPixelsHigh: rasterPixelsHigh,
+    sliceOriginX: 40,
+    sliceOriginY: 20,
+    slicePixelsWide: 30,
+    slicePixelsHigh: 20,
+    alphaBytes: makeSliceBytes(width: 30, height: 20),
+  )
+  let dense = TesseraAlphaMask(
+    size: rasterSize,
+    pixelsWide: rasterPixelsWide,
+    pixelsHigh: rasterPixelsHigh,
+    alphaBytes: slice.makeDenseAlphaBytes(),
+    thresholdByte: 128,
+    sampling: .nearest,
+    invert: false,
+  )
+
+  for x in stride(from: 0.0, through: 159.0, by: 3.0) {
+    for y in stride(from: 0.0, through: 119.0, by: 3.0) {
+      let point = CGPoint(x: x, y: y)
+      #expect(slice.contains(point) == dense.contains(point))
+    }
+  }
+}
+
+@Test func sliceAlphaMaskForEachRasterSampleSkipsOutOfBoundsIndices() async throws {
+  let rasterPixelsWide = 12
+  let rasterPixelsHigh = 10
+  let slice = SliceAlphaMask(
+    rasterSize: CGSize(width: 120, height: 100),
+    rasterPixelsWide: rasterPixelsWide,
+    rasterPixelsHigh: rasterPixelsHigh,
+    sliceOriginX: rasterPixelsWide - 2,
+    sliceOriginY: rasterPixelsHigh - 2,
+    slicePixelsWide: 5,
+    slicePixelsHigh: 5,
+    alphaBytes: [UInt8](repeating: 255, count: 25),
+  )
+
+  let fullPixelCount = rasterPixelsWide * rasterPixelsHigh
+  var emittedOutOfBoundsIndex = false
+  slice.forEachRasterSample { fullIndex, _ in
+    if fullIndex < 0 || fullIndex >= fullPixelCount {
+      emittedOutOfBoundsIndex = true
+    }
+  }
+
+  #expect(emittedOutOfBoundsIndex == false)
+}
+
+@Test func estimatedFilledFractionFindsThinCoverageWithRefinedSampling() async throws {
+  let canvasSize = CGSize(width: 100, height: 100)
+  let thinBand = CGRect(x: 50.055, y: 50.055, width: 0.02, height: 0.02)
+  let estimated = MosaicPlacementPlanner.testingEstimatedFilledFraction(
+    in: canvasSize,
+    bounds: CGRect(origin: .zero, size: canvasSize),
+    sampleGridSide: 96,
+  ) { point in
+    thinBand.contains(point)
+  }
+
+  #expect(estimated > 0)
+}
+
+@Test func organicReadsFilledFractionOncePerRun() async throws {
+  let size = CGSize(width: 120, height: 120)
+  let placement = PlacementModel.Organic(
+    seed: 888,
+    minimumSpacing: 1,
+    density: 0.6,
+    baseScaleRange: 1...1,
+    maximumSymbolCount: 40,
+  )
+  let symbolDescriptor = makePerformanceSymbolDescriptor(
+    id: UUID(uuidString: "00000000-0000-0000-0000-000000000209")!,
+    collisionShape: .circle(center: .zero, radius: 2),
+  )
+  let counter = Counter()
+  let mask = FilledFractionCountingMask(counter: counter)
+  var generator = SeededGenerator(seed: placement.seed)
+
+  _ = OrganicShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: [symbolDescriptor],
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .finite,
+    configuration: placement,
+    alphaMask: mask,
+    randomGenerator: &generator,
+  )
+
+  #expect(counter.value == 1)
+}
+
 private func makePerformanceSymbolDescriptor(
   id: UUID,
   collisionShape: CollisionShape,
@@ -260,4 +389,69 @@ private struct PlacementSnapshot: Hashable, Sendable {
   var y: Double
   var rotationRadians: Double
   var scale: Double
+}
+
+private final class Counter: @unchecked Sendable {
+  private let lock = NSLock()
+  private var currentValue = 0
+
+  var value: Int {
+    lock.lock()
+    defer { lock.unlock() }
+    return currentValue
+  }
+
+  func increment() {
+    lock.lock()
+    currentValue += 1
+    lock.unlock()
+  }
+}
+
+private struct CountingPlacementMask: PlacementMask {
+  var counter: Counter
+
+  func contains(_ point: CGPoint) -> Bool {
+    counter.increment()
+    return true
+  }
+
+  var filledFraction: Double {
+    1
+  }
+
+  func filledBounds() -> CGRect? {
+    CGRect(x: 0, y: 0, width: 120, height: 80)
+  }
+}
+
+private struct FilledFractionCountingMask: PlacementMask {
+  var counter: Counter
+
+  func contains(_ point: CGPoint) -> Bool {
+    true
+  }
+
+  var filledFraction: Double {
+    counter.increment()
+    return 0.5
+  }
+
+  func filledBounds() -> CGRect? {
+    CGRect(x: 0, y: 0, width: 120, height: 120)
+  }
+}
+
+private func makeSliceBytes(width: Int, height: Int) -> [UInt8] {
+  guard width > 0, height > 0 else { return [] }
+
+  var bytes = [UInt8](repeating: 0, count: width * height)
+  for y in 0..<height {
+    for x in 0..<width {
+      if (x + y).isMultiple(of: 3) {
+        bytes[y * width + x] = 255
+      }
+    }
+  }
+  return bytes
 }

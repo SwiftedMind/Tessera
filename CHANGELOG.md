@@ -1,16 +1,8 @@
-## [Unreleased]
+## [Upcoming 4.0.0]
 
 ### Added
 - **Grid Subgrids**: Grid placement now supports rectangular `subgrids` with dedicated symbol pools, per-subgrid
   `symbolOrder`, and optional per-subgrid `seed`.
-
-### Breaking Changes
-- **Merged Grid Cells Removed**: `mergedCells`, merged-cell symbol overrides, merged-cell sizing, and
-  `excludeMergedSymbolsFromRegularCells` were removed from the grid API and placement engine.
-
-## [4.0.0]
-
-### Added
 - **Grid Symbol Orders**: `TesseraPlacement.GridSymbolOrder` now supports `.randomWeightedPerCell`, `.shuffle`,
   `.diagonal`, and `.snake` with canonical traversal cases `.rowMajor` and `.columnMajor`.
 - **Grid Seed**: `TesseraPlacement.Grid` now includes `seed` to drive deterministic grid symbol assignment.

@@ -31,7 +31,7 @@ enum OrganicShapePlacementEngine {
     edgeBehavior: TesseraEdgeBehavior,
     configuration: PlacementModel.Organic,
     region: TesseraResolvedPolygonRegion? = nil,
-    alphaMask: TesseraAlphaMask? = nil,
+    alphaMask: (any PlacementMask)? = nil,
     maskConstraintMode: ShapePlacementMaskConstraint.Mode = .sampledCollisionGeometry,
     randomGenerator: inout some RandomNumberGenerator,
     diagnostics: ShapePlacementCollision.Diagnostics? = nil,
@@ -57,7 +57,8 @@ enum OrganicShapePlacementEngine {
 
     let tileArea = Double(size.width * size.height)
     let regionArea = region.map { Double($0.area) } ?? tileArea
-    let maskArea = alphaMask.map { Double($0.filledFraction) * tileArea } ?? tileArea
+    let resolvedMaskFilledFraction = alphaMask?.filledFraction ?? 1
+    let maskArea = alphaMask.map { _ in resolvedMaskFilledFraction * tileArea } ?? tileArea
     let constrainedArea = min(regionArea, maskArea)
     let approximateSymbolArea = max(Double(maximumMinimumSpacing * maximumMinimumSpacing), 1)
     let estimatedCount = Int(constrainedArea / approximateSymbolArea * clampedDensity)
@@ -86,7 +87,15 @@ enum OrganicShapePlacementEngine {
       defaultValue: 0,
     )
     let regionPointSampler = region.flatMap { RegionPointSampler(region: $0) }
-    let sparseMaskPointSampler = alphaMask.flatMap { SparseMaskPointSampler(alphaMask: $0) }
+    let sparseMaskPointSampler = alphaMask.flatMap { alphaMask -> SparseMaskPointSampler? in
+      guard let discreteMask = alphaMask as? any DiscretePlacementMask else { return nil }
+
+      return SparseMaskPointSampler(
+        mask: discreteMask,
+        filledFraction: resolvedMaskFilledFraction,
+      )
+    }
+    let maskContains = alphaMask.map { PlacementMaskContainment.containsFunction(for: $0) }
 
     let fixedColliders: [PlacedCollider] = pinnedSymbolDescriptors.map { pinnedSymbol in
       let collisionTransform = CollisionTransform(
@@ -185,7 +194,7 @@ enum OrganicShapePlacementEngine {
             in: size,
             region: region,
             regionPointSampler: regionPointSampler,
-            alphaMask: alphaMask,
+            alphaMaskContains: maskContains,
             sparseMaskPointSampler: sparseMaskPointSampler,
             using: &randomGenerator,
           ) else { continue }
@@ -222,12 +231,13 @@ enum OrganicShapePlacementEngine {
             minimumSpacing: candidateMinimumSpacing,
           )
 
-          if let alphaMask,
+          if let maskContains,
              ShapePlacementMaskConstraint.isPlacementInsideMask(
-               alphaMask,
+               contains: maskContains,
                collisionTransform: candidateTransform,
                polygons: selectedPolygons,
                mode: maskConstraintMode,
+               centerAlreadyValidated: true,
              ) == false {
             continue
           }
@@ -576,7 +586,7 @@ enum OrganicShapePlacementEngine {
     in size: CGSize,
     region: TesseraResolvedPolygonRegion?,
     regionPointSampler: RegionPointSampler?,
-    alphaMask: TesseraAlphaMask?,
+    alphaMaskContains: ((CGPoint) -> Bool)?,
     sparseMaskPointSampler: SparseMaskPointSampler?,
     using randomGenerator: inout some RandomNumberGenerator,
   ) -> CGPoint? {
@@ -590,7 +600,7 @@ enum OrganicShapePlacementEngine {
         if let region, region.contains(point) == false {
           continue
         }
-        if let alphaMask, alphaMask.contains(point) == false {
+        if let alphaMaskContains, alphaMaskContains(point) == false {
           continue
         }
         return point
@@ -605,7 +615,7 @@ enum OrganicShapePlacementEngine {
       using: &randomGenerator,
     ) else { return nil }
 
-    if let alphaMask, alphaMask.contains(point) == false {
+    if let alphaMaskContains, alphaMaskContains(point) == false {
       return nil
     }
 
@@ -656,19 +666,22 @@ enum OrganicShapePlacementEngine {
     var acceptedPixelIndices: [Int]
 
     init?(
-      alphaMask: TesseraAlphaMask,
+      mask: any DiscretePlacementMask,
+      filledFraction: Double,
       maximumFilledFraction: Double = 0.35,
       minimumAcceptedPixelCount: Int = 32,
     ) {
-      guard alphaMask.sampling == .nearest else { return nil }
-      guard alphaMask.filledFraction > 0, alphaMask.filledFraction <= maximumFilledFraction else { return nil }
+      guard mask.sampling == .nearest else { return nil }
+      guard filledFraction > 0, filledFraction <= maximumFilledFraction else { return nil }
 
       var acceptedPixelIndices: [Int] = []
-      acceptedPixelIndices.reserveCapacity(max(minimumAcceptedPixelCount, alphaMask.alphaBytes.count / 10))
+      acceptedPixelIndices.reserveCapacity(
+        max(minimumAcceptedPixelCount, max(mask.rasterPixelsWide * mask.rasterPixelsHigh, 1) / 10),
+      )
 
-      for (index, value) in alphaMask.alphaBytes.enumerated() {
-        let visible = value >= alphaMask.thresholdByte
-        let included = alphaMask.invert ? !visible : visible
+      mask.forEachRasterSample { index, value in
+        let visible = value >= mask.thresholdByte
+        let included = mask.invert ? !visible : visible
         if included {
           acceptedPixelIndices.append(index)
         }
@@ -676,9 +689,9 @@ enum OrganicShapePlacementEngine {
 
       guard acceptedPixelIndices.count >= minimumAcceptedPixelCount else { return nil }
 
-      pointSize = alphaMask.size
-      pixelsWide = alphaMask.pixelsWide
-      pixelsHigh = alphaMask.pixelsHigh
+      pointSize = mask.rasterSize
+      pixelsWide = mask.rasterPixelsWide
+      pixelsHigh = mask.rasterPixelsHigh
       self.acceptedPixelIndices = acceptedPixelIndices
     }
 

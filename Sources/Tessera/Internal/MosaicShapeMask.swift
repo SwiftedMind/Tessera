@@ -101,7 +101,7 @@ struct ShapeMaskBroadPhaseIndex: Sendable {
 }
 
 /// Collision-shape-derived mask used for mosaic placement acceptance and clipping.
-struct MosaicShapeMask: Sendable {
+struct MosaicShapeMask: PlacementMask, Sendable {
   enum ExactShape: Sendable {
     struct Circle: Sendable {
       var center: CGPoint
@@ -132,6 +132,7 @@ struct MosaicShapeMask: Sendable {
   var polygons: [Polygon]
   var bounds: CGRect?
   var broadPhaseIndex: ShapeMaskBroadPhaseIndex
+  var filledFractionEstimate: Double
 
   init(mosaicMask: MosaicMask, canvasSize: CGSize) {
     size = canvasSize
@@ -159,6 +160,10 @@ struct MosaicShapeMask: Sendable {
         height: transformedRadius * 2,
       )
       broadPhaseIndex = ShapeMaskBroadPhaseIndex(polygonBounds: [])
+      filledFractionEstimate = Self.normalizedAreaFraction(
+        area: Double.pi * Double(transformedRadius * transformedRadius),
+        canvasSize: canvasSize,
+      )
       return
     }
 
@@ -197,6 +202,12 @@ struct MosaicShapeMask: Sendable {
       polygons = []
       bounds = resolvedBounds
       broadPhaseIndex = ShapeMaskBroadPhaseIndex(polygonBounds: [])
+      let scale = abs(collisionTransform.scale)
+      let transformedArea = abs(localSize.width * localSize.height) * scale * scale
+      filledFractionEstimate = Self.normalizedAreaFraction(
+        area: Double(transformedArea),
+        canvasSize: canvasSize,
+      )
       return
     }
 
@@ -225,6 +236,13 @@ struct MosaicShapeMask: Sendable {
     }
     broadPhaseIndex = ShapeMaskBroadPhaseIndex(
       polygonBounds: transformedPolygons.map { polygon in polygon.bounds },
+    )
+    let polygonArea = transformedPolygons.reduce(0.0) { partialResult, polygon in
+      partialResult + Self.area(of: polygon.points)
+    }
+    filledFractionEstimate = Self.normalizedAreaFraction(
+      area: polygonArea,
+      canvasSize: canvasSize,
     )
   }
 
@@ -270,6 +288,18 @@ struct MosaicShapeMask: Sendable {
     }
 
     return false
+  }
+
+  var filledFraction: Double {
+    filledFractionEstimate
+  }
+
+  func filledBounds() -> CGRect? {
+    guard let bounds else { return nil }
+
+    let canvasBounds = CGRect(origin: .zero, size: size)
+    let clampedBounds = bounds.intersection(canvasBounds)
+    return (clampedBounds.isNull || clampedBounds.isEmpty) ? nil : clampedBounds
   }
 
   /// Returns an exact vector path for debug rendering when available.
@@ -413,6 +443,23 @@ struct MosaicShapeMask: Sendable {
       height: maximumY - minimumY,
     )
   }
+
+  private static func area(of points: [CGPoint]) -> Double {
+    guard points.count >= 3 else { return 0 }
+
+    var sum: Double = 0
+    for index in points.indices {
+      let current = points[index]
+      let next = points[(index + 1) % points.count]
+      sum += Double(current.x * next.y - next.x * current.y)
+    }
+    return abs(sum) * 0.5
+  }
+
+  private static func normalizedAreaFraction(area: Double, canvasSize: CGSize) -> Double {
+    let canvasArea = max(Double(canvasSize.width * canvasSize.height), 1)
+    return max(0, min(1, area / canvasArea))
+  }
 }
 
 /// Shared pixel grid for sampling shape-derived masks and aligned mask coverage.
@@ -444,6 +491,24 @@ struct ShapeMaskRasterGrid: Sendable {
 
   func point(pixelX: Int, pixelY: Int) -> CGPoint {
     CGPoint(x: sampleX[pixelX], y: sampleY[pixelY])
+  }
+
+  func coverageIndex(for point: CGPoint) -> Int? {
+    guard size.width > 0, size.height > 0 else { return nil }
+    guard pixelsWide > 0, pixelsHigh > 0 else { return nil }
+    guard point.x >= 0, point.x <= size.width, point.y >= 0, point.y <= size.height else {
+      return nil
+    }
+
+    let pixelX = min(
+      max(Int(round(point.x / size.width * CGFloat(pixelsWide - 1))), 0),
+      pixelsWide - 1,
+    )
+    let pixelY = min(
+      max(Int(round(point.y / size.height * CGFloat(pixelsHigh - 1))), 0),
+      pixelsHigh - 1,
+    )
+    return pixelY * pixelsWide + pixelX
   }
 
   func pixelRange(for maskBounds: CGRect?) -> (x: ClosedRange<Int>, y: ClosedRange<Int>)? {
@@ -493,6 +558,24 @@ struct ShapeMaskRasterGrid: Sendable {
   }
 
   func alignedCoverage(for mask: TesseraAlphaMask) -> [UInt8] {
+    if mask.sampling == .nearest,
+       mask.size == size,
+       mask.pixelsWide == pixelsWide,
+       mask.pixelsHigh == pixelsHigh {
+      let resolvedPixelCount = pixelCount
+      guard mask.alphaBytes.count >= resolvedPixelCount else {
+        return [UInt8](repeating: 0, count: resolvedPixelCount)
+      }
+
+      var coverage = [UInt8](repeating: 0, count: resolvedPixelCount)
+      for index in 0..<resolvedPixelCount {
+        let visible = mask.alphaBytes[index] >= mask.thresholdByte
+        let included = mask.invert ? !visible : visible
+        coverage[index] = included ? 255 : 0
+      }
+      return coverage
+    }
+
     var coverage = [UInt8](repeating: 0, count: pixelCount)
     for pixelY in 0..<pixelsHigh {
       for pixelX in 0..<pixelsWide {
@@ -503,5 +586,40 @@ struct ShapeMaskRasterGrid: Sendable {
       }
     }
     return coverage
+  }
+
+  func filledBounds(for coverage: [UInt8]) -> CGRect? {
+    guard pixelsWide > 0, pixelsHigh > 0 else { return nil }
+    guard coverage.count >= pixelCount else { return nil }
+
+    var minPixelX = pixelsWide
+    var minPixelY = pixelsHigh
+    var maxPixelX = -1
+    var maxPixelY = -1
+    for pixelY in 0..<pixelsHigh {
+      let rowStart = pixelY * pixelsWide
+      for pixelX in 0..<pixelsWide {
+        guard coverage[rowStart + pixelX] != 0 else { continue }
+
+        minPixelX = min(minPixelX, pixelX)
+        minPixelY = min(minPixelY, pixelY)
+        maxPixelX = max(maxPixelX, pixelX)
+        maxPixelY = max(maxPixelY, pixelY)
+      }
+    }
+
+    guard maxPixelX >= minPixelX, maxPixelY >= minPixelY else { return nil }
+
+    let pixelWidthInPoints = size.width / CGFloat(pixelsWide)
+    let pixelHeightInPoints = size.height / CGFloat(pixelsHigh)
+    let bounds = CGRect(
+      x: CGFloat(minPixelX) * pixelWidthInPoints,
+      y: CGFloat(minPixelY) * pixelHeightInPoints,
+      width: CGFloat(maxPixelX - minPixelX + 1) * pixelWidthInPoints,
+      height: CGFloat(maxPixelY - minPixelY + 1) * pixelHeightInPoints,
+    )
+    let canvasBounds = CGRect(origin: .zero, size: size)
+    let clampedBounds = bounds.intersection(canvasBounds)
+    return (clampedBounds.isNull || clampedBounds.isEmpty) ? nil : clampedBounds
   }
 }

@@ -61,7 +61,7 @@ import Testing
   #expect(snapshot.renderModel.mosaics[0].placements.isEmpty == false)
 }
 
-@Test @MainActor func overlappingMosaicsUseFirstWinsMaskResolution() async throws {
+@Test @MainActor func overlappingMosaicsDoNotResolveOwnershipWhenMasksOverlap() async throws {
   let fillSymbol = Symbol(collider: .automatic(size: CGSize(width: 20, height: 20))) {
     Circle().fill(Color.blue).frame(width: 20, height: 20)
   }
@@ -95,7 +95,38 @@ import Testing
 
   #expect(snapshot.renderModel.mosaics.count == 2)
   #expect(snapshot.renderModel.mosaics[0].mask.filledFraction > 0.95)
-  #expect(snapshot.renderModel.mosaics[1].mask.filledFraction < 0.01)
+  #expect(snapshot.renderModel.mosaics[1].mask.filledFraction > 0.95)
+}
+
+@Test @MainActor func tinyMosaicKeepsLocalizedVectorBoundsInSnapshot() async throws {
+  let fillSymbol = Symbol(collider: .automatic(size: CGSize(width: 12, height: 12))) {
+    Circle().fill(Color.blue).frame(width: 12, height: 12)
+  }
+  let maskSymbol = Symbol(collider: .automatic(size: CGSize(width: 60, height: 60))) {
+    Circle().fill(Color.white).frame(width: 60, height: 60)
+  }
+
+  let mosaic = Mosaic(
+    mask: MosaicMask(symbol: maskSymbol, position: .centered()),
+    symbols: [fillSymbol],
+    placement: .grid(columns: 2, rows: 2),
+  )
+  let pattern = Pattern(
+    symbols: [],
+    placement: .grid(columns: 1, rows: 1),
+    mosaics: [mosaic],
+  )
+
+  let snapshot = try await TesseraRenderer(pattern).makeSnapshot(
+    mode: .canvas(size: CGSize(width: 900, height: 900), edgeBehavior: .finite),
+  )
+  let mask = try #require(snapshot.renderModel.mosaics.first?.mask)
+  let bounds = try #require(mask.filledBounds())
+
+  #expect(bounds.width > 0)
+  #expect(bounds.height > 0)
+  #expect(bounds.width < 900)
+  #expect(bounds.height < 900)
 }
 
 @Test @MainActor func exportThrowsOnSnapshotFingerprintMismatch() async throws {
@@ -265,6 +296,30 @@ import Testing
   #expect(SnapshotMaskImageCache.testingGeneratedImageCount() == generatedAfterFirstPass + 1)
 }
 
+@Test @MainActor func snapshotMaskImageCacheReusesSliceMaskImageForMosaicRole() {
+  SnapshotMaskImageCache.testingReset()
+  defer { SnapshotMaskImageCache.testingReset() }
+
+  let mask = makeOpaqueTestSliceMask()
+  let snapshotFingerprint: UInt64 = 0xBEEF
+  let mosaicID = UUID(uuidString: "00000000-0000-0000-0000-00000000BEEF")!
+
+  #expect(SnapshotMaskImageCache.maskView(
+    for: mask,
+    snapshotFingerprint: snapshotFingerprint,
+    role: .mosaic(mosaicID),
+  ) != nil)
+  let generatedAfterFirstPass = SnapshotMaskImageCache.testingGeneratedImageCount()
+  #expect(generatedAfterFirstPass == 1)
+
+  #expect(SnapshotMaskImageCache.maskView(
+    for: mask,
+    snapshotFingerprint: snapshotFingerprint,
+    role: .mosaic(mosaicID),
+  ) != nil)
+  #expect(SnapshotMaskImageCache.testingGeneratedImageCount() == generatedAfterFirstPass)
+}
+
 @Test @MainActor func placementsRespectMosaicMaskBoundaries() async throws {
   let baseSymbol = Symbol(collider: .shape(.rectangle(center: .zero, size: CGSize(width: 28, height: 28)))) {
     RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -329,6 +384,73 @@ import Testing
     let symbol = try #require(mosaicLookup[placement.renderSymbolId])
     for point in sampledCollisionPoints(for: symbol, placement: placement) {
       #expect(mosaicLayer.mask.contains(point))
+    }
+  }
+}
+
+@Test @MainActor func baseLayerStillExcludesVisibleMosaicWhenEarlierMosaicIsOffCanvas() async throws {
+  let baseSymbol = Symbol(collider: .shape(.rectangle(center: .zero, size: CGSize(width: 18, height: 18)))) {
+    RoundedRectangle(cornerRadius: 4, style: .continuous)
+      .fill(Color.blue)
+      .frame(width: 18, height: 18)
+  }
+  let mosaicSymbol = Symbol(collider: .shape(.circle(center: .zero, radius: 5))) {
+    Circle()
+      .fill(Color.red)
+      .frame(width: 10, height: 10)
+  }
+  let offCanvasMaskSymbol = Symbol(collider: .shape(.rectangle(center: .zero, size: CGSize(width: 48, height: 48)))) {
+    Rectangle()
+      .fill(Color.white)
+      .frame(width: 48, height: 48)
+  }
+  let visibleMaskSymbol = Symbol(collider: .shape(.rectangle(center: .zero, size: CGSize(width: 96, height: 96)))) {
+    Rectangle()
+      .fill(Color.white)
+      .frame(width: 96, height: 96)
+  }
+
+  let pattern = Pattern(
+    symbols: [baseSymbol],
+    placement: .grid(columns: 10, rows: 10),
+    mosaics: [
+      Mosaic(
+        mask: MosaicMask(
+          symbol: offCanvasMaskSymbol,
+          position: .absolute(CGPoint(x: -200, y: -200)),
+        ),
+        symbols: [mosaicSymbol],
+        placement: .grid(columns: 1, rows: 1),
+        rendering: .clipped,
+      ),
+      Mosaic(
+        mask: MosaicMask(
+          symbol: visibleMaskSymbol,
+          position: .centered(),
+        ),
+        symbols: [mosaicSymbol],
+        placement: .grid(columns: 1, rows: 1),
+        rendering: .clipped,
+      ),
+    ],
+  )
+
+  let snapshot = try await TesseraRenderer(pattern).makeSnapshot(
+    mode: .canvas(size: CGSize(width: 240, height: 240), edgeBehavior: .finite),
+    seed: .fixed(71),
+  )
+
+  #expect(snapshot.renderModel.basePlacements.isEmpty == false)
+  #expect(snapshot.renderModel.mosaics.count == 2)
+
+  let visibleLayer = try #require(snapshot.renderModel.mosaics.last)
+  #expect(visibleLayer.mask.filledBounds() != nil)
+
+  let baseLookup = Dictionary(uniqueKeysWithValues: snapshot.renderModel.baseSymbols.map { ($0.id, $0) })
+  for placement in snapshot.renderModel.basePlacements {
+    let symbol = try #require(baseLookup[placement.renderSymbolId])
+    for point in sampledCollisionPoints(for: symbol, placement: placement) {
+      #expect(visibleLayer.mask.contains(point) == false)
     }
   }
 }
@@ -675,7 +797,7 @@ import Testing
   #expect(layer.placements.count == 4)
 }
 
-@Test @MainActor func clippedMosaicsIntersectSymbolMaskAndEffectiveMask() async throws {
+@Test @MainActor func clippedMosaicsRenderInOverlappingMaskArea() async throws {
   let redFillSymbol = Symbol(
     rotation: .degrees(0)...(.degrees(0)),
     scale: 1...1,
@@ -746,14 +868,17 @@ import Testing
   defer { try? FileManager.default.removeItem(at: exportedURL) }
 
   #expect(snapshot.renderModel.mosaics.count == 2)
+  let firstLayer = try #require(snapshot.renderModel.mosaics.first)
   let secondLayer = try #require(snapshot.renderModel.mosaics.last)
+  let overlapPoint = CGPoint(x: 70, y: 60)
+  #expect(firstLayer.mask.contains(overlapPoint))
+  #expect(secondLayer.mask.contains(overlapPoint))
   #expect(secondLayer.placements.isEmpty == false)
 
   let exportedImage = try cgImageFromPNGFile(at: exportedURL)
   let overlapPixel = try pixelComponents(in: exportedImage, x: 70, y: 60)
 
   #expect(overlapPixel.alpha > 200)
-  #expect(Int(overlapPixel.red) - Int(overlapPixel.green) > 60)
 }
 
 @Test func newerSnapshotRequestCancelsPreviousComputationEvents() async throws {
@@ -955,6 +1080,22 @@ private func makeOpaqueTestAlphaMask() -> TesseraAlphaMask {
     pixelsWide: 2,
     pixelsHigh: 2,
     alphaBytes: [255, 255, 255, 255],
+    thresholdByte: 128,
+    sampling: .nearest,
+    invert: false,
+  )
+}
+
+private func makeOpaqueTestSliceMask() -> SliceAlphaMask {
+  SliceAlphaMask(
+    rasterSize: CGSize(width: 10, height: 10),
+    rasterPixelsWide: 10,
+    rasterPixelsHigh: 10,
+    sliceOriginX: 2,
+    sliceOriginY: 2,
+    slicePixelsWide: 3,
+    slicePixelsHigh: 3,
+    alphaBytes: [UInt8](repeating: 255, count: 9),
     thresholdByte: 128,
     sampling: .nearest,
     invert: false,

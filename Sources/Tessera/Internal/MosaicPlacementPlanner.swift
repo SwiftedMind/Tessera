@@ -25,8 +25,12 @@ struct MosaicPlacementPlanner: Sendable {
   ) async throws -> TesseraSnapshot {
     let edgeBehavior = resolvedEdgeBehavior(mode: inputs.mode, region: inputs.region)
     let resolvedRegion = inputs.region.resolvedPolygon(in: inputs.resolvedSize)
-    let resolvedGlobalAlphaMask = await MainActor.run {
-      inputs.region.resolvedAlphaMask(in: inputs.resolvedSize)
+    let resolvedGlobalAlphaMask: TesseraAlphaMask? = if inputs.region.isAlphaMask {
+      await MainActor.run {
+        inputs.region.resolvedAlphaMask(in: inputs.resolvedSize)
+      }
+    } else {
+      nil
     }
 
     let maskPreparation = try await prepareMosaicAndBaseMasks(
@@ -36,7 +40,8 @@ struct MosaicPlacementPlanner: Sendable {
 
     onEvent(.placingMosaics(completed: 0, total: inputs.pattern.mosaics.count))
     let mosaicPlacements = try await placeMosaicLayers(
-      effectiveMasks: maskPreparation.effectiveMasks,
+      placementMasks: maskPreparation.mosaicPlacementMasks,
+      mosaicMasks: maskPreparation.mosaicMasks,
       edgeBehavior: edgeBehavior,
       resolvedRegion: resolvedRegion,
       onEvent: onEvent,
@@ -78,51 +83,191 @@ struct MosaicPlacementPlanner: Sendable {
   }
 }
 
+extension MosaicPlacementPlanner {
+  /// Internal test hook for regression coverage of occupancy estimation.
+  static func testingEstimatedFilledFraction(
+    in canvasSize: CGSize,
+    bounds: CGRect,
+    sampleGridSide: Int,
+    contains: (CGPoint) -> Bool,
+  ) -> Double {
+    estimatedFilledFraction(
+      in: canvasSize,
+      bounds: bounds,
+      sampleGridSide: sampleGridSide,
+      contains: contains,
+    )
+  }
+}
+
 private extension MosaicPlacementPlanner {
-  /// Prepares effective mosaic masks and base-layer allowed area using collision-shape-derived coverage.
-  static let mosaicMaskPixelScale: CGFloat = 2
+  /// Placement mask for one mosaic, optionally intersected with a global alpha mask region.
+  struct MosaicPlacementMask: PlacementMask {
+    var shapeMask: MosaicShapeMask
+    var globalMask: TesseraAlphaMask?
+    var cachedFilledFraction: Double
+    var cachedFilledBounds: CGRect?
+
+    init(shapeMask: MosaicShapeMask, globalMask: TesseraAlphaMask?) {
+      self.shapeMask = shapeMask
+      self.globalMask = globalMask
+
+      let shapeBounds = shapeMask.filledBounds()
+      if let globalMask {
+        let globalBounds = globalMask.filledBounds()
+        let intersection = shapeBounds.flatMap { shapeBounds in
+          globalBounds?.intersection(shapeBounds)
+        }
+        if let intersection, intersection.isNull == false, intersection.isEmpty == false {
+          cachedFilledBounds = intersection
+          cachedFilledFraction = MosaicPlacementPlanner.estimatedFilledFraction(
+            in: shapeMask.size,
+            bounds: intersection,
+            sampleGridSide: 56,
+          ) { point in
+            shapeMask.contains(point) && globalMask.contains(point)
+          }
+        } else {
+          cachedFilledBounds = nil
+          cachedFilledFraction = 0
+        }
+      } else {
+        cachedFilledBounds = shapeBounds
+        cachedFilledFraction = shapeMask.filledFraction
+      }
+    }
+
+    func contains(_ point: CGPoint) -> Bool {
+      guard shapeMask.contains(point) else { return false }
+
+      if let globalMask {
+        return globalMask.contains(point)
+      }
+      return true
+    }
+
+    var filledFraction: Double {
+      cachedFilledFraction
+    }
+
+    func filledBounds() -> CGRect? {
+      cachedFilledBounds
+    }
+  }
+
+  /// Placement mask for the base layer (global region minus all mosaic areas).
+  struct BaseAllowedPlacementMask: PlacementMask {
+    struct ExcludedMosaic: Sendable {
+      var bounds: CGRect
+      var mask: MosaicShapeMask
+    }
+
+    var canvasSize: CGSize
+    var globalMask: TesseraAlphaMask?
+    var excludedMosaics: [ExcludedMosaic]
+    var cachedFilledFraction: Double
+    var cachedFilledBounds: CGRect?
+
+    init(canvasSize: CGSize, globalMask: TesseraAlphaMask?, mosaicMasks: [MosaicShapeMask]) {
+      let localMosaicMasks = mosaicMasks
+      let localExcludedMosaics = localMosaicMasks.compactMap { mosaicMask -> ExcludedMosaic? in
+        guard let bounds = mosaicMask.filledBounds() else { return nil }
+
+        return ExcludedMosaic(bounds: bounds, mask: mosaicMask)
+      }
+      let estimatedFraction = MosaicPlacementPlanner.estimatedFilledFraction(
+        in: canvasSize,
+        bounds: CGRect(origin: .zero, size: canvasSize),
+        sampleGridSide: 96,
+      ) { point in
+        if let globalMask, globalMask.contains(point) == false {
+          return false
+        }
+        for excludedMosaic in localExcludedMosaics {
+          guard excludedMosaic.bounds.contains(point) else { continue }
+
+          if excludedMosaic.mask.contains(point) {
+            return false
+          }
+        }
+        return true
+      }
+
+      self.canvasSize = canvasSize
+      self.globalMask = globalMask
+      excludedMosaics = localExcludedMosaics
+      cachedFilledFraction = estimatedFraction
+      if estimatedFraction <= 0 {
+        cachedFilledBounds = nil
+      } else {
+        cachedFilledBounds = globalMask?.filledBounds() ?? CGRect(origin: .zero, size: canvasSize)
+      }
+    }
+
+    func contains(_ point: CGPoint) -> Bool {
+      guard point.x >= 0, point.x <= canvasSize.width, point.y >= 0, point.y <= canvasSize.height else {
+        return false
+      }
+
+      if let globalMask, globalMask.contains(point) == false {
+        return false
+      }
+      for excludedMosaic in excludedMosaics {
+        guard excludedMosaic.bounds.contains(point) else { continue }
+
+        if excludedMosaic.mask.contains(point) {
+          return false
+        }
+      }
+      return true
+    }
+
+    var filledFraction: Double {
+      cachedFilledFraction
+    }
+
+    func filledBounds() -> CGRect? {
+      cachedFilledBounds
+    }
+  }
 
   @concurrent
   func prepareMosaicAndBaseMasks(
     globalMask: TesseraAlphaMask?,
     onEvent: @Sendable (TesseraComputationEvent) -> Void,
   ) async throws -> (
-    effectiveMasks: [TesseraAlphaMask],
-    baseAllowedMask: TesseraAlphaMask?,
+    mosaicMasks: [MosaicShapeMask],
+    mosaicPlacementMasks: [MosaicPlacementMask],
+    baseAllowedMask: (any PlacementMask)?,
   ) {
     let mosaics = inputs.pattern.mosaics
     guard mosaics.isEmpty == false else {
       return (
-        effectiveMasks: [],
+        mosaicMasks: [],
+        mosaicPlacementMasks: [],
         baseAllowedMask: globalMask,
       )
     }
 
     onEvent(.preparingMasks(completed: 0, total: mosaics.count))
-    let rawShapeMasks = try await buildRawMosaicShapeMasks(
+    let mosaicMasks = try await buildRawMosaicShapeMasks(
       mosaics: mosaics,
       onEvent: onEvent,
     )
-    let rasterGrid = ShapeMaskRasterGrid(
-      canvasSize: inputs.resolvedSize,
-      pixelScale: resolvedMaskPixelScale(globalMask: globalMask),
-    )
-    let globalCoverage = globalMask.map { mask in
-      rasterGrid.alignedCoverage(for: mask)
+    let mosaicPlacementMasks = mosaicMasks.map { mosaicMask in
+      MosaicPlacementMask(
+        shapeMask: mosaicMask,
+        globalMask: globalMask,
+      )
     }
-    let effectiveMaskRasterization = try buildEffectiveMosaicMasks(
-      rawShapeMasks: rawShapeMasks,
-      mosaics: mosaics,
-      globalCoverage: globalCoverage,
-      rasterGrid: rasterGrid,
-    )
-    let baseAllowedMask = makeBaseAllowedMask(
-      globalCoverage: globalCoverage,
-      excludedCoverage: effectiveMaskRasterization.exclusionCoverage,
-      rasterGrid: rasterGrid,
+    let baseAllowedMask = BaseAllowedPlacementMask(
+      canvasSize: inputs.resolvedSize,
+      globalMask: globalMask,
+      mosaicMasks: mosaicMasks,
     )
     return (
-      effectiveMasks: effectiveMaskRasterization.effectiveMasks,
+      mosaicMasks: mosaicMasks,
+      mosaicPlacementMasks: mosaicPlacementMasks,
       baseAllowedMask: baseAllowedMask,
     )
   }
@@ -165,86 +310,59 @@ private extension MosaicPlacementPlanner {
     return resolvedMasks
   }
 
-  /// Converts raw shape masks into first-wins effective alpha masks and returns exclusion coverage.
-  func buildEffectiveMosaicMasks(
-    rawShapeMasks: [MosaicShapeMask],
-    mosaics: [Mosaic],
-    globalCoverage: [UInt8]?,
-    rasterGrid: ShapeMaskRasterGrid,
-  ) throws -> (effectiveMasks: [TesseraAlphaMask], exclusionCoverage: [UInt8]) {
-    var exclusionCoverage = [UInt8](repeating: 0, count: rasterGrid.pixelCount)
-    var effectiveMasks: [TesseraAlphaMask] = []
-    effectiveMasks.reserveCapacity(mosaics.count)
+  /// Fast, coarse occupancy estimate used for symbol-count heuristics.
+  static func estimatedFilledFraction(
+    in canvasSize: CGSize,
+    bounds: CGRect,
+    sampleGridSide: Int,
+    contains: (CGPoint) -> Bool,
+  ) -> Double {
+    guard canvasSize.width > 0, canvasSize.height > 0 else { return 0 }
+    guard bounds.isNull == false, bounds.isEmpty == false else { return 0 }
 
-    for (index, _) in mosaics.enumerated() {
-      try Task.checkCancellation()
+    let clampedBounds = bounds.intersection(CGRect(origin: .zero, size: canvasSize))
+    guard clampedBounds.isNull == false, clampedBounds.isEmpty == false else { return 0 }
 
-      let shapeMask = rawShapeMasks[index]
-      var alphaBytes = [UInt8](repeating: 0, count: rasterGrid.pixelCount)
-      guard let pixelRange = rasterGrid.pixelRange(for: shapeMask.bounds) else {
-        effectiveMasks.append(
-          rasterGrid.makeMask(alphaBytes: alphaBytes),
-        )
-        continue
-      }
+    let baseSide = max(sampleGridSide, 8)
+    let refinedSides = [baseSide, baseSide * 2, baseSide * 4]
+    let phaseOffsets: [CGFloat] = [0.5, 0.25, 0.75]
+    var fractionInBounds = 0.0
 
-      for pixelY in pixelRange.y {
-        if (pixelY - pixelRange.y.lowerBound).isMultiple(of: 8) {
-          try Task.checkCancellation()
-        }
-        for pixelX in pixelRange.x {
-          let coverageIndex = pixelY * rasterGrid.pixelsWide + pixelX
-          if exclusionCoverage[coverageIndex] != 0 {
-            continue
-          }
-          if let globalCoverage, globalCoverage[coverageIndex] == 0 {
-            continue
-          }
-          let point = rasterGrid.point(pixelX: pixelX, pixelY: pixelY)
-          if shapeMask.contains(point) {
-            alphaBytes[coverageIndex] = 255
-            exclusionCoverage[coverageIndex] = 255
+    for (refinementIndex, side) in refinedSides.enumerated() {
+      let phases = refinementIndex == 0 ? [phaseOffsets[0]] : phaseOffsets
+      for phaseOffset in phases {
+        let sampleCount = side * side
+        var included = 0
+        for row in 0..<side {
+          let y = clampedBounds.minY + (CGFloat(row) + phaseOffset) / CGFloat(side) * clampedBounds.height
+          for column in 0..<side {
+            let x = clampedBounds.minX + (CGFloat(column) + phaseOffset) / CGFloat(side) * clampedBounds.width
+            if contains(CGPoint(x: x, y: y)) {
+              included += 1
+            }
           }
         }
+        let sampledFraction = Double(included) / Double(max(sampleCount, 1))
+        fractionInBounds = max(fractionInBounds, sampledFraction)
+        if fractionInBounds > 0 {
+          break
+        }
       }
-
-      effectiveMasks.append(
-        rasterGrid.makeMask(alphaBytes: alphaBytes),
-      )
+      if fractionInBounds > 0 {
+        break
+      }
     }
 
-    return (effectiveMasks: effectiveMasks, exclusionCoverage: exclusionCoverage)
-  }
-
-  func resolvedMaskPixelScale(globalMask: TesseraAlphaMask?) -> CGFloat {
-    max(
-      Self.mosaicMaskPixelScale,
-      globalMask?.pixelScale ?? 1,
-    )
-  }
-
-  /// Builds the base-layer allowed-area mask by removing all mosaic coverage.
-  func makeBaseAllowedMask(
-    globalCoverage: [UInt8]?,
-    excludedCoverage: [UInt8],
-    rasterGrid: ShapeMaskRasterGrid,
-  ) -> TesseraAlphaMask? {
-    guard globalCoverage != nil || excludedCoverage.contains(where: { $0 != 0 }) else { return nil }
-
-    var bytes = [UInt8](repeating: 0, count: rasterGrid.pixelCount)
-    for index in bytes.indices {
-      let inGlobal = globalCoverage?[index] != 0 || globalCoverage == nil
-      let inExcluded = excludedCoverage[index] != 0
-      bytes[index] = (inGlobal && inExcluded == false) ? 255 : 0
-    }
-
-    return rasterGrid.makeMask(alphaBytes: bytes)
+    let boundsCoverage = Double(clampedBounds.width * clampedBounds.height) /
+      Double(canvasSize.width * canvasSize.height)
+    return max(0, min(1, fractionInBounds * boundsCoverage))
   }
 
   /// Places symbols for each mosaic layer in parallel after effective masks are known.
   @concurrent
   func placeMosaicLayers(
-    effectiveMasks: [TesseraAlphaMask],
+    placementMasks: [MosaicPlacementMask],
+    mosaicMasks: [MosaicShapeMask],
     edgeBehavior: TesseraEdgeBehavior,
     resolvedRegion: TesseraResolvedPolygonRegion?,
     onEvent: @Sendable (TesseraComputationEvent) -> Void,
@@ -272,16 +390,17 @@ private extension MosaicPlacementPlanner {
             placement: resolved.placement,
           )
           let maskConstraintMode = maskConstraintMode(for: mosaic.rendering)
+          let placementMask = placementMasks[index]
           let gridPlacementBounds = gridPlacementBounds(
             for: resolved.placement,
-            alphaMask: effectiveMasks[index],
+            alphaMask: placementMask,
           )
           if case .grid = resolved.placement, gridPlacementBounds == nil {
             let snapshotLayer = makeSnapshotMosaicLayer(
               mosaic: mosaic,
               symbols: resolved.symbols,
               placements: [],
-              mask: effectiveMasks[index],
+              mask: mosaicMasks[index],
             )
             return (index, snapshotLayer)
           }
@@ -289,7 +408,7 @@ private extension MosaicPlacementPlanner {
             for: inputs.resolvedSize,
             pinnedSymbols: inputs.pinnedSymbols,
             region: resolvedRegion,
-            alphaMask: effectiveMasks[index],
+            alphaMask: placementMask,
             maskConstraintMode: maskConstraintMode,
           )
           var generator = SeededGenerator(seed: seed(for: resolved.placement))
@@ -300,7 +419,7 @@ private extension MosaicPlacementPlanner {
             edgeBehavior: edgeBehavior,
             placement: resolved.placement,
             region: resolvedRegion,
-            alphaMask: effectiveMasks[index],
+            alphaMask: placementMask,
             gridPlacementBounds: gridPlacementBounds,
             maskConstraintMode: maskConstraintMode,
             randomGenerator: &generator,
@@ -310,7 +429,7 @@ private extension MosaicPlacementPlanner {
             mosaic: mosaic,
             symbols: resolved.symbols,
             placements: placed,
-            mask: effectiveMasks[index],
+            mask: mosaicMasks[index],
           )
           return (index, snapshotLayer)
         }
@@ -333,7 +452,7 @@ private extension MosaicPlacementPlanner {
     mosaic: Mosaic,
     symbols: [Symbol],
     placements: [ShapePlacementEngine.PlacedSymbolDescriptor],
-    mask: TesseraAlphaMask,
+    mask: MosaicShapeMask,
   ) -> SnapshotMosaicLayer {
     SnapshotMosaicLayer(
       id: mosaic.id,
@@ -358,7 +477,7 @@ private extension MosaicPlacementPlanner {
   func placeBaseLayer(
     edgeBehavior: TesseraEdgeBehavior,
     resolvedRegion: TesseraResolvedPolygonRegion?,
-    baseAllowedMask: TesseraAlphaMask?,
+    baseAllowedMask: (any PlacementMask)?,
   ) -> (symbols: [Symbol], placements: [SnapshotPlacementDescriptor]) {
     let seededPlacement = apply(seed: inputs.resolvedSeed, to: inputs.pattern.placement)
     let resolved = TesseraPlacementResolver.resolve(
@@ -418,7 +537,7 @@ private extension MosaicPlacementPlanner {
     for canvasSize: CGSize,
     pinnedSymbols: [PinnedSymbol],
     region: TesseraResolvedPolygonRegion?,
-    alphaMask: TesseraAlphaMask?,
+    alphaMask: (any PlacementMask)?,
     maskConstraintMode: ShapePlacementMaskConstraint.Mode = .sampledCollisionGeometry,
   ) -> [ShapePlacementEngine.PinnedSymbolDescriptor] {
     pinnedSymbols.compactMap { pinnedSymbol in
@@ -490,7 +609,7 @@ private extension MosaicPlacementPlanner {
   /// Resolves canvas-space bounds for grid placement inside a mosaic mask.
   func gridPlacementBounds(
     for placement: PlacementModel,
-    alphaMask: TesseraAlphaMask?,
+    alphaMask: (any PlacementMask)?,
   ) -> CGRect? {
     guard case .grid = placement else { return nil }
 

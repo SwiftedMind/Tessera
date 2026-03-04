@@ -73,7 +73,6 @@ struct SnapshotStaticCanvasView: View {
           size: snapshot.size,
           clipPath: clipPath,
           debugOverlay: debugOverlay,
-          snapshotFingerprint: snapshotFingerprint,
         )
       }
       .overlay {
@@ -91,23 +90,11 @@ struct SnapshotStaticCanvasView: View {
               )
 
               if mosaic.rendering.clipsToMask {
-                let symbolMaskedLayer = mosaicLayer.mask {
+                mosaicLayer.mask {
                   SnapshotMosaicMaskSymbolView(
                     mask: mosaic.maskDefinition,
                     size: snapshot.size,
                   )
-                }
-
-                if let effectiveMaskView = SnapshotMaskImageCache.maskView(
-                  for: mosaic.mask,
-                  snapshotFingerprint: snapshotFingerprint,
-                  role: .mosaic(mosaic.id),
-                ) {
-                  symbolMaskedLayer.mask {
-                    effectiveMaskView
-                  }
-                } else {
-                  symbolMaskedLayer
                 }
               } else {
                 mosaicLayer
@@ -148,7 +135,6 @@ private struct SnapshotMosaicMaskDebugOverlayView: View {
   var size: CGSize
   var clipPath: Path?
   var debugOverlay: TesseraDebugOverlay
-  var snapshotFingerprint: UInt64
 
   @ViewBuilder
   var body: some View {
@@ -160,17 +146,7 @@ private struct SnapshotMosaicMaskDebugOverlayView: View {
             size: size,
           )
           let tinted = Rectangle().fill(debugColor(for: index).opacity(opacity))
-          if let effectiveMaskView = SnapshotMaskImageCache.maskView(
-            for: mosaic.mask,
-            snapshotFingerprint: snapshotFingerprint,
-            role: .mosaic(mosaic.id),
-          ) {
-            tinted
-              .mask { symbolMask }
-              .mask { effectiveMaskView }
-          } else {
-            tinted.mask { symbolMask }
-          }
+          tinted.mask { symbolMask }
         }
       }
       .frame(width: size.width, height: size.height)
@@ -247,6 +223,30 @@ enum SnapshotMaskImageCache {
     )
   }
 
+  static func maskView(
+    for mask: SliceAlphaMask,
+    snapshotFingerprint: UInt64,
+    role: Role,
+  ) -> AnyView? {
+    guard let image = image(
+      for: mask,
+      snapshotFingerprint: snapshotFingerprint,
+      role: role,
+    ) else {
+      return nil
+    }
+
+    let scale = max(mask.pixelScale, 0.1)
+    let sliceFrame = mask.sliceFrameInCanvas
+    return AnyView(
+      Image(decorative: image, scale: scale, orientation: .up)
+        .interpolation(.none)
+        .frame(width: sliceFrame.width, height: sliceFrame.height)
+        .position(x: sliceFrame.midX, y: sliceFrame.midY)
+        .frame(width: mask.rasterSize.width, height: mask.rasterSize.height, alignment: .topLeading),
+    )
+  }
+
   private static func image(
     for mask: TesseraAlphaMask,
     snapshotFingerprint: UInt64,
@@ -258,6 +258,30 @@ enum SnapshotMaskImageCache {
     }
 
     guard let generatedImage = mask.maskImage() else { return nil }
+
+    #if DEBUG
+    generatedImageCount += 1
+    #endif
+
+    var snapshotImages = imagesBySnapshotFingerprint[snapshotFingerprint] ?? [:]
+    snapshotImages[role] = generatedImage
+    imagesBySnapshotFingerprint[snapshotFingerprint] = snapshotImages
+    markSnapshotAsRecentlyUsed(snapshotFingerprint)
+    pruneIfNeeded()
+    return generatedImage
+  }
+
+  private static func image(
+    for mask: SliceAlphaMask,
+    snapshotFingerprint: UInt64,
+    role: Role,
+  ) -> CGImage? {
+    if let cachedImage = imagesBySnapshotFingerprint[snapshotFingerprint]?[role] {
+      markSnapshotAsRecentlyUsed(snapshotFingerprint)
+      return cachedImage
+    }
+
+    guard let generatedImage = mask.sliceImage() else { return nil }
 
     #if DEBUG
     generatedImageCount += 1
