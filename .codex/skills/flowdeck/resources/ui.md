@@ -3,15 +3,12 @@
 UI automation is a top-level command group. Use `flowdeck ui simulator` for screen capture, element queries, gestures, taps, typing, assertions, and app control on iOS simulators. Do not use `flowdeck simulator ui`. Commands are kebab-case (for example: `double-tap`, `hide-keyboard`, `open-url`, `clear-state`).
 
 **Guidance:**
-- For agent automation, always pass `--udid <udid>` on every `flowdeck ui simulator ...` command to avoid acting on the wrong booted simulator.
+- Always pass `-S <name-or-udid>` (or `--simulator`) on every `flowdeck ui simulator ...` command to target the correct simulator. Accepts a simulator name (e.g., `"iPhone 16"`) or a raw UDID.
+- **Start a session BEFORE any UI work**: `flowdeck ui simulator session start -S "iPhone 16" --json`. Parse the JSON output to get the `latest_screenshot` and `latest_tree` file paths. Use your Read tool on these paths to see the screen and inspect elements.
+- **Verify after EVERY action**: After each tap/type/swipe, wait ~1 second, then re-read `latest_screenshot` with your Read tool to confirm the UI changed as expected. Never chain actions without verifying.
+- Only use `flowdeck ui simulator screen -S <name-or-udid>` as a fallback when sessions are not working.
 - Prefer accessibility identifiers; use `--by-id` for taps, finds, and assertions.
-- Use `flowdeck ui simulator screen --tree --json` for structure-only; add `--optimize` if you need a screenshot.
-- Avoid screenshots during navigation; capture images only for design comparison or layout validation.
-- For agent loops, use `flowdeck ui simulator session start` and read `latest.json`, `latest.jpg`, and `latest-tree.json`.
-- Coordinates are in points; session screenshots are normalized 1:1 to points.
-- Coordinate taps use the provided point exactly; use label/ID taps to target element centers.
-- Do not scale by @2x/@3x or device resolution; use the image coordinates directly.
-- For off-screen elements, `flowdeck ui simulator scroll --until "id:yourElement"` before tapping.
+- Before tapping, read `latest_tree` to confirm the target element exists and is visible. For off-screen elements, `flowdeck ui simulator scroll --until "id:yourElement" -S "iPhone 16"` first.
 
 #### ui simulator screen
 
@@ -32,23 +29,31 @@ flowdeck ui simulator screen --tree --json
 | Option | Description |
 |--------|-------------|
 | `-o, --output <path>` | Output path for screenshot |
-| `-u, --udid <udid>` | Simulator UDID (pass explicitly in automation; omitting falls back to session/default simulator) |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID (pass explicitly in automation; omitting falls back to session/default simulator) |
 | `-j, --json` | Output as JSON |
 | `--optimize` | Optimize screenshot for agents (smaller size) |
 | `--tree` | Accessibility tree only (no screenshot) |
 | `-v, --verbose` | Show detailed output |
 
-**Notes:**
-- Size output is reported in points. JSON includes `point_width`/`point_height` and `pixel_width`/`pixel_height` when available.
-
 #### ui simulator session
 
-Start or stop a UI automation capture session. Requires a booted simulator. Starting a session stops any active session and captures tree + screenshot every 500ms into `./.flowdeck/automation/sessions/<session-short-id>`. Screenshots are JPEG at 50% quality and only written when the tree changes. JSON output includes the session directory, files, latest pointers, and the current screen size in points (`screen`).
+Start or stop a UI automation capture session. Requires a booted simulator. Starting a session stops any active session and captures tree + screenshot every 500ms into `./.flowdeck/automation/sessions/<session-short-id>`. Screenshots are JPEG at 50% quality and only written when the tree changes. JSON output includes the session directory, files, and latest pointers.
+
+**Always pass `-S`** when multiple simulators may be booted — agents must never rely on implicit simulator selection. Accepts a simulator name (e.g., `"iPhone 16"`) or a raw UDID.
 
 ```bash
-flowdeck ui simulator session start
-flowdeck ui simulator session stop
+# Start a session targeting a specific simulator (by name or UDID)
+flowdeck ui simulator session start -S "iPhone 16"
+
+# Stop the active session
+flowdeck ui simulator session stop -S "iPhone 16"
 ```
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID (required in automation — do not rely on implicit selection) |
+| `-j, --json` | Output as JSON |
 
 #### ui simulator record
 
@@ -66,7 +71,7 @@ flowdeck ui simulator record --duration 20 --codec hevc --force
 | `-t, --duration <seconds>` | Recording duration (default: 10) |
 | `--codec <codec>` | Video codec: h264 or hevc |
 | `--force` | Overwrite output file if it exists |
-| `-u, --udid <udid>` | Simulator UDID |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `-j, --json` | Output as JSON |
 | `-v, --verbose` | Show detailed output |
 
@@ -88,9 +93,9 @@ flowdeck ui simulator tap --point 120,340
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `-p, --point <point>` | Tap at point coordinates (x,y) |
+| `-p, --point <point>` | Tap at coordinates (x,y) |
 | `-d, --duration <seconds>` | Hold duration for long press |
-| `-u, --udid <udid>` | Simulator UDID |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `--by-id` | Treat target as accessibility identifier |
 | `-j, --json` | Output as JSON |
 | `-v, --verbose` | Show detailed output |
@@ -113,8 +118,8 @@ flowdeck ui simulator double-tap --point 160,420
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `-p, --point <point>` | Point coordinates to double tap (x,y) |
-| `-u, --udid <udid>` | Simulator UDID |
+| `-p, --point <point>` | Coordinates to double tap (x,y) |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `--by-id` | Search by accessibility identifier |
 | `-j, --json` | Output as JSON |
 | `-v, --verbose` | Show detailed output |
@@ -137,7 +142,7 @@ flowdeck ui simulator type "New Value" --clear
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `-u, --udid <udid>` | Simulator UDID |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `--clear` | Clear field before typing |
 | `--mask` | Mask text in output |
 | `-j, --json` | Output as JSON |
@@ -160,10 +165,10 @@ flowdeck ui simulator swipe --from 120,700 --to 120,200 --duration 0.5
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `--from <point>` | Start point in points (x,y) |
-| `--to <point>` | End point in points (x,y) |
+| `--from <point>` | Start point (x,y) |
+| `--to <point>` | End point (x,y) |
 | `--duration <seconds>` | Swipe duration (default: 0.3) |
-| `-u, --udid <udid>` | Simulator UDID |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `-j, --json` | Output as JSON |
 | `-v, --verbose` | Show detailed output |
 
@@ -181,11 +186,10 @@ flowdeck ui simulator scroll --until "id:yourElement"
 | Option | Description |
 |--------|-------------|
 | `-d, --direction <direction>` | Scroll direction (UP, DOWN, LEFT, RIGHT) |
-| `--distance <fraction>` | Scroll distance as fraction of the screen (0.05–0.95, not pixels/points) |
 | `-s, --speed <speed>` | Scroll speed 0-100 (default: 40) |
 | `--until <target>` | Scroll until element becomes visible |
 | `--timeout <ms>` | Timeout in ms for --until (default: 20000) |
-| `-u, --udid <udid>` | Simulator UDID |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `-j, --json` | Output as JSON |
 | `-v, --verbose` | Show detailed output |
 
@@ -200,7 +204,7 @@ flowdeck ui simulator back
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `-u, --udid <udid>` | Simulator UDID |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `-j, --json` | Output as JSON |
 | `-v, --verbose` | Show detailed output |
 
@@ -222,9 +226,9 @@ flowdeck ui simulator pinch in --scale 0.6 --point 200,400
 | Option | Description |
 |--------|-------------|
 | `--scale <scale>` | Scale factor (default: 2.0 for out, 0.5 for in) |
-| `-p, --point <point>` | Center point in points (x,y) |
+| `-p, --point <point>` | Center point for pinch (x,y) |
 | `--duration <seconds>` | Pinch duration (default: 0.5) |
-| `-u, --udid <udid>` | Simulator UDID |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `-j, --json` | Output as JSON |
 | `-v, --verbose` | Show detailed output |
 
@@ -251,10 +255,10 @@ flowdeck ui simulator gesture tap --point 200,400
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `-p, --point <point>` | Center point in points (x,y) |
+| `-p, --point <point>` | Center point for tap/long-press/pinch (x,y) |
 | `--duration <seconds>` | Duration in seconds (long-press/swipe; also influences scroll speed) |
 | `--scale <scale>` | Pinch scale (default: 2.0 for out, 0.5 for in) |
-| `-u, --udid <udid>` | Simulator UDID |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `-j, --json` | Output as JSON |
 | `-v, --verbose` | Show detailed output |
 
@@ -277,7 +281,7 @@ flowdeck ui simulator find "Log" --contains
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `-u, --udid <udid>` | Simulator UDID |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `--by-id` | Search by accessibility identifier |
 | `--by-role` | Search by element role (button, textfield, etc.) |
 | `--contains` | Match elements containing the text |
@@ -304,7 +308,7 @@ flowdeck ui simulator wait "Toast" --gone
 |--------|-------------|
 | `-t, --timeout <seconds>` | Timeout in seconds (default: 30) |
 | `--poll <ms>` | Poll interval in ms (default: 500) |
-| `-u, --udid <udid>` | Simulator UDID |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `--gone` | Wait for element to disappear |
 | `--enabled` | Wait for element to be enabled |
 | `--stable` | Wait for element to be stable (not moving) |
@@ -335,7 +339,7 @@ flowdeck ui simulator assert text "Welcome" --expected "Hello"
 **Options (all subcommands):**
 | Option | Description |
 |--------|-------------|
-| `-u, --udid <udid>` | Simulator UDID |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `-j, --json` | Output as JSON |
 | `--by-id` | Search by accessibility identifier |
 
@@ -358,7 +362,7 @@ flowdeck ui simulator erase --characters 5
 | Option | Description |
 |--------|-------------|
 | `-c, --characters <count>` | Number of characters to erase (default: all) |
-| `-u, --udid <udid>` | Simulator UDID |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `-j, --json` | Output as JSON |
 | `-v, --verbose` | Show detailed output |
 
@@ -373,7 +377,7 @@ flowdeck ui simulator hide-keyboard
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `-u, --udid <udid>` | Simulator UDID |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `-j, --json` | Output as JSON |
 | `-v, --verbose` | Show detailed output |
 
@@ -397,7 +401,7 @@ flowdeck ui simulator key 42 --hold 0.2
 |--------|-------------|
 | `--sequence <codes>` | Comma-separated keycodes |
 | `--hold <seconds>` | Hold duration in seconds |
-| `-u, --udid <udid>` | Simulator UDID |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `-j, --json` | Output as JSON |
 | `-v, --verbose` | Show detailed output |
 
@@ -418,7 +422,7 @@ flowdeck ui simulator open-url myapp://path
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `-u, --udid <udid>` | Simulator UDID |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `-j, --json` | Output as JSON |
 
 #### ui simulator clear-state
@@ -437,7 +441,7 @@ flowdeck ui simulator clear-state com.example.app
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `-u, --udid <udid>` | Simulator UDID |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `-j, --json` | Output as JSON |
 
 #### ui simulator rotate
@@ -456,7 +460,7 @@ flowdeck ui simulator rotate landscape
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `-u, --udid <udid>` | Simulator UDID |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `-j, --json` | Output as JSON |
 
 #### ui simulator button
@@ -477,7 +481,7 @@ flowdeck ui simulator button lock --hold 1.0
 | Option | Description |
 |--------|-------------|
 | `--hold <seconds>` | Hold duration in seconds |
-| `-u, --udid <udid>` | Simulator UDID |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `-j, --json` | Output as JSON |
 | `-v, --verbose` | Show detailed output |
 
@@ -497,7 +501,7 @@ flowdeck ui simulator touch down 120,340
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `-u, --udid <udid>` | Simulator UDID |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `-j, --json` | Output as JSON |
 | `-v, --verbose` | Show detailed output |
 
@@ -524,7 +528,7 @@ Set these environment variables when you need to slow input or improve stability
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `-u, --udid <udid>` | Simulator UDID |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `-j, --json` | Output as JSON |
 | `-v, --verbose` | Show detailed output |
 

@@ -55,7 +55,7 @@ flowdeck test -w App.xcworkspace -s MyApp -S "iPhone 16" --xcodebuild-env='CI=tr
 | Option | Description |
 |--------|-------------|
 | `-p, --project <path>` | Project directory |
-| `-w, --workspace <path>` | Path to .xcworkspace or .xcodeproj (REQUIRED unless init was run) |
+| `-w, --workspace <path>` | Path to .xcworkspace or .xcodeproj (REQUIRED unless flowdeck config set was run) |
 | `-s, --scheme <name>` | Scheme name (auto-detected if only one) |
 | `-S, --simulator <name>` | Simulator name/UDID (required for iOS/tvOS/watchOS) |
 | `-D, --device <name>` | Device name/UDID (use "My Mac" for macOS) |

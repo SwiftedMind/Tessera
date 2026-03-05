@@ -41,7 +41,7 @@ flowdeck run -w App.xcworkspace -s MyApp -S "iPhone 16" --xcodebuild-env='CI=tru
 | Option | Description |
 |--------|-------------|
 | `-p, --project <path>` | Project directory |
-| `-w, --workspace <path>` | Path to .xcworkspace or .xcodeproj (REQUIRED unless init was run) |
+| `-w, --workspace <path>` | Path to .xcworkspace or .xcodeproj (REQUIRED unless flowdeck config set was run) |
 | `-s, --scheme <name>` | Scheme name (auto-detected if only one) |
 | `-S, --simulator <name>` | Simulator name or UDID (required for iOS/tvOS/watchOS) |
 | `-D, --device <name>` | Device name/UDID, or "My Mac"/"My Mac Catalyst" for macOS |
@@ -58,7 +58,7 @@ flowdeck run -w App.xcworkspace -s MyApp -S "iPhone 16" --xcodebuild-env='CI=tru
 | `-j, --json` | Output JSON events |
 | `-v, --verbose` | Show app console output |
 
-**Note:** Either `--simulator` or `--device` is required unless you've run `flowdeck init`. Use `--device "My Mac"` for native macOS, or `--device "My Mac Catalyst"` for Catalyst if the scheme supports it.
+**Note:** Either `--simulator` or `--device` is required unless you've run `flowdeck config set`. Use `--device "My Mac"` for native macOS, or `--device "My Mac Catalyst"` for Catalyst if the scheme supports it.
 
 **After Launching:**
 When the app launches, you'll get an App ID. Use it to:

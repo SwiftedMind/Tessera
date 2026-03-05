@@ -1,4 +1,4 @@
-## [Upcoming 4.0.0]
+## [4.0.0]
 
 ### Added
 - **Grid Subgrids**: Grid placement now supports rectangular `subgrids` with dedicated symbol pools, per-subgrid

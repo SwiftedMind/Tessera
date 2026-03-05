@@ -14,27 +14,7 @@ flowdeck license status
 flowdeck license status --json
 ```
 
-#### license trial
-
-Starts a free 7-day trial of FlowDeck. No credit card required.
-
-```bash
-# Start free trial (interactive - prompts for name and email)
-flowdeck license trial
-
-# JSON output
-flowdeck license trial --json
-```
-
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `--json` | Output as JSON |
-
-**Notes:**
-- You will be prompted to enter your name and email address
-- Trial is 7 days with full access to all features
-- After trial expires, visit flowdeck.studio/pricing to purchase
+Need a key? Purchase at https://flowdeck.studio/cli/purchase/
 
 #### license activate
 
