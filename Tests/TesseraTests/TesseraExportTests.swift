@@ -1,8 +1,11 @@
 // By Dennis Müller
 
 import CoreGraphics
-import ImageIO
+import Foundation
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 @testable import Tessera
 import Testing
 
@@ -11,7 +14,13 @@ import Testing
   let temporaryDirectory = FileManager.default.temporaryDirectory
   let fileName = UUID().uuidString
 
-  let exportedURL = try tile.renderPNG(to: temporaryDirectory, fileName: fileName)
+  let exportedURL = try await tile.export(
+    .png,
+    options: .init(
+      directory: temporaryDirectory,
+      fileName: fileName,
+    ),
+  )
   defer { try? FileManager.default.removeItem(at: exportedURL) }
 
   let cgImage = try cgImageFromPNGFile(at: exportedURL)
@@ -23,7 +32,13 @@ import Testing
   let temporaryDirectory = FileManager.default.temporaryDirectory
   let fileName = UUID().uuidString
 
-  let exportedURL = try tile.renderPDF(to: temporaryDirectory, fileName: fileName)
+  let exportedURL = try await tile.export(
+    .pdf,
+    options: .init(
+      directory: temporaryDirectory,
+      fileName: fileName,
+    ),
+  )
   defer { try? FileManager.default.removeItem(at: exportedURL) }
 
   let cgImage = try cgImageFromPDFFile(at: exportedURL)
@@ -97,7 +112,7 @@ import Testing
   let configuration = TesseraConfiguration(
     symbols: [generatedSymbol],
     placement: .grid(
-      TesseraPlacement.Grid(
+      PlacementModel.Grid(
         columnCount: 1,
         rowCount: 1,
       ),
@@ -134,6 +149,98 @@ import Testing
   #expect(Int(centerPixel.red) - Int(centerPixel.blue) > 100)
 }
 
+@Test @MainActor func canvasPNGExportUsingPlacementSnapshotMatchesRegularExport() async throws {
+  let canvasSize = CGSize(width: 128, height: 128)
+  let canvas = makeSingleSymbolGridCanvas()
+  let temporaryDirectory = FileManager.default.temporaryDirectory
+  let fileName = UUID().uuidString
+
+  let placedSymbolDescriptors = canvas.makeSynchronousPlacedDescriptors(for: canvasSize)
+  let placementSnapshot = canvas.makePlacementSnapshot(
+    canvasSize: canvasSize,
+    placedSymbolDescriptors: placedSymbolDescriptors,
+  )
+
+  let baselineURL = try canvas.renderPNG(
+    to: temporaryDirectory,
+    fileName: "\(fileName)-baseline",
+    canvasSize: canvasSize,
+  )
+  defer { try? FileManager.default.removeItem(at: baselineURL) }
+
+  let snapshotURL = try canvas.renderPNG(
+    to: temporaryDirectory,
+    fileName: "\(fileName)-snapshot",
+    placementSnapshot: placementSnapshot,
+  )
+  defer { try? FileManager.default.removeItem(at: snapshotURL) }
+
+  let baselineImage = try cgImageFromPNGFile(at: baselineURL)
+  let snapshotImage = try cgImageFromPNGFile(at: snapshotURL)
+
+  #expect(imagesArePixelEqual(baselineImage, snapshotImage))
+}
+
+@Test @MainActor func canvasPNGExportWithInvalidPlacementSnapshotThrowsError() async throws {
+  let canvasSize = CGSize(width: 128, height: 128)
+  let canvas = makeSingleSymbolGridCanvas()
+  let temporaryDirectory = FileManager.default.temporaryDirectory
+  let fileName = UUID().uuidString
+
+  let placedSymbolDescriptors = canvas.makeSynchronousPlacedDescriptors(for: canvasSize)
+  var invalidPlacementSnapshot = canvas.makePlacementSnapshot(
+    canvasSize: canvasSize,
+    placedSymbolDescriptors: placedSymbolDescriptors,
+  )
+  #expect(invalidPlacementSnapshot.placedSymbols.isEmpty == false)
+  invalidPlacementSnapshot.placedSymbols[0].renderSymbolId = UUID()
+
+  #expect(throws: RenderError.invalidPlacementSnapshot) {
+    try canvas.renderPNG(
+      to: temporaryDirectory,
+      fileName: fileName,
+      placementSnapshot: invalidPlacementSnapshot,
+    )
+  }
+}
+
+@Test @MainActor func canvasPlacementSnapshotCallbackEmitsComputedSnapshot() async throws {
+  let canvasSize = CGSize(width: 128, height: 128)
+  var callbackSnapshot: TesseraCanvas.PlacementSnapshot?
+
+  let canvas = makeSingleSymbolGridCanvas().onPlacementSnapshotReady { snapshot in
+    callbackSnapshot = snapshot
+  }
+  let expectedPlacedSymbolDescriptors = canvas.makeSynchronousPlacedDescriptors(
+    for: canvasSize,
+  )
+  let expectedSnapshot = canvas.makePlacementSnapshot(
+    canvasSize: canvasSize,
+    placedSymbolDescriptors: expectedPlacedSymbolDescriptors,
+  )
+
+  #if canImport(UIKit)
+  let hostView = canvas.frame(width: canvasSize.width, height: canvasSize.height)
+  let hostingController = UIHostingController(rootView: hostView)
+  let window = UIWindow(frame: CGRect(origin: .zero, size: canvasSize))
+  window.rootViewController = hostingController
+  window.makeKeyAndVisible()
+  defer {
+    window.isHidden = true
+    window.rootViewController = nil
+  }
+
+  let timeoutDate = Date().addingTimeInterval(2)
+  while callbackSnapshot == nil, Date() < timeoutDate {
+    try await Task.sleep(nanoseconds: 10_000_000)
+  }
+  #else
+  Issue.record("Callback emission test requires UIKit")
+  #endif
+
+  #expect(callbackSnapshot == expectedSnapshot)
+}
+
 @Test @MainActor func canvasPDFExportRendersPinnedSymbolsAboveGeneratedSymbols() async throws {
   let canvasSize = CGSize(width: 128, height: 128)
 
@@ -151,7 +258,7 @@ import Testing
   let configuration = TesseraConfiguration(
     symbols: [generatedSymbol],
     placement: .grid(
-      TesseraPlacement.Grid(
+      PlacementModel.Grid(
         columnCount: 1,
         rowCount: 1,
       ),
@@ -253,214 +360,31 @@ import Testing
 }
 
 @MainActor
-private func makeTestTile() -> TesseraTile {
+private func makeSingleSymbolGridCanvas() -> TesseraCanvas {
   let symbol = TesseraSymbol(
     weight: 1,
     allowedRotationRange: .degrees(0)...(.degrees(0)),
     scaleRange: 1...1,
-    collisionShape: .circle(center: .zero, radius: 10),
+    collisionShape: .rectangle(center: .zero, size: CGSize(width: 64, height: 64)),
   ) {
-    Circle()
-      .fill(Color.red)
-      .frame(width: 20, height: 20)
+    Rectangle()
+      .fill(Color.blue)
+      .frame(width: 64, height: 64)
   }
 
   let configuration = TesseraConfiguration(
     symbols: [symbol],
-    placement: .organic(
-      TesseraPlacement.Organic(
-        seed: 1,
-        minimumSpacing: 2,
-        density: 1,
-        baseScaleRange: 1...1,
-        maximumSymbolCount: 64,
+    placement: .grid(
+      PlacementModel.Grid(
+        columnCount: 1,
+        rowCount: 1,
       ),
     ),
   )
 
-  return TesseraTile(configuration, tileSize: CGSize(width: 128, height: 128))
-}
-
-@MainActor
-private func makeTestCanvasWithCenteredFixedCircle(canvasSize: CGSize) -> TesseraCanvas {
-  let configuration = TesseraConfiguration(
-    symbols: [],
-    placement: .organic(
-      TesseraPlacement.Organic(
-        seed: 1,
-        minimumSpacing: 10,
-        density: 0,
-        baseScaleRange: 1...1,
-        maximumSymbolCount: 0,
-      ),
-    ),
+  return TesseraCanvas(
+    configuration,
+    seed: 1,
+    edgeBehavior: .finite,
   )
-
-  let fixedCircle = TesseraPinnedSymbol(
-    position: CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2),
-    rotation: .degrees(0),
-    scale: 1,
-    collisionShape: .circle(center: .zero, radius: 10),
-  ) {
-    Circle()
-      .fill(Color.red)
-      .frame(width: 20, height: 20)
-  }
-
-  return TesseraCanvas(configuration, pinnedSymbols: [fixedCircle], seed: 1, edgeBehavior: .finite)
-}
-
-private func cgImageFromPNGFile(at url: URL) throws -> CGImage {
-  let data = try Data(contentsOf: url)
-  let options: [CFString: Any] = [
-    kCGImageSourceShouldCache: true,
-    kCGImageSourceShouldCacheImmediately: true,
-  ]
-
-  guard let source = CGImageSourceCreateWithData(data as CFData, options as CFDictionary) else {
-    throw CocoaError(.coderReadCorrupt)
-  }
-  guard let image = CGImageSourceCreateImageAtIndex(source, 0, options as CFDictionary) else {
-    throw CocoaError(.coderReadCorrupt)
-  }
-
-  return image
-}
-
-private func cgImageFromPDFFile(at url: URL) throws -> CGImage {
-  guard let pdfDocument = CGPDFDocument(url as CFURL) else {
-    throw CocoaError(.coderReadCorrupt)
-  }
-  guard let firstPage = pdfDocument.page(at: 1) else {
-    throw CocoaError(.coderReadCorrupt)
-  }
-
-  let mediaBox = firstPage.getBoxRect(.mediaBox).integral
-  let width = max(Int(mediaBox.width), 1)
-  let height = max(Int(mediaBox.height), 1)
-
-  let bytesPerPixel = 4
-  let bytesPerRow = bytesPerPixel * width
-
-  var pixelBytes = [UInt8](repeating: 0, count: height * bytesPerRow)
-
-  guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else {
-    throw CocoaError(.coderReadCorrupt)
-  }
-
-  let bitmapInfo = CGBitmapInfo.byteOrder32Big
-    .union(CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue))
-  guard let context = CGContext(
-    data: &pixelBytes,
-    width: width,
-    height: height,
-    bitsPerComponent: 8,
-    bytesPerRow: bytesPerRow,
-    space: colorSpace,
-    bitmapInfo: bitmapInfo.rawValue,
-  ) else {
-    throw CocoaError(.coderReadCorrupt)
-  }
-
-  context.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 0))
-  context.fill(CGRect(x: 0, y: 0, width: width, height: height))
-
-  context.saveGState()
-  context.translateBy(x: 0, y: CGFloat(height))
-  context.scaleBy(x: 1, y: -1)
-  context.drawPDFPage(firstPage)
-  context.restoreGState()
-
-  guard let rasterizedImage = context.makeImage() else {
-    throw CocoaError(.coderReadCorrupt)
-  }
-
-  return rasterizedImage
-}
-
-private struct PixelComponents: Sendable {
-  var red: UInt8
-  var green: UInt8
-  var blue: UInt8
-  var alpha: UInt8
-}
-
-private func pixelComponents(in cgImage: CGImage, x: Int, y: Int) throws -> PixelComponents {
-  let width = max(cgImage.width, 1)
-  let height = max(cgImage.height, 1)
-
-  guard (0..<width).contains(x), (0..<height).contains(y) else {
-    throw CocoaError(.coderReadCorrupt)
-  }
-
-  let bytesPerPixel = 4
-  let bytesPerRow = bytesPerPixel * width
-
-  var pixelBytes = [UInt8](repeating: 0, count: height * bytesPerRow)
-
-  guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else {
-    throw CocoaError(.coderReadCorrupt)
-  }
-
-  let bitmapInfo = CGBitmapInfo.byteOrder32Big
-    .union(CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue))
-  guard let context = CGContext(
-    data: &pixelBytes,
-    width: width,
-    height: height,
-    bitsPerComponent: 8,
-    bytesPerRow: bytesPerRow,
-    space: colorSpace,
-    bitmapInfo: bitmapInfo.rawValue,
-  ) else {
-    throw CocoaError(.coderReadCorrupt)
-  }
-
-  context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
-
-  let byteOffset = (y * bytesPerRow) + (x * bytesPerPixel)
-  return PixelComponents(
-    red: pixelBytes[byteOffset],
-    green: pixelBytes[byteOffset + 1],
-    blue: pixelBytes[byteOffset + 2],
-    alpha: pixelBytes[byteOffset + 3],
-  )
-}
-
-private func imageContainsVisiblePixels(_ cgImage: CGImage) -> Bool {
-  let width = max(cgImage.width, 1)
-  let height = max(cgImage.height, 1)
-
-  let bytesPerPixel = 4
-  let bytesPerRow = bytesPerPixel * width
-
-  var pixelBytes = [UInt8](repeating: 0, count: height * bytesPerRow)
-
-  guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else {
-    return false
-  }
-
-  let bitmapInfo = CGBitmapInfo.byteOrder32Big
-    .union(CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue))
-  guard let context = CGContext(
-    data: &pixelBytes,
-    width: width,
-    height: height,
-    bitsPerComponent: 8,
-    bytesPerRow: bytesPerRow,
-    space: colorSpace,
-    bitmapInfo: bitmapInfo.rawValue,
-  ) else {
-    return false
-  }
-
-  context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
-
-  for alphaByteIndex in stride(from: 3, to: pixelBytes.count, by: 4) {
-    if pixelBytes[alphaByteIndex] != 0 {
-      return true
-    }
-  }
-
-  return false
 }

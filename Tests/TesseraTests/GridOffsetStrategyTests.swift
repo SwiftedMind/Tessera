@@ -8,7 +8,7 @@ import Testing
 @Test func rowShiftFractionOneAppliesFullCellShift() async throws {
   let size = CGSize(width: 200, height: 200)
 
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 2,
     rowCount: 2,
     offsetStrategy: .rowShift(fraction: 1),
@@ -32,7 +32,7 @@ import Testing
 @Test func rowShiftSupportsValuesGreaterThanOne() async throws {
   let size = CGSize(width: 200, height: 200)
 
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 4,
     rowCount: 2,
     offsetStrategy: .rowShift(fraction: 1.25),
@@ -54,7 +54,7 @@ import Testing
 @Test func checkerShiftFractionOneAppliesFullCellShift() async throws {
   let size = CGSize(width: 200, height: 200)
 
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 2,
     rowCount: 2,
     offsetStrategy: .checkerShift(fraction: 1),
@@ -78,7 +78,7 @@ import Testing
 @Test func rowShiftZeroDoesNotForceEvenRowCountUnderWrapping() async throws {
   let size = CGSize(width: 300, height: 300)
 
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 3,
     rowCount: 3,
     offsetStrategy: .rowShift(fraction: 0),
@@ -98,7 +98,7 @@ import Testing
 @Test func columnShiftZeroDoesNotForceEvenColumnCountUnderWrapping() async throws {
   let size = CGSize(width: 300, height: 300)
 
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 3,
     rowCount: 3,
     offsetStrategy: .columnShift(fraction: 0),
@@ -118,7 +118,7 @@ import Testing
 @Test func checkerShiftZeroDoesNotForceEvenCountsUnderWrapping() async throws {
   let size = CGSize(width: 300, height: 300)
 
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 3,
     rowCount: 3,
     offsetStrategy: .checkerShift(fraction: 0),
@@ -138,7 +138,7 @@ import Testing
 @Test func rowShiftNonZeroForcesEvenRowCountUnderWrapping() async throws {
   let size = CGSize(width: 300, height: 300)
 
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 3,
     rowCount: 3,
     offsetStrategy: .rowShift(fraction: 0.25),
@@ -158,7 +158,7 @@ import Testing
 @Test func columnShiftNonZeroForcesEvenColumnCountUnderWrapping() async throws {
   let size = CGSize(width: 300, height: 300)
 
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 3,
     rowCount: 3,
     offsetStrategy: .columnShift(fraction: 0.25),
@@ -178,7 +178,7 @@ import Testing
 @Test func checkerShiftNonZeroForcesEvenCountsUnderWrapping() async throws {
   let size = CGSize(width: 300, height: 300)
 
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 3,
     rowCount: 3,
     offsetStrategy: .checkerShift(fraction: 0.25),
@@ -198,7 +198,7 @@ import Testing
 @Test func rowShiftNegativeActsAsZero() async throws {
   let size = CGSize(width: 300, height: 300)
 
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 3,
     rowCount: 3,
     offsetStrategy: .rowShift(fraction: -1),
@@ -219,7 +219,7 @@ import Testing
 @Test func rowShiftNaNActsAsZero() async throws {
   let size = CGSize(width: 300, height: 300)
 
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 3,
     rowCount: 3,
     offsetStrategy: .rowShift(fraction: Double.nan),
@@ -240,7 +240,7 @@ import Testing
 @Test func largeRowShiftCullsInFiniteButNotInWrapping() async throws {
   let size = CGSize(width: 200, height: 200)
 
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 4,
     rowCount: 4,
     offsetStrategy: .rowShift(fraction: 2),
@@ -269,7 +269,7 @@ import Testing
 @Test func gridPlacementRespectsRotationRange() async throws {
   let size = CGSize(width: 200, height: 100)
 
-  let configuration = TesseraPlacement.Grid(
+  let configuration = PlacementModel.Grid(
     columnCount: 2,
     rowCount: 1,
     offsetStrategy: .none,
@@ -286,12 +286,14 @@ import Testing
   #expect(placed.count == 2)
   let expectedFirst = expectedRotationRadians(
     rangeDegrees: 0...180,
+    baseSeed: configuration.seed,
     rowIndex: 0,
     columnIndex: 0,
     symbolIndex: 0,
   )
   let expectedSecond = expectedRotationRadians(
     rangeDegrees: 0...180,
+    baseSeed: configuration.seed,
     rowIndex: 0,
     columnIndex: 1,
     symbolIndex: 1,
@@ -323,6 +325,7 @@ private func makeRotationRangeSymbolDescriptor() -> ShapePlacementEngine.Placeme
 
 private func expectedRotationRadians(
   rangeDegrees: ClosedRange<Double>,
+  baseSeed: UInt64,
   rowIndex: Int,
   columnIndex: Int,
   symbolIndex: Int,
@@ -334,6 +337,7 @@ private func expectedRotationRadians(
   }
 
   let seed = gridRotationSeed(
+    baseSeed: baseSeed,
     rowIndex: rowIndex,
     columnIndex: columnIndex,
     symbolIndex: symbolIndex,
@@ -344,11 +348,13 @@ private func expectedRotationRadians(
 }
 
 private func gridRotationSeed(
+  baseSeed: UInt64,
   rowIndex: Int,
   columnIndex: Int,
   symbolIndex: Int,
 ) -> UInt64 {
-  var seed = UInt64(truncatingIfNeeded: rowIndex) &* 0x9E37_79B9_7F4A_7C15
+  var seed = baseSeed &* 0xD6E8_FEB8_6659_FD93
+  seed ^= UInt64(truncatingIfNeeded: rowIndex) &* 0x9E37_79B9_7F4A_7C15
   seed ^= UInt64(truncatingIfNeeded: columnIndex) &* 0xBF58_476D_1CE4_E5B9
   seed ^= UInt64(truncatingIfNeeded: symbolIndex) &* 0x94D0_49BB_1331_11EB
   seed ^= seed >> 29

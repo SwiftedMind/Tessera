@@ -1,17 +1,29 @@
 # Examples
 
-This directory contains example applications demonstrating how to use the SwiftAgent SDK.
+Example apps for Tessera.
 
 ## Running the Example App
 
 > [!IMPORTANT]
-> You must open the `SwiftAgent.xcworkspace` file at the root of the repository, **not** the `ExampleApp.xcodeproj` file in the `Example App/` folder.
+> Open `Tessera.xcworkspace` (not `Examples/ExampleApp.xcodeproj`).
 
-### Steps to run:
+1. Open `Tessera.xcworkspace`.
+2. Select the `ExampleApp` scheme.
+3. Pick a simulator or device.
+4. Build and run.
 
-1. Open `SwiftAgent.xcworkspace` (located at the root of the repository)
-2. Select the "ExampleApp" scheme in Xcode
-3. Choose your target device or simulator
-4. Build and run
+The workspace is wired to the local package so API changes are available immediately.
 
-The workspace is configured to use the local development version of the SDK, allowing you to test changes immediately without needing to publish or update package dependencies.
+## Included Demo Screens
+
+- Tiled and finite canvas examples
+- Grid placement example
+- Polygon and alpha-mask region examples
+- Spatial steering examples:
+  - Organic spacing gradient
+  - Organic scale gradient
+  - Organic radial scale
+  - Grid scale gradient
+  - Organic rotation gradient
+  - Grid radial rotation
+  - Grid rotation gradient

@@ -1,309 +1,55 @@
 // By Dennis Müller
 
 import SwiftUI
-import Tessera
 
 struct TesseraDemoView: View {
-  @State private var selectedView: Int = 2
-  @State private var showCollisions: Bool = false
+  @State private var searchText = ""
 
   var body: some View {
-    let demoSymbols: [TesseraSymbol] = [
-      .squareOutline,
-      .roundedOutline,
-      .partyPopper,
-      .minus,
-      .equals,
-      .splitLetters,
-      .concaveBlock,
-      .circleOutline,
-    ]
-
-    let demoConfiguration = TesseraConfiguration(
-      symbols: demoSymbols,
-      placement: .organic(
-        TesseraPlacement.Organic(
-          seed: 0,
-          minimumSpacing: 0,
-          density: 0.8,
-          baseScaleRange: 0.5...1.2,
-          showsCollisionOverlay: showCollisions,
-        ),
-      ),
-    )
-
-    let gridConfiguration = TesseraConfiguration(
-      symbols: [
-        TesseraSymbol(
-          allowedRotationRange: .degrees(0)...(.degrees(0)),
-          collisionShape: .rectangle(center: .zero, size: CGSize(width: 0, height: 0)),
-          content: {
-            Image(systemName: "plus")
-              .resizable()
-              .aspectRatio(contentMode: .fit)
-              .frame(width: 25, height: 25)
-          },
-        ),
-        TesseraSymbol(
-          allowedRotationRange: .degrees(0)...(.degrees(0)),
-          collisionShape: .rectangle(center: .zero, size: CGSize(width: 0, height: 0)),
-          content: {
-            Image(systemName: "plus")
-              .resizable()
-              .aspectRatio(contentMode: .fit)
-              .frame(width: 25, height: 25)
-              .opacity(0.5)
-              .rotationEffect(.degrees(45))
-          },
-        ),
-      ],
-      placement: .grid(
-        TesseraPlacement.Grid(
-          columnCount: 6,
-          rowCount: 6,
-          offsetStrategy: .rowShift(fraction: 0.5),
-        ),
-      ),
-    )
-
-    TabView(selection: $selectedView) {
-      // Repeating Tiles
-      TesseraTiledCanvas(
-        demoConfiguration,
-        tileSize: CGSize(width: 256, height: 256),
-      )
-      .ignoresSafeArea()
-      .tabItem {
-        Label("Tiled Canvas", systemImage: "square.grid.3x3.fill")
-      }
-      .tag(0)
-
-      // Finite-sized Canvas
-      TesseraCanvas(
-        demoConfiguration,
-        pinnedSymbols: [
-          TesseraPinnedSymbol(
-            position: .centered(),
-            collisionShape: .circle(center: .zero, radius: 60),
-          ) {
-            Image(systemName: "swift")
-              .resizable()
-              .scaledToFit()
-              .foregroundStyle(.orange)
-              .frame(width: 100, height: 100)
-          },
-          TesseraPinnedSymbol(
-            position: .bottomTrailing(offset: CGSize(width: -120, height: -120)),
-            collisionShape: .circle(center: .zero, radius: 140),
-          ) {
-            Text("Tessera")
-              .font(.system(size: 48, weight: .bold, design: .rounded))
-              .foregroundStyle(.white.opacity(0.8))
-          },
-        ],
-        edgeBehavior: .finite,
-      )
-      .background(.black)
-      .ignoresSafeArea()
-      .tabItem {
-        Label("Canvas", systemImage: "rectangle.and.pencil.and.ellipsis")
-      }
-      .tag(1)
-
-      
-      // Grid Placement
-      TesseraTiledCanvas(
-        gridConfiguration,
-        tileSize: CGSize(width: 250, height: 250),
-      )
-      .ignoresSafeArea()
-      .tabItem {
-        Label("Grid", systemImage: "square.grid.2x2")
-      }
-      .tag(2)
-
-      // Collision Shape Editor
-      CollisionShapeEditorDemo()
-        .tabItem {
-          Label("Collision Editor", systemImage: "viewfinder")
+    NavigationStack {
+      List {
+        Section {
+          CatalogIntroCard()
         }
-        .tag(3)
+
+        ForEach(filteredSections) { section in
+          Section {
+            ForEach(section.examples) { example in
+              NavigationLink {
+                example.destination.makeView()
+              } label: {
+                ExampleRow(example: example)
+              }
+            }
+          } header: {
+            Text(section.title)
+          } footer: {
+            Text(section.summary)
+          }
+        }
+      }
+      .listStyle(.insetGrouped)
+      .navigationTitle("Tessera Examples")
+      .searchable(text: $searchText, prompt: "Find an example")
+    }
+  }
+
+  private var filteredSections: [DemoCatalogSection] {
+    let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !query.isEmpty else { return DemoCatalog.sections }
+
+    return DemoCatalog.sections.compactMap { section in
+      if section.title.localizedCaseInsensitiveContains(query)
+        || section.summary.localizedCaseInsensitiveContains(query) {
+        return section
+      }
+
+      let filteredExamples = section.examples.filter { $0.matches(query: query) }
+      guard !filteredExamples.isEmpty else { return nil }
+
+      return section.replacingExamples(filteredExamples)
     }
   }
 }
 
-#Preview {
-  TesseraDemoView()
-    .preferredColorScheme(.dark)
-}
-
-private struct CollisionShapeEditorDemo: View {
-  var body: some View {
-    previewSymbol.collisionShapeEditor()
-  }
-
-  var previewSymbol: TesseraSymbol {
-    TesseraSymbol(
-      collisionShape: .polygon(points: [
-        CGPoint(x: 6.46, y: 12.57),
-        CGPoint(x: 6.74, y: 39.74),
-        CGPoint(x: 28.65, y: 56.17),
-        CGPoint(x: 49.01, y: 42.06),
-        CGPoint(x: 48.73, y: 12.36),
-        CGPoint(x: 27.95, y: 4.56),
-      ]),
-    ) {
-      Image(systemName: "shield.fill")
-        .font(.system(size: 52, weight: .semibold))
-        .foregroundStyle(.primary)
-    }
-  }
-}
-
-extension TesseraSymbol {
-  /// A lightly stroked square outline.
-  static var squareOutline: TesseraSymbol {
-    TesseraSymbol(
-      collisionShape: .rectangle(center: .zero, size: CGSize(width: 34, height: 34)),
-    ) {
-      Rectangle()
-        .stroke(lineWidth: 4)
-        .foregroundStyle(.gray.opacity(0.8))
-        .frame(width: 30, height: 30)
-    }
-  }
-
-  /// A softly rounded rectangle outline.
-  static var roundedOutline: TesseraSymbol {
-    TesseraSymbol(
-      collisionShape: .rectangle(center: .zero, size: CGSize(width: 34, height: 34)),
-    ) {
-      RoundedRectangle(cornerRadius: 6)
-        .stroke(lineWidth: 4)
-        .frame(width: 30, height: 30)
-    }
-  }
-
-  /// A celebratory SF Symbol.
-  static var partyPopper: TesseraSymbol {
-    TesseraSymbol(
-      allowedRotationRange: .degrees(-45)...(.degrees(45)),
-      collisionShape: .circle(center: .zero, radius: 20),
-    ) {
-      Image(systemName: "party.popper.fill")
-        .foregroundStyle(.red.opacity(0.5))
-        .font(.largeTitle)
-    }
-  }
-
-  /// A minus glyph.
-  static var minus: TesseraSymbol {
-    TesseraSymbol(
-      collisionShape: .rectangle(center: .zero, size: CGSize(width: 36, height: 4)),
-    ) {
-      Text("-")
-        .foregroundStyle(.gray)
-        .font(.largeTitle)
-    }
-  }
-
-  /// An equals glyph.
-  static var equals: TesseraSymbol {
-    TesseraSymbol(
-      collisionShape: .rectangle(center: .zero, size: CGSize(width: 36, height: 12)),
-    ) {
-      Text("=")
-        .foregroundStyle(.gray)
-        .font(.largeTitle)
-    }
-  }
-
-  /// A subtle circle outline.
-  static var circleOutline: TesseraSymbol {
-    TesseraSymbol(
-      collisionShape: .circle(center: .zero, radius: 15),
-    ) {
-      Circle()
-        .stroke(lineWidth: 4)
-        .foregroundStyle(.gray.opacity(0.2))
-        .frame(width: 30, height: 30)
-    }
-  }
-
-  /// Two glyphs represented by separate polygons.
-  static var splitLetters: TesseraSymbol {
-    let leftLetterPoints = rectanglePoints(
-      centeredAt: CGPoint(x: -6, y: 0),
-      size: CGSize(width: 24, height: 22),
-    )
-    let rightLetterPoints = rectanglePoints(
-      centeredAt: CGPoint(x: 12, y: 0),
-      size: CGSize(width: 10, height: 22),
-    )
-
-    return TesseraSymbol(
-      weight: 1,
-      allowedRotationRange: .degrees(0)...(.degrees(0)),
-      collisionShape: .polygons(pointSets: [leftLetterPoints, rightLetterPoints]),
-    ) {
-      Text("HI")
-        .font(.system(size: 26, weight: .bold, design: .rounded))
-        .foregroundStyle(.purple.opacity(0.7))
-    }
-  }
-
-  /// A concave polygon rendered as a filled L-shape.
-  static var concaveBlock: TesseraSymbol {
-    let points: [CGPoint] = [
-      CGPoint(x: 2, y: 2),
-      CGPoint(x: 30, y: 2),
-      CGPoint(x: 30, y: 10),
-      CGPoint(x: 10, y: 10),
-      CGPoint(x: 10, y: 30),
-      CGPoint(x: 2, y: 30),
-    ]
-
-    return TesseraSymbol(
-      allowedRotationRange: .degrees(0)...(.degrees(0)),
-      collisionShape: .polygon(points: points),
-    ) {
-      ConcavePolygonShape(points: points)
-        .fill(.mint.opacity(0.5))
-        .frame(width: 32, height: 32)
-    }
-  }
-
-  private static func rectanglePoints(
-    centeredAt center: CGPoint,
-    size: CGSize,
-  ) -> [CGPoint] {
-    let halfWidth = size.width / 2
-    let halfHeight = size.height / 2
-
-    return [
-      CGPoint(x: center.x - halfWidth, y: center.y - halfHeight),
-      CGPoint(x: center.x + halfWidth, y: center.y - halfHeight),
-      CGPoint(x: center.x + halfWidth, y: center.y + halfHeight),
-      CGPoint(x: center.x - halfWidth, y: center.y + halfHeight),
-    ]
-  }
-}
-
-private struct ConcavePolygonShape: Shape {
-  var points: [CGPoint]
-
-  func path(in rect: CGRect) -> Path {
-    var path = Path()
-    guard let firstPoint = points.first else { return path }
-
-    let start = CGPoint(x: firstPoint.x, y: firstPoint.y)
-    path.move(to: start)
-
-    for point in points.dropFirst() {
-      path.addLine(to: CGPoint(x: point.x, y: point.y))
-    }
-
-    path.closeSubpath()
-    return path
-  }
-}
+#Preview { TesseraDemoView().preferredColorScheme(.dark) }

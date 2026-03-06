@@ -94,6 +94,107 @@ struct CollisionTransform: Sendable {
 }
 
 public extension CollisionShape {
+  /// Creates a centered triangle collider with optional local-space center offset.
+  ///
+  /// - Parameters:
+  ///   - center: Local-space triangle center.
+  ///   - size: Bounding size of the triangle.
+  /// - Returns: A centered polygon triangle collider.
+  static func triangle(
+    center: CGPoint = .zero,
+    size: CGSize,
+  ) -> CollisionShape {
+    let halfWidth = size.width / 2
+    let halfHeight = size.height / 2
+    let points: [CGPoint] = [
+      CGPoint(x: center.x, y: center.y - halfHeight),
+      CGPoint(x: center.x + halfWidth, y: center.y + halfHeight),
+      CGPoint(x: center.x - halfWidth, y: center.y + halfHeight),
+    ]
+    return .centeredPolygon(points: points)
+  }
+
+  /// Creates a rounded-rectangle collider approximated as a centered polygon.
+  ///
+  /// - Parameters:
+  ///   - center: Local-space rounded-rectangle center.
+  ///   - size: Bounding size of the rounded rectangle.
+  ///   - cornerRadius: Corner radius in local-space points.
+  ///   - cornerSegmentCount: Number of polygon segments per corner arc.
+  /// - Returns: A polygonal rounded rectangle, or `.rectangle` when `cornerRadius <= 0`.
+  static func roundedRectangle(
+    center: CGPoint = .zero,
+    size: CGSize,
+    cornerRadius: CGFloat,
+    cornerSegmentCount: Int = 5,
+  ) -> CollisionShape {
+    let halfWidth = max(size.width / 2, 0)
+    let halfHeight = max(size.height / 2, 0)
+    let resolvedRadius = max(0, min(cornerRadius, halfWidth, halfHeight))
+    guard resolvedRadius > 0 else {
+      return .rectangle(center: center, size: size)
+    }
+
+    let segmentCount = max(cornerSegmentCount, 1)
+    let topRightCenter = CGPoint(
+      x: center.x + halfWidth - resolvedRadius,
+      y: center.y - halfHeight + resolvedRadius,
+    )
+    let bottomRightCenter = CGPoint(
+      x: center.x + halfWidth - resolvedRadius,
+      y: center.y + halfHeight - resolvedRadius,
+    )
+    let bottomLeftCenter = CGPoint(
+      x: center.x - halfWidth + resolvedRadius,
+      y: center.y + halfHeight - resolvedRadius,
+    )
+    let topLeftCenter = CGPoint(
+      x: center.x - halfWidth + resolvedRadius,
+      y: center.y - halfHeight + resolvedRadius,
+    )
+
+    var points: [CGPoint] = []
+    points.reserveCapacity(segmentCount * 4 + 4)
+    appendArcPoints(
+      center: topRightCenter,
+      startAngleDegrees: -90,
+      endAngleDegrees: 0,
+      radius: resolvedRadius,
+      segmentCount: segmentCount,
+      includeStart: true,
+      into: &points,
+    )
+    appendArcPoints(
+      center: bottomRightCenter,
+      startAngleDegrees: 0,
+      endAngleDegrees: 90,
+      radius: resolvedRadius,
+      segmentCount: segmentCount,
+      includeStart: false,
+      into: &points,
+    )
+    appendArcPoints(
+      center: bottomLeftCenter,
+      startAngleDegrees: 90,
+      endAngleDegrees: 180,
+      radius: resolvedRadius,
+      segmentCount: segmentCount,
+      includeStart: false,
+      into: &points,
+    )
+    appendArcPoints(
+      center: topLeftCenter,
+      startAngleDegrees: 180,
+      endAngleDegrees: 270,
+      radius: resolvedRadius,
+      segmentCount: segmentCount,
+      includeStart: false,
+      into: &points,
+    )
+
+    return .centeredPolygon(points: points)
+  }
+
   /// Conservative radius around the shape, used for a quick broad-phase overlap check.
   func boundingRadius(atScale scale: CGFloat = 1) -> CGFloat {
     switch self {
@@ -129,5 +230,30 @@ public extension CollisionShape {
     guard !points.isEmpty else { return 0 }
 
     return points.map { hypot($0.x, $0.y) }.max() ?? 0
+  }
+
+  private static func appendArcPoints(
+    center: CGPoint,
+    startAngleDegrees: CGFloat,
+    endAngleDegrees: CGFloat,
+    radius: CGFloat,
+    segmentCount: Int,
+    includeStart: Bool,
+    into points: inout [CGPoint],
+  ) {
+    for step in 0...segmentCount {
+      if step == 0, includeStart == false {
+        continue
+      }
+
+      let progress = CGFloat(step) / CGFloat(segmentCount)
+      let angleDegrees = startAngleDegrees + (endAngleDegrees - startAngleDegrees) * progress
+      let angleRadians = angleDegrees * .pi / 180
+      let point = CGPoint(
+        x: center.x + cos(angleRadians) * radius,
+        y: center.y + sin(angleRadians) * radius,
+      )
+      points.append(point)
+    }
   }
 }

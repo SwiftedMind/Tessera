@@ -2,6 +2,12 @@
 
 ### Added
 - **Grid Placement Mode**: Added `TesseraPlacement.grid` with offset strategies for seamless grid-based patterns.
+- **Polygon Canvas Regions**: `TesseraCanvas` can now clip and place symbols inside polygonal regions mapped into the
+  resolved canvas size (polygon regions always use finite edges).
+- **Alpha Mask Regions**: `TesseraCanvas` can now place symbols inside alpha masks derived from views or images, with
+  optional clipping and thresholded sampling.
+- **Async Canvas Toggle**: `TesseraTile` now exposes `rendersAsynchronously` (default `false`) and forwards it into
+  exports.
 
 ### Enhanced
 - **Grid Offset Strategies**: Grid offset fractions now represent cell units, so values greater than 1 shift by whole cells
@@ -15,6 +21,7 @@
 - **Grid Count Rounding**: Seamless wrapping no longer forces even row/column counts when a grid offset strategy's fraction is zero.
 
 ### Breaking Changes
+- **TesseraCanvasRegion**: Added `.alphaMask`, so exhaustive `switch` statements must handle the new case.
 - **Migration Guide**: See [MIGRATION.md](MIGRATION.md) for 2.0.0 → 3.0.0 upgrade steps.
 - **Placement Configuration Refactor**: `TesseraConfiguration` now takes a `TesseraPlacement` with per-mode settings
   (for example `TesseraPlacement.Organic`), moving organic-only properties out of the top-level configuration.

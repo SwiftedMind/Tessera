@@ -12,6 +12,8 @@ enum ShapePlacementEngine {
   ///   - configuration: The full tessera configuration, including placement mode.
   ///   - pinnedSymbols: Symbols that must be placed at fixed positions before sampling.
   ///   - edgeBehavior: The edge behavior to apply when testing collisions.
+  ///   - region: Optional polygon region in tile space used to constrain placement.
+  ///   - alphaMask: Optional alpha mask used to constrain placement.
   ///   - randomGenerator: The random number generator that drives placement.
   /// - Returns: The placed symbols for the tile.
   static func placeSymbols(
@@ -19,22 +21,16 @@ enum ShapePlacementEngine {
     configuration: TesseraConfiguration,
     pinnedSymbols: [TesseraPinnedSymbol] = [],
     edgeBehavior: TesseraEdgeBehavior = .seamlessWrapping,
+    region: TesseraResolvedPolygonRegion? = nil,
+    alphaMask: (any PlacementMask)? = nil,
     randomGenerator: inout some RandomNumberGenerator,
   ) -> [PlacedSymbol] {
     guard !configuration.symbols.isEmpty else { return [] }
 
-    let symbolDescriptors = configuration.symbols.map { symbol in
-      let scaleRange = resolvedScaleRange(for: symbol, placement: configuration.placement)
-      return PlacementSymbolDescriptor(
-        id: symbol.id,
-        weight: symbol.weight,
-        allowedRotationRangeDegrees: symbol.allowedRotationRange.lowerBound.degrees...symbol.allowedRotationRange
-          .upperBound
-          .degrees,
-        resolvedScaleRange: scaleRange,
-        collisionShape: symbol.collisionShape,
-      )
-    }
+    let symbolDescriptors = makeSymbolDescriptors(
+      from: configuration.symbols,
+      placement: configuration.placement,
+    )
 
     let pinnedSymbolDescriptors = pinnedSymbols.map { pinnedSymbol in
       PinnedSymbolDescriptor(
@@ -52,15 +48,15 @@ enum ShapePlacementEngine {
       pinnedSymbolDescriptors: pinnedSymbolDescriptors,
       edgeBehavior: edgeBehavior,
       placement: configuration.placement,
+      region: region,
+      alphaMask: alphaMask,
       randomGenerator: &randomGenerator,
     )
 
-    let symbolLookup: [UUID: TesseraSymbol] = configuration.symbols.reduce(into: [:]) { cache, symbol in
-      cache[symbol.id] = symbol
-    }
+    let symbolLookup = configuration.symbols.renderableLeafLookupByID
 
     return placedDescriptors.compactMap { descriptor in
-      guard let symbol = symbolLookup[descriptor.symbolId] else { return nil }
+      guard let symbol = symbolLookup[descriptor.renderSymbolId] else { return nil }
 
       return PlacedSymbol(
         symbol: symbol,
@@ -68,6 +64,15 @@ enum ShapePlacementEngine {
         rotation: .radians(descriptor.rotationRadians),
         scale: descriptor.scale,
       )
+    }
+  }
+
+  static func makeSymbolDescriptors(
+    from symbols: [TesseraSymbol],
+    placement: PlacementModel,
+  ) -> [PlacementSymbolDescriptor] {
+    symbols.map { symbol in
+      makeSymbolDescriptor(from: symbol, placement: placement)
     }
   }
 
@@ -81,6 +86,10 @@ enum ShapePlacementEngine {
   ///   - pinnedSymbolDescriptors: Symbols that must be placed at fixed positions before sampling.
   ///   - edgeBehavior: The edge behavior to apply when testing collisions.
   ///   - placement: The placement mode configuration to use.
+  ///   - region: Optional polygon region in tile space used to constrain placement.
+  ///   - alphaMask: Optional alpha mask used to constrain placement.
+  ///   - gridPlacementBounds: Optional canvas-space bounds used to resolve grid cell size and centers.
+  ///   - maskConstraintMode: How strictly the alpha mask constrains collision geometry.
   ///   - randomGenerator: The random number generator that drives placement.
   /// - Returns: The placed symbol descriptors for the tile.
   static func placeSymbolDescriptors(
@@ -88,7 +97,11 @@ enum ShapePlacementEngine {
     symbolDescriptors: [PlacementSymbolDescriptor],
     pinnedSymbolDescriptors: [PinnedSymbolDescriptor] = [],
     edgeBehavior: TesseraEdgeBehavior = .seamlessWrapping,
-    placement: TesseraPlacement,
+    placement: PlacementModel,
+    region: TesseraResolvedPolygonRegion? = nil,
+    alphaMask: (any PlacementMask)? = nil,
+    gridPlacementBounds: CGRect? = nil,
+    maskConstraintMode: ShapePlacementMaskConstraint.Mode = .sampledCollisionGeometry,
     randomGenerator: inout some RandomNumberGenerator,
   ) -> [PlacedSymbolDescriptor] {
     guard !symbolDescriptors.isEmpty else { return [] }
@@ -101,6 +114,9 @@ enum ShapePlacementEngine {
         pinnedSymbolDescriptors: pinnedSymbolDescriptors,
         edgeBehavior: edgeBehavior,
         configuration: organicConfiguration,
+        region: region,
+        alphaMask: alphaMask,
+        maskConstraintMode: maskConstraintMode,
         randomGenerator: &randomGenerator,
       )
     case let .grid(gridConfiguration):
@@ -110,13 +126,17 @@ enum ShapePlacementEngine {
         pinnedSymbolDescriptors: pinnedSymbolDescriptors,
         edgeBehavior: edgeBehavior,
         configuration: gridConfiguration,
+        region: region,
+        alphaMask: alphaMask,
+        placementBounds: gridPlacementBounds,
+        maskConstraintMode: maskConstraintMode,
       )
     }
   }
 
   private static func resolvedScaleRange(
     for symbol: TesseraSymbol,
-    placement: TesseraPlacement,
+    placement: PlacementModel,
   ) -> ClosedRange<Double> {
     switch placement {
     case let .organic(organicConfiguration):
@@ -124,5 +144,36 @@ enum ShapePlacementEngine {
     case .grid:
       symbol.scaleRange ?? 1...1
     }
+  }
+
+  private static func makeSymbolDescriptor(
+    from symbol: TesseraSymbol,
+    placement: PlacementModel,
+  ) -> PlacementSymbolDescriptor {
+    let childDescriptors = symbol.choices.map { childSymbol in
+      makeSymbolDescriptor(
+        from: childSymbol,
+        placement: placement,
+      )
+    }
+    let renderDescriptor: PlacementSymbolDescriptor.RenderDescriptor? = childDescriptors.isEmpty
+      ? PlacementSymbolDescriptor.RenderDescriptor(
+        id: symbol.id,
+        allowedRotationRangeDegrees: symbol.allowedRotationRange.lowerBound.degrees...symbol.allowedRotationRange
+          .upperBound
+          .degrees,
+        resolvedScaleRange: resolvedScaleRange(for: symbol, placement: placement),
+        collisionShape: symbol.collisionShape,
+      )
+      : nil
+
+    return PlacementSymbolDescriptor(
+      id: symbol.id,
+      weight: symbol.weight,
+      choiceStrategy: symbol.choiceStrategy,
+      choiceSeed: symbol.choiceSeed,
+      renderDescriptor: renderDescriptor,
+      choices: childDescriptors,
+    )
   }
 }

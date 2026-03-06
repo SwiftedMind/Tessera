@@ -4,7 +4,7 @@ import CoreGraphics
 import SwiftUI
 
 /// Describes where a fixed placement should appear inside a tessera canvas.
-public enum TesseraPlacementPosition: Hashable {
+public enum TesseraPlacementPosition: Hashable, Sendable {
   /// Absolute position in canvas coordinates (origin at top-left).
   case absolute(CGPoint)
   /// Relative position as a `UnitPoint` within the canvas, with an optional point offset.
@@ -36,6 +36,7 @@ public enum TesseraPlacementPosition: Hashable {
     }
   }
 
+  /// Hashes the position's semantic components for dictionary/set usage.
   public func hash(into hasher: inout Hasher) {
     switch self {
     case let .absolute(point):
@@ -58,34 +59,42 @@ public extension TesseraPlacementPosition {
     .relative(.center, offset: offset)
   }
 
+  /// A top-leading relative placement.
   static func topLeading(offset: CGSize = .zero) -> TesseraPlacementPosition {
     .relative(.topLeading, offset: offset)
   }
 
+  /// A top-centered relative placement.
   static func top(offset: CGSize = .zero) -> TesseraPlacementPosition {
     .relative(.top, offset: offset)
   }
 
+  /// A top-trailing relative placement.
   static func topTrailing(offset: CGSize = .zero) -> TesseraPlacementPosition {
     .relative(.topTrailing, offset: offset)
   }
 
+  /// A leading-edge centered relative placement.
   static func leading(offset: CGSize = .zero) -> TesseraPlacementPosition {
     .relative(.leading, offset: offset)
   }
 
+  /// A trailing-edge centered relative placement.
   static func trailing(offset: CGSize = .zero) -> TesseraPlacementPosition {
     .relative(.trailing, offset: offset)
   }
 
+  /// A bottom-leading relative placement.
   static func bottomLeading(offset: CGSize = .zero) -> TesseraPlacementPosition {
     .relative(.bottomLeading, offset: offset)
   }
 
+  /// A bottom-centered relative placement.
   static func bottom(offset: CGSize = .zero) -> TesseraPlacementPosition {
     .relative(.bottom, offset: offset)
   }
 
+  /// A bottom-trailing relative placement.
   static func bottomTrailing(offset: CGSize = .zero) -> TesseraPlacementPosition {
     .relative(.bottomTrailing, offset: offset)
   }

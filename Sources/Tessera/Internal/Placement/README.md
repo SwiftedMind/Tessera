@@ -28,7 +28,7 @@ common collision and wrapping helpers.
 1. `ShapePlacementEngine.placeSymbols` resolves the public `TesseraSymbol` data into
    `PlacementSymbolDescriptor` values and builds pinned symbol descriptors.
 2. It calls `ShapePlacementEngine.placeSymbolDescriptors`, which selects a placement
-   engine based on `TesseraPlacement`.
+   engine based on `PlacementModel`.
 3. The chosen engine creates `PlacedSymbolDescriptor` values and relies on shared
    collision and wrapping helpers to validate placements.
 4. The entry point converts the placed descriptors back into `PlacedSymbol` values.
@@ -42,6 +42,7 @@ let descriptors = ShapePlacementEngine.placeSymbolDescriptors(
   pinnedSymbolDescriptors: pinnedSymbols,
   edgeBehavior: .seamlessWrapping,
   placement: .organic(configuration),
+  region: nil,
   randomGenerator: &generator
 )
 ```
@@ -62,6 +63,7 @@ let descriptors = ShapePlacementEngine.placeSymbolDescriptors(
   pinnedSymbolDescriptors: pinnedSymbols,
   edgeBehavior: .seamlessWrapping,
   placement: .grid(configuration),
+  region: nil,
   randomGenerator: &generator
 )
 ```
@@ -78,3 +80,4 @@ The grid engine:
 - All coordinates are in tile space.
 - Seamless wrapping uses a 3x3 lattice of offsets so symbols that cross edges remain
   collision-safe when the tile repeats.
+- Polygon regions can constrain placement to arbitrary outlines when provided by the caller.
