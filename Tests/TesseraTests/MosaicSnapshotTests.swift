@@ -881,6 +881,86 @@ import Testing
   #expect(overlapPixel.alpha > 200)
 }
 
+@Test @MainActor func combinedDebugOverlayRendersCollisionShapesAndMosaicMasks() async throws {
+  let mosaicFillSymbol = Symbol(
+    weight: 1,
+    rotation: .degrees(0)...(.degrees(0)),
+    scale: 1...1,
+    collider: .shape(.rectangle(center: .zero, size: CGSize(width: 80, height: 80))),
+  ) {
+    Circle()
+      .fill(Color.red)
+      .frame(width: 20, height: 20)
+  }
+  let maskSymbol = Symbol(collider: .shape(.rectangle(center: .zero, size: CGSize(width: 40, height: 40)))) {
+    Rectangle()
+      .fill(Color.white)
+      .frame(width: 40, height: 40)
+  }
+
+  let pattern = Pattern(
+    symbols: [],
+    placement: .grid(columns: 1, rows: 1),
+    mosaics: [
+      Mosaic(
+        mask: MosaicMask(symbol: maskSymbol, position: .centered()),
+        symbols: [mosaicFillSymbol],
+        placement: .grid(columns: 1, rows: 1),
+        rendering: .unclipped,
+      ),
+    ],
+  )
+  let snapshot = try await TesseraRenderer(pattern).makeSnapshot(
+    mode: .canvas(size: CGSize(width: 120, height: 120), edgeBehavior: .finite),
+    seed: .fixed(42),
+  )
+
+  let collisionOnlyImage = try renderedCGImage(
+    from: TesseraSnapshotView(
+      snapshot: snapshot,
+      debugOverlay: .collisionShapes,
+    ),
+    size: snapshot.size,
+  )
+  let mosaicOnlyImage = try renderedCGImage(
+    from: TesseraSnapshotView(
+      snapshot: snapshot,
+      debugOverlay: .mosaicMasks(),
+    ),
+    size: snapshot.size,
+  )
+  let combinedImage = try renderedCGImage(
+    from: TesseraSnapshotView(
+      snapshot: snapshot,
+      debugOverlay: .collisionShapesAndMosaicMasks(),
+    ),
+    size: snapshot.size,
+  )
+
+  let outsideMaskPoint = (x: 92, y: 60)
+  let collisionOnlyPixel = try pixelComponents(
+    in: collisionOnlyImage,
+    x: outsideMaskPoint.x,
+    y: outsideMaskPoint.y,
+  )
+  let mosaicOnlyPixel = try pixelComponents(
+    in: mosaicOnlyImage,
+    x: outsideMaskPoint.x,
+    y: outsideMaskPoint.y,
+  )
+  let combinedPixel = try pixelComponents(
+    in: combinedImage,
+    x: outsideMaskPoint.x,
+    y: outsideMaskPoint.y,
+  )
+
+  #expect(collisionOnlyPixel.alpha > 0)
+  #expect(mosaicOnlyPixel.alpha == 0)
+  #expect(combinedPixel.alpha > 0)
+  #expect(imagesArePixelEqual(combinedImage, collisionOnlyImage) == false)
+  #expect(imagesArePixelEqual(combinedImage, mosaicOnlyImage) == false)
+}
+
 @Test func newerSnapshotRequestCancelsPreviousComputationEvents() async throws {
   let renderer = makeCancellationStressRenderer()
   let mode = Mode.canvas(size: CGSize(width: 1200, height: 1200), edgeBehavior: .finite)

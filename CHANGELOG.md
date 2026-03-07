@@ -1,3 +1,10 @@
+## [4.0.1]
+
+### Fixed
+- **Snapshot Collision Overlays**: `TesseraSnapshotView` now renders collision overlays again for generated symbols,
+  pinned symbols, and mosaic-backed snapshots.
+- **Collision Overlay Exports**: `RenderOptions.showsCollisionOverlay` now affects v4 PNG and PDF exports again.
+
 ## [4.0.0]
 
 ### Added
