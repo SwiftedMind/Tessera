@@ -221,6 +221,25 @@ func imageContainsVisiblePixels(_ cgImage: CGImage) -> Bool {
   return false
 }
 
+@MainActor
+func renderedCGImage(
+  from content: some View,
+  size: CGSize,
+  scale: CGFloat = 1,
+) throws -> CGImage {
+  let renderer = ImageRenderer(
+    content: content.frame(width: size.width, height: size.height),
+  )
+  renderer.proposedSize = ProposedViewSize(size)
+  renderer.scale = scale
+
+  guard let cgImage = renderer.cgImage else {
+    throw CocoaError(.coderReadCorrupt)
+  }
+
+  return cgImage
+}
+
 func imagesArePixelEqual(_ lhs: CGImage, _ rhs: CGImage) -> Bool {
   guard lhs.width == rhs.width, lhs.height == rhs.height else {
     return false

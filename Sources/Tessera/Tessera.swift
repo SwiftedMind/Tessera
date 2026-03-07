@@ -81,7 +81,7 @@ public struct Tessera: View {
     let region = region
     let regionRendering = regionRendering
     let pinnedSymbols = pinnedSymbols
-    let debugOverlay = debugOverlay
+    let debugOverlay = resolvedSnapshotDebugOverlay
     let onComputationStateChange = onComputationStateChange
     let requestKey = SnapshotRequestKey.make(
       mode: resolvedMode,
@@ -155,6 +155,10 @@ public struct Tessera: View {
     case let .fixed(value):
       value
     }
+  }
+
+  var resolvedSnapshotDebugOverlay: TesseraDebugOverlay {
+    debugOverlay.addingCollisionShapesIfNeeded(pattern.showsCollisionOverlay)
   }
 }
 
@@ -255,6 +259,17 @@ private extension Mode {
       size
     case .tiled:
       nil
+    }
+  }
+}
+
+private extension Pattern {
+  var showsCollisionOverlay: Bool {
+    switch placement {
+    case let .organic(organicPlacement):
+      organicPlacement.showsCollisionOverlay
+    case .grid:
+      false
     }
   }
 }

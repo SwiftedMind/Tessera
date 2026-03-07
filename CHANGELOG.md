@@ -1,3 +1,71 @@
+## [4.0.1]
+
+### Fixed
+- **Snapshot Collision Overlays**: `TesseraSnapshotView` now renders collision overlays again for generated symbols,
+  pinned symbols, and mosaic-backed snapshots.
+- **Collision Overlay Exports**: `RenderOptions.showsCollisionOverlay` now affects v4 PNG and PDF exports again.
+
+## [4.0.0]
+
+### Added
+- **Grid Subgrids**: Grid placement now supports rectangular `subgrids` with dedicated symbol pools, per-subgrid
+  `symbolOrder`, and optional per-subgrid `seed`.
+- **Grid Symbol Orders**: `TesseraPlacement.GridSymbolOrder` now supports `.randomWeightedPerCell`, `.shuffle`,
+  `.diagonal`, and `.snake` with canonical traversal cases `.rowMajor` and `.columnMajor`.
+- **Grid Seed**: `TesseraPlacement.Grid` now includes `seed` to drive deterministic grid symbol assignment.
+- **Per-Symbol Grid Phases**: `TesseraPlacement.Grid.symbolPhases` allows deterministic per-symbol phase offsets in
+  grid cell units (for interleaved lattices and phase-shifted symbol families).
+- **Merged Grid Cells**: Grid placement now supports rectangular merged cells (`mergedCells`) with deterministic
+  resolution, optional merged-cell symbol overrides, and `.fitMergedCell` sizing behavior.
+- **Grid Debug Overlay**: Added `showsGridOverlay` for visualizing resolved grid lines and merged-cell bounds in
+  canvas/tile rendering.
+- **Choice Symbols**: `TesseraSymbol`/`Symbol` now support nested `choices` plus `choiceStrategy`
+  (`.weightedRandom`, `.sequence`, `.indexSequence([Int])`) so one top-level symbol can resolve controlled
+  per-placement variation while staying seed-stable.
+- **Choice Index Sequences**: `TesseraSymbolChoiceStrategy` now supports `.indexSequence([Int])` for deterministic
+  caller-defined child index placement with repeating sequences.
+- **Spatial Steering Fields**: Added `TesseraPlacement.SteeringField` with value range, easing
+  (`linear`, `smoothStep`, `easeIn`, `easeOut`, `easeInOut`), and shape selection (`linear`, `radial`) for
+  position-based interpolation.
+- **Radial Steering Fields**: `TesseraPlacement.SteeringField` now supports radial shape steering via
+  `.radial(center:radius:)`, with `.autoFarthestCorner` and `.shortestSideFraction(Double)` radius options.
+- **Organic Steering Controls**: `TesseraPlacement.OrganicSteering` now supports
+  `minimumSpacingMultiplier`, `scaleMultiplier`, `rotationMultiplier`, and `rotationOffsetDegrees`.
+- **Grid Steering Controls**: `TesseraPlacement.GridSteering` now supports `scaleMultiplier`, `rotationMultiplier`, and
+  `rotationOffsetDegrees`.
+- **API v4 Progressive Facade**: New Apple-style primary surface with `Tessera`, `Pattern`, `Symbol`, `PinnedSymbol`,
+  `TesseraPlacement`, `Region`, `Seed`, `Mode`, and unified `export(...)` options.
+- **Migration Documentation**: Added/expanded `3.x -> 4.0` migration guidance and before/after snippets in
+  [MIGRATION.md](MIGRATION.md).
+
+### Changed
+- **Grid Sequence Naming**: Grid order now uses `.rowMajor` as the canonical sequence naming; existing `.sequence`
+  usage maps to row-major behavior.
+- **Seed Override Applies To Grid**: `Tessera.seed(.fixed(...))` now overrides grid placement seeding in all render
+  modes (`.tile`, `.tiled`, `.canvas`).
+- **Pairwise Organic Spacing**: Organic spacing checks now use per-symbol pairwise buffers (`max(lhs, rhs)`) so
+  position-steered minimum spacing remains symmetric and collision-safe.
+- **Steering Space**: Spatial steering is evaluated in local tile/canvas coordinates. In tiled modes (`.tile` / `.tiled`),
+  steering gradients repeat per tile by design.
+
+### Enhanced
+- **Docs + Onboarding**: README quickstart now leads with the v4 single-entry API and progressive disclosure path.
+- **Example App Refresh**: Example app and examples docs now use the v4 surface and naming.
+- **Steering Demos**: Example app now includes dedicated spatial steering demos for organic spacing, and organic/grid
+  scale + rotation gradients, plus radial scale/rotation demos.
+- **Steering Documentation**: README now documents steering transform semantics (multiplier vs offset) and
+  linear/radial field usage with tile-repeat behavior guidance for grid steering.
+
+### Breaking Changes
+- **Primary API Renames**: Core public types now use concise names (`Pattern`, `Symbol`, `PinnedSymbol`, `TesseraPlacement`,
+  `Region`, `RenderOptions`, `RenderError`) with `Tessera` as the main entry view.
+- **Placement Naming Finalized**: The v4 placement surface is now `TesseraPlacement`; the intermediate `Placement`
+  facade and related compatibility shims were removed before release.
+- **Mode Consolidation**: `TesseraTile`, `TesseraCanvas`, and `TesseraTiledCanvas` are superseded by
+  `Tessera.mode(.tile|.canvas|.tiled)`.
+
+
+
 ## [3.0.0]
 
 ### Added

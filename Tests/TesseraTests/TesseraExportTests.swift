@@ -181,6 +181,191 @@ import Testing
   #expect(imagesArePixelEqual(baselineImage, snapshotImage))
 }
 
+@Test @MainActor func snapshotPNGExportRendersCollisionOverlayForGeneratedSymbols() async throws {
+  let canvasSize = CGSize(width: 128, height: 128)
+  let renderer = makeGeneratedCollisionOverlayRenderer()
+  let snapshot = try await renderer.makeSnapshot(
+    mode: .canvas(size: canvasSize, edgeBehavior: .finite),
+    seed: .fixed(1),
+  )
+  let temporaryDirectory = FileManager.default.temporaryDirectory
+  let fileName = UUID().uuidString
+
+  let baselineURL = try renderer.export(
+    .png,
+    snapshot: snapshot,
+    options: .init(
+      directory: temporaryDirectory,
+      fileName: "\(fileName)-baseline",
+      render: .init(targetPixelSize: canvasSize),
+    ),
+  )
+  defer { try? FileManager.default.removeItem(at: baselineURL) }
+
+  let overlayURL = try renderer.export(
+    .png,
+    snapshot: snapshot,
+    options: .init(
+      directory: temporaryDirectory,
+      fileName: "\(fileName)-overlay",
+      render: .init(
+        targetPixelSize: canvasSize,
+        showsCollisionOverlay: true,
+      ),
+    ),
+  )
+  defer { try? FileManager.default.removeItem(at: overlayURL) }
+
+  let baselineImage = try cgImageFromPNGFile(at: baselineURL)
+  let overlayImage = try cgImageFromPNGFile(at: overlayURL)
+  let baselinePixel = try pixelComponents(
+    in: baselineImage,
+    x: collisionOverlaySamplePoint.x,
+    y: collisionOverlaySamplePoint.y,
+  )
+  let overlayPixel = try pixelComponents(
+    in: overlayImage,
+    x: collisionOverlaySamplePoint.x,
+    y: collisionOverlaySamplePoint.y,
+  )
+
+  #expect(baselinePixel.alpha == 0)
+  #expect(overlayPixel.alpha > 0)
+  #expect(overlayPixel.blue > overlayPixel.red)
+  #expect(imagesArePixelEqual(baselineImage, overlayImage) == false)
+}
+
+@Test @MainActor func snapshotPNGExportRendersCollisionOverlayForPinnedSymbols() async throws {
+  let canvasSize = CGSize(width: 128, height: 128)
+  let renderer = TesseraRenderer(
+    Pattern(
+      symbols: [],
+      placement: .grid(columns: 1, rows: 1),
+    ),
+  )
+  let snapshot = try await renderer.makeSnapshot(
+    mode: .canvas(size: canvasSize, edgeBehavior: .finite),
+    seed: .fixed(1),
+    pinnedSymbols: [makeCollisionOverlayPinnedSymbol(at: CGPoint(x: 64, y: 64))],
+  )
+  let temporaryDirectory = FileManager.default.temporaryDirectory
+  let fileName = UUID().uuidString
+
+  let baselineURL = try renderer.export(
+    .png,
+    snapshot: snapshot,
+    options: .init(
+      directory: temporaryDirectory,
+      fileName: "\(fileName)-baseline",
+      render: .init(targetPixelSize: canvasSize),
+    ),
+  )
+  defer { try? FileManager.default.removeItem(at: baselineURL) }
+
+  let overlayURL = try renderer.export(
+    .png,
+    snapshot: snapshot,
+    options: .init(
+      directory: temporaryDirectory,
+      fileName: "\(fileName)-overlay",
+      render: .init(
+        targetPixelSize: canvasSize,
+        showsCollisionOverlay: true,
+      ),
+    ),
+  )
+  defer { try? FileManager.default.removeItem(at: overlayURL) }
+
+  let baselineImage = try cgImageFromPNGFile(at: baselineURL)
+  let overlayImage = try cgImageFromPNGFile(at: overlayURL)
+  let baselinePixel = try pixelComponents(
+    in: baselineImage,
+    x: collisionOverlaySamplePoint.x,
+    y: collisionOverlaySamplePoint.y,
+  )
+  let overlayPixel = try pixelComponents(
+    in: overlayImage,
+    x: collisionOverlaySamplePoint.x,
+    y: collisionOverlaySamplePoint.y,
+  )
+
+  #expect(baselinePixel.alpha == 0)
+  #expect(overlayPixel.alpha > 0)
+  #expect(overlayPixel.blue > overlayPixel.red)
+}
+
+@Test @MainActor func snapshotCollisionOverlayExportMatchesLegacyCanvasRender() async throws {
+  let canvasSize = CGSize(width: 128, height: 128)
+  let pinnedSymbol = makeCollisionOverlayPinnedSymbol(at: CGPoint(x: 64, y: 64))
+  let renderer = TesseraRenderer(
+    Pattern(
+      symbols: [],
+      placement: .organic(
+        minimumSpacing: 10,
+        density: 0,
+        maximumCount: 0,
+      ),
+    ),
+  )
+  let snapshot = try await renderer.makeSnapshot(
+    mode: .canvas(size: canvasSize, edgeBehavior: .finite),
+    seed: .fixed(1),
+    pinnedSymbols: [pinnedSymbol],
+  )
+  let legacyCanvas = makePinnedCollisionOverlayCanvas(pinnedSymbol: pinnedSymbol)
+  let temporaryDirectory = FileManager.default.temporaryDirectory
+  let fileName = UUID().uuidString
+
+  let legacyURL = try legacyCanvas.renderPNG(
+    to: temporaryDirectory,
+    fileName: "\(fileName)-legacy",
+    canvasSize: canvasSize,
+    options: .init(
+      targetPixelSize: canvasSize,
+      showsCollisionOverlay: true,
+    ),
+  )
+  defer { try? FileManager.default.removeItem(at: legacyURL) }
+
+  let snapshotURL = try renderer.export(
+    .png,
+    snapshot: snapshot,
+    options: .init(
+      directory: temporaryDirectory,
+      fileName: "\(fileName)-snapshot",
+      render: .init(
+        targetPixelSize: canvasSize,
+        showsCollisionOverlay: true,
+      ),
+    ),
+  )
+  defer { try? FileManager.default.removeItem(at: snapshotURL) }
+
+  let legacyImage = try cgImageFromPNGFile(at: legacyURL)
+  let snapshotImage = try cgImageFromPNGFile(at: snapshotURL)
+  let legacyOverlayPixel = try pixelComponents(
+    in: legacyImage,
+    x: collisionOverlaySamplePoint.x,
+    y: collisionOverlaySamplePoint.y,
+  )
+  let snapshotOverlayPixel = try pixelComponents(
+    in: snapshotImage,
+    x: collisionOverlaySamplePoint.x,
+    y: collisionOverlaySamplePoint.y,
+  )
+  let legacyCenterPixel = try pixelComponents(in: legacyImage, x: 64, y: 64)
+  let snapshotCenterPixel = try pixelComponents(in: snapshotImage, x: 64, y: 64)
+  let legacyBackgroundPixel = try pixelComponents(in: legacyImage, x: 8, y: 8)
+  let snapshotBackgroundPixel = try pixelComponents(in: snapshotImage, x: 8, y: 8)
+
+  #expect(legacyOverlayPixel.alpha > 0)
+  #expect(snapshotOverlayPixel.alpha > 0)
+  #expect(legacyCenterPixel.red > legacyCenterPixel.blue)
+  #expect(snapshotCenterPixel.red > snapshotCenterPixel.blue)
+  #expect(legacyBackgroundPixel.alpha == 0)
+  #expect(snapshotBackgroundPixel.alpha == 0)
+}
+
 @Test @MainActor func canvasPNGExportWithInvalidPlacementSnapshotThrowsError() async throws {
   let canvasSize = CGSize(width: 128, height: 128)
   let canvas = makeSingleSymbolGridCanvas()
@@ -384,6 +569,64 @@ private func makeSingleSymbolGridCanvas() -> TesseraCanvas {
 
   return TesseraCanvas(
     configuration,
+    seed: 1,
+    edgeBehavior: .finite,
+  )
+}
+
+private let collisionOverlaySamplePoint = (x: 84, y: 64)
+
+@MainActor
+private func makeGeneratedCollisionOverlayRenderer() -> TesseraRenderer {
+  let symbol = Symbol(
+    weight: 1,
+    rotation: .degrees(0)...(.degrees(0)),
+    scale: 1...1,
+    collider: .shape(.rectangle(center: .zero, size: CGSize(width: 60, height: 60))),
+  ) {
+    Circle()
+      .fill(Color.red)
+      .frame(width: 20, height: 20)
+  }
+
+  return TesseraRenderer(
+    Pattern(
+      symbols: [symbol],
+      placement: .grid(columns: 1, rows: 1),
+    ),
+  )
+}
+
+@MainActor
+private func makeCollisionOverlayPinnedSymbol(at position: CGPoint) -> TesseraPinnedSymbol {
+  TesseraPinnedSymbol(
+    position: position,
+    rotation: .degrees(0),
+    scale: 1,
+    collisionShape: .rectangle(center: .zero, size: CGSize(width: 60, height: 60)),
+  ) {
+    Circle()
+      .fill(Color.red)
+      .frame(width: 20, height: 20)
+  }
+}
+
+@MainActor
+private func makePinnedCollisionOverlayCanvas(pinnedSymbol: TesseraPinnedSymbol) -> TesseraCanvas {
+  TesseraCanvas(
+    TesseraConfiguration(
+      symbols: [],
+      placement: .organic(
+        PlacementModel.Organic(
+          seed: 1,
+          minimumSpacing: 10,
+          density: 0,
+          baseScaleRange: 1...1,
+          maximumSymbolCount: 0,
+        ),
+      ),
+    ),
+    pinnedSymbols: [pinnedSymbol],
     seed: 1,
     edgeBehavior: .finite,
   )

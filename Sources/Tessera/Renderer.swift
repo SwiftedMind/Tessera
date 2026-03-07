@@ -158,7 +158,10 @@ private extension TesseraRenderer {
     let content = SnapshotExportRenderView(
       pageSize: pageSize,
       backgroundColor: options.backgroundColor,
-      content: TesseraSnapshotView(snapshot: snapshot),
+      content: TesseraSnapshotView(
+        snapshot: snapshot,
+        debugOverlay: options.render.showsCollisionOverlay ? .collisionShapes : .none,
+      ),
     )
     let rendererContent = if let colorScheme = options.colorScheme {
       AnyView(content.environment(\.colorScheme, colorScheme))
@@ -215,7 +218,10 @@ private extension TesseraRenderer {
     let content = SnapshotExportRenderView(
       pageSize: pageSize,
       backgroundColor: options.backgroundColor,
-      content: TesseraSnapshotView(snapshot: snapshot),
+      content: TesseraSnapshotView(
+        snapshot: snapshot,
+        debugOverlay: options.render.showsCollisionOverlay ? .collisionShapes : .none,
+      ),
     )
     let rendererContent = if let colorScheme = options.colorScheme {
       AnyView(content.environment(\.colorScheme, colorScheme))

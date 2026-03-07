@@ -42,6 +42,7 @@ struct SnapshotStaticCanvasView: View {
   var body: some View {
     let renderModel = snapshot.renderModel
     let snapshotFingerprint = snapshot.fingerprint.rawValue
+    let showsCollisionShapes = debugOverlay.showsCollisionShapes
     let shouldClipPolygon = renderModel.region.isPolygon && renderModel.regionRendering == .clipped
     let shouldClipAlphaMask = renderModel.region.isAlphaMask && renderModel.regionRendering == .clipped
     let clipPath = shouldClipPolygon ? renderModel.region.clipPath(in: snapshot.size) : nil
@@ -64,6 +65,7 @@ struct SnapshotStaticCanvasView: View {
       offset: renderModel.baseOffset,
       clipPath: clipPath,
       rendersAsynchronously: rendersAsynchronously,
+      showsCollisionShapes: showsCollisionShapes,
     )
 
     let layered = baseLayer
@@ -87,6 +89,7 @@ struct SnapshotStaticCanvasView: View {
                 offset: mosaic.offset,
                 clipPath: clipPath,
                 rendersAsynchronously: rendersAsynchronously,
+                showsCollisionShapes: showsCollisionShapes,
               )
 
               if mosaic.rendering.clipsToMask {
@@ -111,6 +114,7 @@ struct SnapshotStaticCanvasView: View {
             edgeBehavior: renderModel.edgeBehavior,
             clipPath: clipPath,
             rendersAsynchronously: rendersAsynchronously,
+            showsCollisionShapes: showsCollisionShapes,
           )
         }
       }
@@ -333,8 +337,15 @@ private struct SnapshotPlacementCanvasView: View {
   var offset: CGSize
   var clipPath: Path?
   var rendersAsynchronously: Bool
+  var showsCollisionShapes: Bool
 
   var body: some View {
+    let overlayShapesBySymbolID: [UUID: CollisionOverlayShape] = showsCollisionShapes
+      ? symbols.reduce(into: [:]) { cache, symbol in
+        cache[symbol.id] = CollisionOverlayShape(collisionShape: symbol.collisionShape)
+      }
+      : [:]
+
     Canvas(
       opaque: false,
       colorMode: .nonLinear,
@@ -365,6 +376,11 @@ private struct SnapshotPlacementCanvasView: View {
           symbolContext.rotate(by: .radians(placedSymbol.rotationRadians))
           symbolContext.scaleBy(x: placedSymbol.scale, y: placedSymbol.scale)
           symbolContext.draw(symbol, at: .zero, anchor: .center)
+
+          if showsCollisionShapes,
+             let overlayShape = overlayShapesBySymbolID[placedSymbol.renderSymbolId] {
+            CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
+          }
         }
       }
     } symbols: {
@@ -384,8 +400,15 @@ private struct SnapshotPinnedCanvasView: View {
   var edgeBehavior: TesseraEdgeBehavior
   var clipPath: Path?
   var rendersAsynchronously: Bool
+  var showsCollisionShapes: Bool
 
   var body: some View {
+    let overlayShapesByPinnedSymbolID: [UUID: CollisionOverlayShape] = showsCollisionShapes
+      ? pinnedSymbols.reduce(into: [:]) { cache, pinnedSymbol in
+        cache[pinnedSymbol.id] = CollisionOverlayShape(collisionShape: pinnedSymbol.collisionShape)
+      }
+      : [:]
+
     Canvas(
       opaque: false,
       colorMode: .nonLinear,
@@ -410,6 +433,11 @@ private struct SnapshotPinnedCanvasView: View {
           symbolContext.rotate(by: pinnedSymbol.rotation)
           symbolContext.scaleBy(x: pinnedSymbol.scale, y: pinnedSymbol.scale)
           symbolContext.draw(symbol, at: .zero, anchor: .center)
+
+          if showsCollisionShapes,
+             let overlayShape = overlayShapesByPinnedSymbolID[pinnedSymbol.id] {
+            CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
+          }
         }
       }
     } symbols: {
