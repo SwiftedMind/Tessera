@@ -65,6 +65,7 @@ These are the defaults and conventions that keep changes consistent and easy to 
 ## Build & test commands
 
 - Use the FlowDeck skill and CLI for all iOS/macOS build, run, test, and debug tasks.
+- Reuse the agent-owned derived data folders `.xcode-deriveddata/iphone` and `.xcode-deriveddata/macos` for incremental builds. These folders are reserved for coding-agent work in this repo and are not shared with other users.
 - Do not use xcodebuild, xcrun simctl, or other Apple CLI tools unless FlowDeck is unavailable.
 - If a FlowDeck command fails, troubleshoot using FlowDeck output and retry before falling back.
 
@@ -75,5 +76,5 @@ These are the defaults and conventions that keep changes consistent and easy to 
 - Proactively keep the commands up to date, like when the scheme or devices change. 
 
 - List schemes: `flowdeck project schemes -w "/Users/swiftedmind/Code/Workspace/Tessera/Tessera.xcworkspace"`
-- Build ExampleApp: `flowdeck build -w "/Users/swiftedmind/Code/Workspace/Tessera/Tessera.xcworkspace" -s "ExampleApp" -S "iPhone 17"`
-- Run package tests: `flowdeck test -w "/Users/swiftedmind/Code/Workspace/Tessera/Tessera.xcworkspace" -s "TesseraTests" -S "iPhone 17"`
+- Build ExampleApp: `flowdeck build -w "/Users/swiftedmind/Code/Workspace/Tessera/Tessera.xcworkspace" -s "ExampleApp" -S "iPhone 17" -d ".xcode-deriveddata/iphone"`
+- Run package tests: `flowdeck test -w "/Users/swiftedmind/Code/Workspace/Tessera/Tessera.xcworkspace" -s "TesseraTests" -S "iPhone 17" -d ".xcode-deriveddata/iphone"``
