@@ -454,10 +454,8 @@ private extension MosaicPlacementPlanner {
     placements: [ShapePlacementEngine.PlacedSymbolDescriptor],
     mask: MosaicShapeMask,
   ) -> SnapshotMosaicLayer {
-    SnapshotMosaicLayer(
-      id: mosaic.id,
-      symbols: symbols,
-      placements: placements.map {
+    let normalizedPlacements = ShapePlacementOrdering.normalized(
+      placements.map {
         SnapshotPlacementDescriptor(
           symbolId: $0.symbolId,
           renderSymbolId: $0.renderSymbolId,
@@ -466,6 +464,13 @@ private extension MosaicPlacementPlanner {
           scale: $0.scale,
         )
       },
+      metadataBySymbolID: symbols.renderOrderMetadataBySymbolID,
+    )
+
+    return SnapshotMosaicLayer(
+      id: mosaic.id,
+      symbols: symbols,
+      placements: normalizedPlacements,
       mask: mask,
       maskDefinition: mosaic.mask,
       rendering: mosaic.rendering,
@@ -507,9 +512,8 @@ private extension MosaicPlacementPlanner {
       randomGenerator: &generator,
     )
 
-    return (
-      symbols: resolved.symbols,
-      placements: placed.map {
+    let normalizedPlacements = ShapePlacementOrdering.normalized(
+      placed.map {
         SnapshotPlacementDescriptor(
           symbolId: $0.symbolId,
           renderSymbolId: $0.renderSymbolId,
@@ -518,6 +522,12 @@ private extension MosaicPlacementPlanner {
           scale: $0.scale,
         )
       },
+      metadataBySymbolID: resolved.symbols.renderOrderMetadataBySymbolID,
+    )
+
+    return (
+      symbols: resolved.symbols,
+      placements: normalizedPlacements,
     )
   }
 
@@ -731,6 +741,7 @@ enum TesseraFingerprintBuilder {
   private static func combine(symbol: Symbol, into hasher: inout DeterministicHasher) {
     hasher.combine(symbol.id)
     hasher.combine(symbol.weight)
+    hasher.combine(symbol.zIndex)
     hasher.combine(symbol.allowedRotationRange.lowerBound.radians)
     hasher.combine(symbol.allowedRotationRange.upperBound.radians)
     if let scaleRange = symbol.scaleRange {

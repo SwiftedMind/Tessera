@@ -852,6 +852,8 @@ private func makeChoiceSymbolDescriptor(
   ShapePlacementEngine.PlacementSymbolDescriptor(
     id: id,
     weight: 1,
+    zIndex: 0,
+    sourceOrder: 0,
     choiceStrategy: strategy,
     choiceSeed: choiceSeed,
     renderDescriptor: nil,

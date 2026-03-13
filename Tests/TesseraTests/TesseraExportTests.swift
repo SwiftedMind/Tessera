@@ -181,6 +181,83 @@ import Testing
   #expect(imagesArePixelEqual(baselineImage, snapshotImage))
 }
 
+@Test @MainActor func canvasPNGExportUsingPlacementSnapshotPreservesSnapshotOrder() async throws {
+  let backID = UUID(uuidString: "00000000-0000-0000-0000-0000000000DB")!
+  let frontID = UUID(uuidString: "00000000-0000-0000-0000-0000000000DC")!
+  let canvasSize = CGSize(width: 128, height: 128)
+  let canvas = TesseraCanvas(
+    TesseraConfiguration(
+      symbols: [
+        TesseraSymbol(
+          id: frontID,
+          zIndex: 10,
+          allowedRotationRange: .zero...(.zero),
+          scaleRange: 1.0...1.0,
+          collisionShape: .rectangle(center: .zero, size: CGSize(width: 100, height: 100)),
+        ) {
+          Rectangle()
+            .fill(Color.red)
+            .frame(width: 100, height: 100)
+        },
+        TesseraSymbol(
+          id: backID,
+          zIndex: 0,
+          allowedRotationRange: .zero...(.zero),
+          scaleRange: 1.0...1.0,
+          collisionShape: .rectangle(center: .zero, size: CGSize(width: 100, height: 100)),
+        ) {
+          Rectangle()
+            .fill(Color.blue)
+            .frame(width: 100, height: 100)
+        },
+      ],
+      placement: .grid(
+        PlacementModel.Grid(
+          columnCount: 1,
+          rowCount: 1,
+        ),
+      ),
+    ),
+    seed: 1,
+    edgeBehavior: .finite,
+  )
+  let placementSnapshot = TesseraCanvas.PlacementSnapshot(
+    canvasSize: canvasSize,
+    placedSymbols: [
+      .init(
+        symbolId: frontID,
+        renderSymbolId: frontID,
+        position: CGPoint(x: 64, y: 64),
+        rotationRadians: 0,
+        scale: 1,
+      ),
+      .init(
+        symbolId: backID,
+        renderSymbolId: backID,
+        position: CGPoint(x: 64, y: 64),
+        rotationRadians: 0,
+        scale: 1,
+      ),
+    ],
+  )
+  let temporaryDirectory = FileManager.default.temporaryDirectory
+  let fileName = UUID().uuidString
+
+  let exportedURL = try canvas.renderPNG(
+    to: temporaryDirectory,
+    fileName: fileName,
+    placementSnapshot: placementSnapshot,
+  )
+  defer { try? FileManager.default.removeItem(at: exportedURL) }
+
+  let cgImage = try cgImageFromPNGFile(at: exportedURL)
+  let centerPixel = try pixelComponents(in: cgImage, x: cgImage.width / 2, y: cgImage.height / 2)
+
+  #expect(centerPixel.alpha > 200)
+  #expect(centerPixel.blue > 200)
+  #expect(Int(centerPixel.blue) - Int(centerPixel.red) > 100)
+}
+
 @Test @MainActor func snapshotPNGExportRendersCollisionOverlayForGeneratedSymbols() async throws {
   let canvasSize = CGSize(width: 128, height: 128)
   let renderer = makeGeneratedCollisionOverlayRenderer()

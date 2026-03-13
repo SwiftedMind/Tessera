@@ -265,15 +265,18 @@ extension TesseraCanvas {
     canvasSize: CGSize,
     placedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor],
   ) -> TesseraCanvas.PlacementSnapshot {
-    let placedSymbols = placedSymbolDescriptors.map {
-      TesseraCanvas.PlacementDescriptor(
-        symbolId: $0.symbolId,
-        renderSymbolId: $0.renderSymbolId,
-        position: $0.position,
-        rotationRadians: $0.rotationRadians,
-        scale: $0.scale,
-      )
-    }
+    let placedSymbols = ShapePlacementOrdering.normalized(
+      placedSymbolDescriptors.map {
+        TesseraCanvas.PlacementDescriptor(
+          symbolId: $0.symbolId,
+          renderSymbolId: $0.renderSymbolId,
+          position: $0.position,
+          rotationRadians: $0.rotationRadians,
+          scale: $0.scale,
+        )
+      },
+      metadataBySymbolID: configuration.symbols.renderOrderMetadataBySymbolID,
+    )
     return TesseraCanvas.PlacementSnapshot(canvasSize: canvasSize, placedSymbols: placedSymbols)
   }
 

@@ -264,6 +264,8 @@ enum OrganicShapePlacementEngine {
           let candidate = PlacedSymbolDescriptor(
             symbolId: selectedSymbol.id,
             renderSymbolId: selectedRenderSymbol.id,
+            zIndex: selectedSymbol.zIndex,
+            sourceOrder: selectedSymbol.sourceOrder,
             position: position,
             rotationRadians: rotationRadians,
             scale: CGFloat(scale),

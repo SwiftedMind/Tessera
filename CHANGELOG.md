@@ -1,3 +1,11 @@
+## [Unreleased]
+
+### Added
+- **Per-Symbol Draw Order**: `TesseraSymbol` / `Symbol` now include `zIndex`, so lower values render behind higher values for deterministic generated-symbol overlap behavior.
+
+### Changed
+- **Deterministic Overlap Ordering**: Canvas rendering and snapshot rendering now normalize generated symbol draw order by `zIndex`, then source symbol order, then placement sequence.
+
 ## [4.0.1]
 
 ### Fixed

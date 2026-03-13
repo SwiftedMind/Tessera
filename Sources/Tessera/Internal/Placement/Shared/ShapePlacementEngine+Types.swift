@@ -22,6 +22,10 @@ extension ShapePlacementEngine {
     var id: UUID
     /// The selection weight used by top-level symbol selection.
     var weight: Double
+    /// Draw order for generated symbols. Lower values render behind higher values.
+    var zIndex: Double
+    /// The source-array position of the top-level symbol.
+    var sourceOrder: Int
     /// The strategy used when `choices` is non-empty.
     var choiceStrategy: TesseraSymbolChoiceStrategy
     /// Optional seed salt mixed into choice resolution.
@@ -60,6 +64,10 @@ extension ShapePlacementEngine {
     var symbolId: UUID
     /// The identifier of the resolved render symbol (leaf choice).
     var renderSymbolId: UUID
+    /// Draw order for generated symbols. Lower values render behind higher values.
+    var zIndex: Double
+    /// The source-array position of the top-level symbol.
+    var sourceOrder: Int
     /// The final position of the symbol in tile coordinates.
     var position: CGPoint
     /// The final rotation in radians.
@@ -122,6 +130,8 @@ extension ShapePlacementEngine.PlacementSymbolDescriptor {
   init(
     id: UUID,
     weight: Double,
+    zIndex: Double = 0,
+    sourceOrder: Int = 0,
     allowedRotationRangeDegrees: ClosedRange<Double>,
     resolvedScaleRange: ClosedRange<Double>,
     collisionShape: CollisionShape,
@@ -129,6 +139,8 @@ extension ShapePlacementEngine.PlacementSymbolDescriptor {
     self.init(
       id: id,
       weight: weight,
+      zIndex: zIndex,
+      sourceOrder: sourceOrder,
       choiceStrategy: .weightedRandom,
       choiceSeed: nil,
       renderDescriptor: RenderDescriptor(
@@ -158,6 +170,8 @@ extension ShapePlacementEngine.PlacedSymbolDescriptor {
   /// Convenience initializer that uses `symbolId` as the render symbol ID.
   init(
     symbolId: UUID,
+    zIndex: Double = 0,
+    sourceOrder: Int = 0,
     position: CGPoint,
     rotationRadians: Double,
     scale: CGFloat,
@@ -166,6 +180,8 @@ extension ShapePlacementEngine.PlacedSymbolDescriptor {
     self.init(
       symbolId: symbolId,
       renderSymbolId: symbolId,
+      zIndex: zIndex,
+      sourceOrder: sourceOrder,
       position: position,
       rotationRadians: rotationRadians,
       scale: scale,

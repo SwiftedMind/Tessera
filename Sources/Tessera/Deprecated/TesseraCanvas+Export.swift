@@ -223,10 +223,15 @@ public extension TesseraCanvas {
   private func makePlacedSymbolDescriptors(
     from placementSnapshot: PlacementSnapshot,
   ) -> [ShapePlacementEngine.PlacedSymbolDescriptor] {
-    placementSnapshot.placedSymbols.map { descriptor in
-      ShapePlacementEngine.PlacedSymbolDescriptor(
+    let metadataBySymbolID = configuration.symbols.renderOrderMetadataBySymbolID
+
+    return placementSnapshot.placedSymbols.map { descriptor in
+      let metadata = metadataBySymbolID[descriptor.symbolId]
+      return ShapePlacementEngine.PlacedSymbolDescriptor(
         symbolId: descriptor.symbolId,
         renderSymbolId: descriptor.renderSymbolId,
+        zIndex: metadata?.zIndex ?? 0,
+        sourceOrder: metadata?.sourceOrder ?? 0,
         position: descriptor.position,
         rotationRadians: descriptor.rotationRadians,
         scale: descriptor.scale,

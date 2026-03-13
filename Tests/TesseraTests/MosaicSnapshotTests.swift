@@ -223,6 +223,34 @@ import Testing
   #expect(fingerprintA != fingerprintB)
 }
 
+@Test func symbolZIndexChangesSnapshotFingerprint() {
+  let baseSymbolID = UUID(uuidString: "00000000-0000-0000-0000-0000000000DA")!
+  let requestKey = SnapshotRequestKey.make(
+    mode: .canvas(size: CGSize(width: 100, height: 100), edgeBehavior: .finite),
+    resolvedSeed: 42,
+    region: .rectangle,
+    regionRendering: .clipped,
+    pinnedSymbols: [],
+  )
+  let backPattern = Pattern(
+    symbols: [
+      Symbol(id: baseSymbolID, zIndex: 0, collider: .shape(.circle(center: .zero, radius: 1))) { Circle() },
+    ],
+    placement: .grid(columns: 1, rows: 1),
+  )
+  let frontPattern = Pattern(
+    symbols: [
+      Symbol(id: baseSymbolID, zIndex: 1, collider: .shape(.circle(center: .zero, radius: 1))) { Circle() },
+    ],
+    placement: .grid(columns: 1, rows: 1),
+  )
+
+  let fingerprintA = TesseraFingerprintBuilder.fingerprint(pattern: backPattern, requestKey: requestKey)
+  let fingerprintB = TesseraFingerprintBuilder.fingerprint(pattern: frontPattern, requestKey: requestKey)
+
+  #expect(fingerprintA != fingerprintB)
+}
+
 @Test func mosaicRenderingClipModeMatrixIsStable() {
   #expect(MosaicRendering.contained.clipsToMask)
   #expect(MosaicRendering.clipped.clipsToMask)

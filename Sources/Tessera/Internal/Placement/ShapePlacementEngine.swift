@@ -71,8 +71,9 @@ enum ShapePlacementEngine {
     from symbols: [TesseraSymbol],
     placement: PlacementModel,
   ) -> [PlacementSymbolDescriptor] {
-    symbols.map { symbol in
+    symbols.enumerated().map { sourceOrder, symbol in
       makeSymbolDescriptor(from: symbol, placement: placement)
+        .updatingRenderOrder(zIndex: symbol.zIndex, sourceOrder: sourceOrder)
     }
   }
 
@@ -106,7 +107,7 @@ enum ShapePlacementEngine {
   ) -> [PlacedSymbolDescriptor] {
     guard !symbolDescriptors.isEmpty else { return [] }
 
-    return switch placement {
+    let placedDescriptors = switch placement {
     case let .organic(organicConfiguration):
       OrganicShapePlacementEngine.placeSymbolDescriptors(
         in: size,
@@ -132,6 +133,8 @@ enum ShapePlacementEngine {
         maskConstraintMode: maskConstraintMode,
       )
     }
+
+    return ShapePlacementOrdering.normalized(placedDescriptors)
   }
 
   private static func resolvedScaleRange(
@@ -170,10 +173,24 @@ enum ShapePlacementEngine {
     return PlacementSymbolDescriptor(
       id: symbol.id,
       weight: symbol.weight,
+      zIndex: symbol.zIndex,
+      sourceOrder: 0,
       choiceStrategy: symbol.choiceStrategy,
       choiceSeed: symbol.choiceSeed,
       renderDescriptor: renderDescriptor,
       choices: childDescriptors,
     )
+  }
+}
+
+private extension ShapePlacementEngine.PlacementSymbolDescriptor {
+  func updatingRenderOrder(zIndex: Double, sourceOrder: Int) -> Self {
+    var copy = self
+    copy.zIndex = zIndex
+    copy.sourceOrder = sourceOrder
+    copy.choices = copy.choices.map { childDescriptor in
+      childDescriptor.updatingRenderOrder(zIndex: zIndex, sourceOrder: sourceOrder)
+    }
+    return copy
   }
 }

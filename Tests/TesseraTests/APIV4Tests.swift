@@ -23,6 +23,24 @@ import Testing
   #expect(options.showsCollisionOverlay == false)
 }
 
+@Test func renderableSymbolInitializerDefaultsZIndexToZero() async throws {
+  let symbol = Symbol(collider: .shape(.circle(center: .zero, radius: 1))) { Circle() }
+
+  #expect(symbol.zIndex == 0)
+}
+
+@Test func choiceSymbolInitializerMapsZIndex() async throws {
+  let symbol = TesseraSymbol(
+    zIndex: 7,
+    choiceStrategy: .sequence,
+    choices: [
+      TesseraSymbol(collisionShape: .circle(center: .zero, radius: 1)) { Circle() },
+    ],
+  )
+
+  #expect(symbol.zIndex == 7)
+}
+
 @Test func gridPlacementFactoryProvidesExpectedDefaults() async throws {
   let placement = TesseraPlacement.grid(columns: 3, rows: 2)
 
