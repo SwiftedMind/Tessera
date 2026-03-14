@@ -5,68 +5,6 @@ import SwiftUI
 
 /// Places tessera symbols while respecting their approximate collision shapes.
 enum ShapePlacementEngine {
-  /// Generates placed symbols for a single tile using rejection sampling with wrap-aware collisions.
-  ///
-  /// - Parameters:
-  ///   - size: The size of the tile to populate with symbols.
-  ///   - configuration: The full tessera configuration, including placement mode.
-  ///   - pinnedSymbols: Symbols that must be placed at fixed positions before sampling.
-  ///   - edgeBehavior: The edge behavior to apply when testing collisions.
-  ///   - region: Optional polygon region in tile space used to constrain placement.
-  ///   - alphaMask: Optional alpha mask used to constrain placement.
-  ///   - randomGenerator: The random number generator that drives placement.
-  /// - Returns: The placed symbols for the tile.
-  static func placeSymbols(
-    in size: CGSize,
-    configuration: TesseraConfiguration,
-    pinnedSymbols: [TesseraPinnedSymbol] = [],
-    edgeBehavior: TesseraEdgeBehavior = .seamlessWrapping,
-    region: TesseraResolvedPolygonRegion? = nil,
-    alphaMask: (any PlacementMask)? = nil,
-    randomGenerator: inout some RandomNumberGenerator,
-  ) -> [PlacedSymbol] {
-    guard !configuration.symbols.isEmpty else { return [] }
-
-    let symbolDescriptors = makeSymbolDescriptors(
-      from: configuration.symbols,
-      placement: configuration.placement,
-    )
-
-    let pinnedSymbolDescriptors = pinnedSymbols.map { pinnedSymbol in
-      PinnedSymbolDescriptor(
-        id: pinnedSymbol.id,
-        position: pinnedSymbol.resolvedPosition(in: size),
-        rotationRadians: pinnedSymbol.rotation.radians,
-        scale: pinnedSymbol.scale,
-        collisionShape: pinnedSymbol.collisionShape,
-      )
-    }
-
-    let placedDescriptors = placeSymbolDescriptors(
-      in: size,
-      symbolDescriptors: symbolDescriptors,
-      pinnedSymbolDescriptors: pinnedSymbolDescriptors,
-      edgeBehavior: edgeBehavior,
-      placement: configuration.placement,
-      region: region,
-      alphaMask: alphaMask,
-      randomGenerator: &randomGenerator,
-    )
-
-    let symbolLookup = configuration.symbols.renderableLeafLookupByID
-
-    return placedDescriptors.compactMap { descriptor in
-      guard let symbol = symbolLookup[descriptor.renderSymbolId] else { return nil }
-
-      return PlacedSymbol(
-        symbol: symbol,
-        position: descriptor.position,
-        rotation: .radians(descriptor.rotationRadians),
-        scale: descriptor.scale,
-      )
-    }
-  }
-
   static func makeSymbolDescriptors(
     from symbols: [TesseraSymbol],
     placement: PlacementModel,
@@ -79,7 +17,7 @@ enum ShapePlacementEngine {
 
   /// Generates placed symbol descriptors without capturing SwiftUI view builders.
   ///
-  /// This is safe to run on a background task and is used by `TesseraCanvas` caching.
+  /// This is safe to run on a background task and is used by snapshot/export preparation.
   ///
   /// - Parameters:
   ///   - size: The size of the tile to populate with symbol descriptors.

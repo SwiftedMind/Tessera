@@ -61,19 +61,6 @@ enum ShapePlacementOrdering {
     }
   }
 
-  static func normalized(
-    _ placedSymbols: [TesseraCanvas.PlacementDescriptor],
-    metadataBySymbolID: [UUID: SymbolRenderOrderMetadata],
-  ) -> [TesseraCanvas.PlacementDescriptor] {
-    ordered(placedSymbols) { fallbackSequence, placedSymbol in
-      renderOrder(
-        for: placedSymbol.symbolId,
-        fallbackSequence: fallbackSequence,
-        metadataBySymbolID: metadataBySymbolID,
-      )
-    }
-  }
-
   private static func renderOrder(
     for symbolID: UUID,
     fallbackSequence: Int,

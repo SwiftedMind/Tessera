@@ -38,32 +38,31 @@ func makeTestTile() -> Tessera {
 }
 
 @MainActor
-func makeTestCanvasWithCenteredFixedCircle(canvasSize: CGSize) -> TesseraCanvas {
-  let configuration = TesseraConfiguration(
-    symbols: [],
-    placement: .organic(
-      PlacementModel.Organic(
-        seed: 1,
-        minimumSpacing: 10,
-        density: 0,
-        baseScaleRange: 1...1,
-        maximumSymbolCount: 0,
-      ),
-    ),
-  )
-
-  let fixedCircle = TesseraPinnedSymbol(
-    position: CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2),
+func makeTestCanvasWithCenteredFixedCircle(canvasSize: CGSize) -> Tessera {
+  let fixedCircle = PinnedSymbol(
+    position: PinnedPosition(CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)),
     rotation: .degrees(0),
     scale: 1,
-    collisionShape: .circle(center: .zero, radius: 10),
+    collider: .shape(.circle(center: .zero, radius: 10)),
   ) {
     Circle()
       .fill(Color.red)
       .frame(width: 20, height: 20)
   }
 
-  return TesseraCanvas(configuration, pinnedSymbols: [fixedCircle], seed: 1, edgeBehavior: .finite)
+  return Tessera(
+    Pattern(
+      symbols: [],
+      placement: .organic(
+        minimumSpacing: 10,
+        density: 0,
+        maximumCount: 0,
+      ),
+    ),
+  )
+  .mode(.canvas(edgeBehavior: .finite))
+  .seed(.fixed(1))
+  .pinnedSymbols([fixedCircle])
 }
 
 func cgImageFromPNGFile(at url: URL) throws -> CGImage {

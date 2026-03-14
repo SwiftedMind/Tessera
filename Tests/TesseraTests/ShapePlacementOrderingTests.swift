@@ -127,14 +127,20 @@ import Testing
       ),
     ),
   )
-  let canvas = TesseraCanvas(
-    configuration,
-    seed: 1,
-    edgeBehavior: .finite,
+  let symbolDescriptors = ShapePlacementEngine.makeSymbolDescriptors(
+    from: configuration.symbols,
+    placement: configuration.placement,
   )
+  var randomGenerator = SeededGenerator(seed: 1)
 
-  let orderedIDs = canvas
-    .makeSynchronousPlacedDescriptors(for: CGSize(width: 120, height: 60))
+  let orderedIDs = ShapePlacementEngine
+    .placeSymbolDescriptors(
+      in: CGSize(width: 120, height: 60),
+      symbolDescriptors: symbolDescriptors,
+      edgeBehavior: .finite,
+      placement: configuration.placement,
+      randomGenerator: &randomGenerator,
+    )
     .map(\.symbolId)
 
   #expect(orderedIDs == [backID, frontID])

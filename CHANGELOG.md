@@ -8,6 +8,9 @@
 - **Deterministic Overlap Ordering**: Canvas rendering and snapshot rendering now normalize generated symbol draw order by `zIndex`, then source symbol order, then placement sequence. Pinned symbols share the same `zIndex` system, and equal values still keep pinned symbols above generated symbols.
 - **Snapshot Mosaic Layering Policy**: Snapshot renders that include mosaics keep pinned symbols in a final overlay layer, so pinned symbols still draw above mosaic content instead of participating in one global mosaic/base/pinned sort.
 
+### Removed
+- **Legacy Canvas API**: Removed `TesseraCanvas`, `TesseraTiledCanvas`, placement-snapshot exports, and the old sync `renderPNG` / `renderPDF` entry points. Use `Tessera.export(...)`, `TesseraRenderer`, and `TesseraSnapshotView` instead.
+
 ## [4.0.1]
 
 ### Fixed

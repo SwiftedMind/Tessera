@@ -443,10 +443,10 @@ private struct SnapshotPlacementCanvasView: View {
       }
     } symbols: {
       ForEach(symbols) { symbol in
-        symbol.makeView().tag(TesseraCanvasRenderSymbolKey.generated(symbol.id))
+        symbol.makeView().tag(SnapshotRenderSymbolKey.generated(symbol.id))
       }
       ForEach(pinnedSymbols) { pinnedSymbol in
-        pinnedSymbol.makeView().tag(TesseraCanvasRenderSymbolKey.pinned(pinnedSymbol.id))
+        pinnedSymbol.makeView().tag(SnapshotRenderSymbolKey.pinned(pinnedSymbol.id))
       }
     }
     .frame(width: size.width, height: size.height)
@@ -454,11 +454,16 @@ private struct SnapshotPlacementCanvasView: View {
   }
 }
 
+private enum SnapshotRenderSymbolKey: Hashable {
+  case generated(UUID)
+  case pinned(UUID)
+}
+
 private enum SnapshotRenderEntry {
   case generated(SnapshotPlacementDescriptor, placementSequence: Int)
   case pinned(PinnedSymbol, sourceOrder: Int)
 
-  var symbolKey: TesseraCanvasRenderSymbolKey {
+  var symbolKey: SnapshotRenderSymbolKey {
     switch self {
     case let .generated(placedSymbol, _):
       .generated(placedSymbol.renderSymbolId)
