@@ -21,6 +21,7 @@ struct SnapshotRequestKey: Hashable, Sendable {
     var unitPointY: Double
     var offsetWidth: Double
     var offsetHeight: Double
+    var zIndex: Double
     var rotationRadians: Double
     var scale: CGFloat
     var collisionShape: CollisionShape
@@ -37,6 +38,8 @@ struct SnapshotRequestKey: Hashable, Sendable {
 struct SnapshotPlacementDescriptor: Sendable, Hashable {
   var symbolId: UUID
   var renderSymbolId: UUID
+  var zIndex: Double
+  var sourceOrder: Int
   var position: CGPoint
   var rotationRadians: Double
   var scale: CGFloat
@@ -92,6 +95,7 @@ extension SnapshotRequestKey {
           unitPointY: positionKey.unitPointY,
           offsetWidth: positionKey.offsetWidth,
           offsetHeight: positionKey.offsetHeight,
+          zIndex: ShapePlacementOrdering.sanitizedZIndex(pinnedSymbol.zIndex),
           rotationRadians: pinnedSymbol.rotation.radians,
           scale: pinnedSymbol.scale,
           collisionShape: pinnedSymbol.collisionShape,

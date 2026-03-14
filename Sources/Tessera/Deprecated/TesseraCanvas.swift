@@ -153,6 +153,10 @@ public struct TesseraCanvas: View {
     let rendersAsynchronously = rendersAsynchronously
     let renderableLeafSymbols = configuration.symbols.uniqueRenderableLeafSymbols
     let gridPlacement = configuration.gridPlacement
+    let orderedRenderEntries = makeOrderedTesseraCanvasRenderEntries(
+      placedSymbolDescriptors: placedSymbolDescriptors,
+      pinnedSymbols: pinnedSymbols,
+    )
     let isGridOverlayEnabled = gridPlacement?.showsGridOverlay == true
     let knownGridSymbolIDs = Set(configuration.symbols.map(\.id)).union(renderableLeafSymbols.map(\.id))
     let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
@@ -188,20 +192,41 @@ public struct TesseraCanvas: View {
 
       let offsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: edgeBehavior)
 
-      for placedSymbol in placedSymbolDescriptors {
-        guard let symbol = context.resolveSymbol(id: placedSymbol.renderSymbolId) else { continue }
+      for entry in orderedRenderEntries {
+        switch entry {
+        case let .generated(placedSymbol, _):
+          guard let symbol = context.resolveSymbol(id: entry.symbolKey) else { continue }
 
-        for offset in offsets {
-          var symbolContext = context
-          symbolContext.translateBy(x: offset.x + wrappedOffset.width, y: offset.y + wrappedOffset.height)
-          symbolContext.translateBy(x: placedSymbol.position.x, y: placedSymbol.position.y)
-          symbolContext.rotate(by: .radians(placedSymbol.rotationRadians))
-          symbolContext.scaleBy(x: placedSymbol.scale, y: placedSymbol.scale)
-          symbolContext.draw(symbol, at: .zero, anchor: .center)
+          for offset in offsets {
+            var symbolContext = context
+            symbolContext.translateBy(x: offset.x + wrappedOffset.width, y: offset.y + wrappedOffset.height)
+            symbolContext.translateBy(x: placedSymbol.position.x, y: placedSymbol.position.y)
+            symbolContext.rotate(by: .radians(placedSymbol.rotationRadians))
+            symbolContext.scaleBy(x: placedSymbol.scale, y: placedSymbol.scale)
+            symbolContext.draw(symbol, at: .zero, anchor: .center)
 
-          if isCollisionOverlayEnabled,
-             let overlayShape = overlayShapesBySymbolId[placedSymbol.renderSymbolId] {
-            CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
+            if isCollisionOverlayEnabled,
+               let overlayShape = overlayShapesBySymbolId[placedSymbol.renderSymbolId] {
+              CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
+            }
+          }
+        case let .pinned(pinnedSymbol, _):
+          guard let symbol = context.resolveSymbol(id: entry.symbolKey) else { continue }
+
+          let resolvedPosition = pinnedSymbol.resolvedPosition(in: size)
+
+          for offset in offsets {
+            var symbolContext = context
+            symbolContext.translateBy(x: offset.x, y: offset.y)
+            symbolContext.translateBy(x: resolvedPosition.x, y: resolvedPosition.y)
+            symbolContext.rotate(by: pinnedSymbol.rotation)
+            symbolContext.scaleBy(x: pinnedSymbol.scale, y: pinnedSymbol.scale)
+            symbolContext.draw(symbol, at: .zero, anchor: .center)
+
+            if isCollisionOverlayEnabled,
+               let overlayShape = overlayShapesByPinnedSymbolId[pinnedSymbol.id] {
+              CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
+            }
           }
         }
       }
@@ -218,61 +243,20 @@ public struct TesseraCanvas: View {
       }
     } symbols: {
       ForEach(renderableLeafSymbols) { symbol in
-        symbol.makeView().tag(symbol.id)
+        symbol.makeView().tag(TesseraCanvasRenderSymbolKey.generated(symbol.id))
+      }
+      ForEach(pinnedSymbols) { pinnedSymbol in
+        pinnedSymbol.makeView().tag(TesseraCanvasRenderSymbolKey.pinned(pinnedSymbol.id))
       }
     }
 
-    let compositeCanvas = baseCanvas
-      .overlay {
-        if pinnedSymbols.isEmpty == false {
-          // Keep the overlay in lockstep with the base canvas during interactive transforms.
-          Canvas(
-            opaque: false,
-            colorMode: .nonLinear,
-            rendersAsynchronously: rendersAsynchronously,
-          ) { context, size in
-            guard size.width > 0, size.height > 0 else { return }
-
-            if let clipPath {
-              context.clip(to: clipPath)
-            }
-
-            let offsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: edgeBehavior)
-
-            for pinnedSymbol in pinnedSymbols {
-              guard let symbol = context.resolveSymbol(id: pinnedSymbol.id) else { continue }
-
-              let resolvedPosition = pinnedSymbol.resolvedPosition(in: size)
-
-              for offset in offsets {
-                var symbolContext = context
-                symbolContext.translateBy(x: offset.x, y: offset.y)
-                symbolContext.translateBy(x: resolvedPosition.x, y: resolvedPosition.y)
-                symbolContext.rotate(by: pinnedSymbol.rotation)
-                symbolContext.scaleBy(x: pinnedSymbol.scale, y: pinnedSymbol.scale)
-                symbolContext.draw(symbol, at: .zero, anchor: .center)
-
-                if isCollisionOverlayEnabled,
-                   let overlayShape = overlayShapesByPinnedSymbolId[pinnedSymbol.id] {
-                  CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
-                }
-              }
-            }
-          } symbols: {
-            ForEach(pinnedSymbols) { pinnedSymbol in
-              pinnedSymbol.makeView().tag(pinnedSymbol.id)
-            }
-          }
-        }
-      }
-
     let clippedCanvas = Group {
       if let alphaMaskView {
-        compositeCanvas.mask {
+        baseCanvas.mask {
           alphaMaskView
         }
       } else {
-        compositeCanvas
+        baseCanvas
       }
     }
 

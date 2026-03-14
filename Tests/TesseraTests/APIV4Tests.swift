@@ -41,6 +41,26 @@ import Testing
   #expect(symbol.zIndex == 7)
 }
 
+@Test func pinnedSymbolInitializerDefaultsZIndexToZero() async throws {
+  let pinnedSymbol = PinnedSymbol(position: .centered(), collider: .shape(.circle(center: .zero, radius: 1))) {
+    Circle()
+  }
+
+  #expect(pinnedSymbol.zIndex == 0)
+}
+
+@Test func pinnedSymbolInitializerMapsZIndex() async throws {
+  let pinnedSymbol = PinnedSymbol(
+    position: .centered(),
+    zIndex: 7,
+    collider: .shape(.circle(center: .zero, radius: 1)),
+  ) {
+    Circle()
+  }
+
+  #expect(pinnedSymbol.zIndex == 7)
+}
+
 @Test func gridPlacementFactoryProvidesExpectedDefaults() async throws {
   let placement = TesseraPlacement.grid(columns: 3, rows: 2)
 

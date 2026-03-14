@@ -31,6 +31,7 @@ public extension PinnedSymbol {
   init(
     id: UUID = UUID(),
     position: PinnedPosition,
+    zIndex: Double = 0,
     rotation: Angle = .zero,
     scale: CGFloat = 1,
     collider: Collider = .automatic(size: CGSize(width: 30, height: 30)),
@@ -41,6 +42,7 @@ public extension PinnedSymbol {
       self.init(
         id: id,
         position: position,
+        zIndex: zIndex,
         rotation: rotation,
         scale: scale,
         collisionShape: shape,
@@ -50,6 +52,7 @@ public extension PinnedSymbol {
       self.init(
         id: id,
         position: position,
+        zIndex: zIndex,
         rotation: rotation,
         scale: scale,
         approximateSize: size,
@@ -61,6 +64,7 @@ public extension PinnedSymbol {
   /// Convenience constructor for absolute positions.
   static func absolute(
     _ point: CGPoint,
+    zIndex: Double = 0,
     rotation: Angle = .zero,
     scale: CGFloat = 1,
     collider: Collider = .automatic(size: CGSize(width: 30, height: 30)),
@@ -68,6 +72,7 @@ public extension PinnedSymbol {
   ) -> PinnedSymbol {
     .init(
       position: .absolute(point),
+      zIndex: zIndex,
       rotation: rotation,
       scale: scale,
       collider: collider,

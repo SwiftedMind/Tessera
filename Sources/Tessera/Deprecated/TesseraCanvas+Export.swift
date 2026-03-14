@@ -60,6 +60,7 @@ public extension TesseraCanvas {
       colorScheme: colorScheme,
       options: options,
       precomputedPlacedSymbolDescriptors: makePlacedSymbolDescriptors(from: placementSnapshot),
+      preservesPlacementSnapshotOrder: true,
     )
   }
 
@@ -72,6 +73,7 @@ public extension TesseraCanvas {
     colorScheme: ColorScheme?,
     options: RenderOptions,
     precomputedPlacedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor]?,
+    preservesPlacementSnapshotOrder: Bool = false,
   ) throws -> URL {
     var renderConfiguration = configuration
     if case var .organic(organicPlacement) = renderConfiguration.placement {
@@ -91,6 +93,7 @@ public extension TesseraCanvas {
       regionRendering: regionRendering,
       pinnedSymbols: pinnedSymbols,
       placedSymbolDescriptors: placedSymbolDescriptors,
+      preservesPlacedSymbolOrder: preservesPlacementSnapshotOrder,
       resolvedAlphaMask: resolvedAlphaMask,
       edgeBehavior: effectiveEdgeBehavior,
       rendersAsynchronously: rendersAsynchronously,
@@ -191,10 +194,12 @@ public extension TesseraCanvas {
       backgroundColor: backgroundColor,
       content: renderView,
     )
+    // PDF vector rendering can reorder mixed Canvas symbols; flatten the composed result first.
+    let flattenedExportView = exportView.drawingGroup()
     let rendererContent = if let colorScheme {
-      AnyView(exportView.environment(\.colorScheme, colorScheme))
+      AnyView(flattenedExportView.environment(\.colorScheme, colorScheme))
     } else {
-      AnyView(exportView)
+      AnyView(flattenedExportView)
     }
     let renderer = ImageRenderer(content: rendererContent)
     renderer.proposedSize = ProposedViewSize(renderSize)
@@ -284,6 +289,7 @@ private struct TesseraCanvasStaticRenderView: View {
   var regionRendering: TesseraRegionRendering
   var pinnedSymbols: [TesseraPinnedSymbol]
   var placedSymbolDescriptors: [ShapePlacementEngine.PlacedSymbolDescriptor]
+  var preservesPlacedSymbolOrder: Bool = false
   var resolvedAlphaMask: TesseraAlphaMask?
   var edgeBehavior: TesseraEdgeBehavior
   var rendersAsynchronously: Bool
@@ -291,6 +297,17 @@ private struct TesseraCanvasStaticRenderView: View {
   var body: some View {
     let isCollisionOverlayEnabled = configuration.showsCollisionOverlay
     let renderableLeafSymbols = configuration.symbols.uniqueRenderableLeafSymbols
+    let orderedRenderEntries = if preservesPlacedSymbolOrder {
+      makeTesseraCanvasRenderEntriesPreservingPlacementOrder(
+        placedSymbolDescriptors: placedSymbolDescriptors,
+        pinnedSymbols: pinnedSymbols,
+      )
+    } else {
+      makeOrderedTesseraCanvasRenderEntries(
+        placedSymbolDescriptors: placedSymbolDescriptors,
+        pinnedSymbols: pinnedSymbols,
+      )
+    }
     let clipPath = region.isPolygon && regionRendering == .clipped ? region.clipPath(in: canvasSize) : nil
     let alphaMaskView = region.isAlphaMask && regionRendering == .clipped
       ? resolvedAlphaMask?.maskView()
@@ -324,79 +341,60 @@ private struct TesseraCanvasStaticRenderView: View {
 
       let offsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: edgeBehavior)
 
-      for placedSymbol in placedSymbolDescriptors {
-        guard let symbol = context.resolveSymbol(id: placedSymbol.renderSymbolId) else { continue }
+      for entry in orderedRenderEntries {
+        switch entry {
+        case let .generated(placedSymbol, _):
+          guard let symbol = context.resolveSymbol(id: entry.symbolKey) else { continue }
 
-        for offset in offsets {
-          var symbolContext = context
-          symbolContext.translateBy(x: offset.x + wrappedOffset.width, y: offset.y + wrappedOffset.height)
-          symbolContext.translateBy(x: placedSymbol.position.x, y: placedSymbol.position.y)
-          symbolContext.rotate(by: .radians(placedSymbol.rotationRadians))
-          symbolContext.scaleBy(x: placedSymbol.scale, y: placedSymbol.scale)
-          symbolContext.draw(symbol, at: .zero, anchor: .center)
+          for offset in offsets {
+            var symbolContext = context
+            symbolContext.translateBy(x: offset.x + wrappedOffset.width, y: offset.y + wrappedOffset.height)
+            symbolContext.translateBy(x: placedSymbol.position.x, y: placedSymbol.position.y)
+            symbolContext.rotate(by: .radians(placedSymbol.rotationRadians))
+            symbolContext.scaleBy(x: placedSymbol.scale, y: placedSymbol.scale)
+            symbolContext.draw(symbol, at: .zero, anchor: .center)
 
-          if isCollisionOverlayEnabled,
-             let overlayShape = overlayShapesBySymbolId[placedSymbol.renderSymbolId] {
-            CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
+            if isCollisionOverlayEnabled,
+               let overlayShape = overlayShapesBySymbolId[placedSymbol.renderSymbolId] {
+              CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
+            }
+          }
+        case let .pinned(pinnedSymbol, _):
+          guard let symbol = context.resolveSymbol(id: entry.symbolKey) else { continue }
+
+          let resolvedPosition = pinnedSymbol.resolvedPosition(in: size)
+
+          for offset in offsets {
+            var symbolContext = context
+            symbolContext.translateBy(x: offset.x, y: offset.y)
+            symbolContext.translateBy(x: resolvedPosition.x, y: resolvedPosition.y)
+            symbolContext.rotate(by: pinnedSymbol.rotation)
+            symbolContext.scaleBy(x: pinnedSymbol.scale, y: pinnedSymbol.scale)
+            symbolContext.draw(symbol, at: .zero, anchor: .center)
+
+            if isCollisionOverlayEnabled,
+               let overlayShape = overlayShapesByPinnedSymbolId[pinnedSymbol.id] {
+              CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
+            }
           }
         }
       }
     } symbols: {
       ForEach(renderableLeafSymbols) { symbol in
-        symbol.makeView().tag(symbol.id)
+        symbol.makeView().tag(TesseraCanvasRenderSymbolKey.generated(symbol.id))
+      }
+      ForEach(pinnedSymbols) { pinnedSymbol in
+        pinnedSymbol.makeView().tag(TesseraCanvasRenderSymbolKey.pinned(pinnedSymbol.id))
       }
     }
 
-    let compositeCanvas = baseCanvas
-      .overlay {
-        if pinnedSymbols.isEmpty == false {
-          Canvas(
-            opaque: false,
-            colorMode: .nonLinear,
-            rendersAsynchronously: rendersAsynchronously,
-          ) { context, size in
-            guard size.width > 0, size.height > 0 else { return }
-
-            if let clipPath {
-              context.clip(to: clipPath)
-            }
-
-            let offsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: edgeBehavior)
-
-            for pinnedSymbol in pinnedSymbols {
-              guard let symbol = context.resolveSymbol(id: pinnedSymbol.id) else { continue }
-
-              let resolvedPosition = pinnedSymbol.resolvedPosition(in: size)
-
-              for offset in offsets {
-                var symbolContext = context
-                symbolContext.translateBy(x: offset.x, y: offset.y)
-                symbolContext.translateBy(x: resolvedPosition.x, y: resolvedPosition.y)
-                symbolContext.rotate(by: pinnedSymbol.rotation)
-                symbolContext.scaleBy(x: pinnedSymbol.scale, y: pinnedSymbol.scale)
-                symbolContext.draw(symbol, at: .zero, anchor: .center)
-
-                if isCollisionOverlayEnabled,
-                   let overlayShape = overlayShapesByPinnedSymbolId[pinnedSymbol.id] {
-                  CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
-                }
-              }
-            }
-          } symbols: {
-            ForEach(pinnedSymbols) { pinnedSymbol in
-              pinnedSymbol.makeView().tag(pinnedSymbol.id)
-            }
-          }
-        }
-      }
-
     let clippedCanvas = Group {
       if let alphaMaskView {
-        compositeCanvas.mask {
+        baseCanvas.mask {
           alphaMaskView
         }
       } else {
-        compositeCanvas
+        baseCanvas
       }
     }
 

@@ -149,6 +149,52 @@ import Testing
   #expect(Int(centerPixel.red) - Int(centerPixel.blue) > 100)
 }
 
+@Test @MainActor func canvasPNGExportHonorsZIndexAcrossGeneratedAndPinnedSymbols() async throws {
+  let canvasSize = CGSize(width: 128, height: 128)
+  let generatedSymbol = makeColoredGeneratedSymbol(color: .blue, size: CGSize(width: 120, height: 120), zIndex: 5)
+  let pinnedSymbol = makeColoredPinnedSymbol(color: .red, size: CGSize(width: 80, height: 80), zIndex: 3)
+  let canvas = TesseraCanvas(
+    TesseraConfiguration(
+      symbols: [generatedSymbol],
+      placement: .grid(PlacementModel.Grid(columnCount: 1, rowCount: 1)),
+    ),
+    pinnedSymbols: [pinnedSymbol],
+    seed: 1,
+    edgeBehavior: .finite,
+  )
+  let temporaryDirectory = FileManager.default.temporaryDirectory
+  let fileName = UUID().uuidString
+
+  let exportedURL = try canvas.renderPNG(to: temporaryDirectory, fileName: fileName, canvasSize: canvasSize)
+  defer { try? FileManager.default.removeItem(at: exportedURL) }
+
+  let cgImage = try cgImageFromPNGFile(at: exportedURL)
+  let centerPixel = try pixelComponents(in: cgImage, x: cgImage.width / 2, y: cgImage.height / 2)
+
+  #expect(centerPixel.alpha > 200)
+  #expect(centerPixel.blue > 200)
+  #expect(Int(centerPixel.blue) - Int(centerPixel.red) > 100)
+}
+
+@Test @MainActor func canvasPNGExportHonorsZIndexAcrossPinnedSymbols() async throws {
+  let canvasSize = CGSize(width: 128, height: 128)
+  let backPinnedSymbol = makeColoredPinnedSymbol(color: .blue, size: CGSize(width: 80, height: 80), zIndex: 0)
+  let frontPinnedSymbol = makeColoredPinnedSymbol(color: .red, size: CGSize(width: 60, height: 60), zIndex: 5)
+  let canvas = makePinnedOnlyCanvas(pinnedSymbols: [frontPinnedSymbol, backPinnedSymbol])
+  let temporaryDirectory = FileManager.default.temporaryDirectory
+  let fileName = UUID().uuidString
+
+  let exportedURL = try canvas.renderPNG(to: temporaryDirectory, fileName: fileName, canvasSize: canvasSize)
+  defer { try? FileManager.default.removeItem(at: exportedURL) }
+
+  let cgImage = try cgImageFromPNGFile(at: exportedURL)
+  let centerPixel = try pixelComponents(in: cgImage, x: cgImage.width / 2, y: cgImage.height / 2)
+
+  #expect(centerPixel.alpha > 200)
+  #expect(centerPixel.red > 200)
+  #expect(Int(centerPixel.red) - Int(centerPixel.blue) > 100)
+}
+
 @Test @MainActor func canvasPNGExportUsingPlacementSnapshotMatchesRegularExport() async throws {
   let canvasSize = CGSize(width: 128, height: 128)
   let canvas = makeSingleSymbolGridCanvas()
@@ -562,6 +608,37 @@ import Testing
   #expect(Int(centerPixel.red) - Int(centerPixel.blue) > 100)
 }
 
+@Test @MainActor func canvasPDFExportHonorsZIndexAcrossGeneratedAndPinnedSymbols() async throws {
+  let canvasSize = CGSize(width: 128, height: 128)
+  let generatedSymbol = makeColoredGeneratedSymbol(color: .blue, size: CGSize(width: 120, height: 120), zIndex: 5)
+  let pinnedSymbol = makeColoredPinnedSymbol(color: .red, size: CGSize(width: 80, height: 80), zIndex: 3)
+  let canvas = TesseraCanvas(
+    TesseraConfiguration(
+      symbols: [generatedSymbol],
+      placement: .grid(PlacementModel.Grid(columnCount: 1, rowCount: 1)),
+    ),
+    pinnedSymbols: [pinnedSymbol],
+    seed: 1,
+    edgeBehavior: .finite,
+  )
+  let temporaryDirectory = FileManager.default.temporaryDirectory
+  let fileName = UUID().uuidString
+
+  let exportedURL = try canvas.renderPDF(
+    to: temporaryDirectory,
+    fileName: fileName,
+    canvasSize: canvasSize,
+  )
+  defer { try? FileManager.default.removeItem(at: exportedURL) }
+
+  let cgImage = try cgImageFromPDFFile(at: exportedURL)
+  let centerPixel = try pixelComponents(in: cgImage, x: cgImage.width / 2, y: cgImage.height / 2)
+
+  #expect(centerPixel.alpha > 200)
+  #expect(centerPixel.blue > 200)
+  #expect(Int(centerPixel.blue) - Int(centerPixel.red) > 100)
+}
+
 @Test @MainActor func canvasPDFExportUsesTransparentBackgroundByDefault() async throws {
   let canvasSize = CGSize(width: 128, height: 128)
   let pageSize = CGSize(width: 256, height: 256)
@@ -671,6 +748,62 @@ private func makeGeneratedCollisionOverlayRenderer() -> TesseraRenderer {
       symbols: [symbol],
       placement: .grid(columns: 1, rows: 1),
     ),
+  )
+}
+
+@MainActor
+private func makeColoredGeneratedSymbol(
+  color: Color,
+  size: CGSize,
+  zIndex: Double,
+) -> TesseraSymbol {
+  TesseraSymbol(
+    zIndex: zIndex,
+    allowedRotationRange: .degrees(0)...(.degrees(0)),
+    scaleRange: 1...1,
+    collisionShape: .rectangle(center: .zero, size: size),
+  ) {
+    Rectangle()
+      .fill(color)
+      .frame(width: size.width, height: size.height)
+  }
+}
+
+@MainActor
+private func makeColoredPinnedSymbol(
+  color: Color,
+  size: CGSize,
+  zIndex: Double,
+) -> TesseraPinnedSymbol {
+  TesseraPinnedSymbol(
+    position: .centered(),
+    zIndex: zIndex,
+    collisionShape: .rectangle(center: .zero, size: size),
+  ) {
+    Rectangle()
+      .fill(color)
+      .frame(width: size.width, height: size.height)
+  }
+}
+
+@MainActor
+private func makePinnedOnlyCanvas(pinnedSymbols: [TesseraPinnedSymbol]) -> TesseraCanvas {
+  TesseraCanvas(
+    TesseraConfiguration(
+      symbols: [],
+      placement: .organic(
+        PlacementModel.Organic(
+          seed: 1,
+          minimumSpacing: 10,
+          density: 0,
+          baseScaleRange: 1...1,
+          maximumSymbolCount: 0,
+        ),
+      ),
+    ),
+    pinnedSymbols: pinnedSymbols,
+    seed: 1,
+    edgeBehavior: .finite,
   )
 }
 

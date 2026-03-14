@@ -454,17 +454,22 @@ private extension MosaicPlacementPlanner {
     placements: [ShapePlacementEngine.PlacedSymbolDescriptor],
     mask: MosaicShapeMask,
   ) -> SnapshotMosaicLayer {
+    let metadataBySymbolID = symbols.renderOrderMetadataBySymbolID
+    let snapshotPlacements: [SnapshotPlacementDescriptor] = placements.map {
+      let metadata = metadataBySymbolID[$0.symbolId]
+      return SnapshotPlacementDescriptor(
+        symbolId: $0.symbolId,
+        renderSymbolId: $0.renderSymbolId,
+        zIndex: metadata?.zIndex ?? 0,
+        sourceOrder: metadata?.sourceOrder ?? Int.max,
+        position: $0.position,
+        rotationRadians: $0.rotationRadians,
+        scale: $0.scale,
+      )
+    }
     let normalizedPlacements = ShapePlacementOrdering.normalized(
-      placements.map {
-        SnapshotPlacementDescriptor(
-          symbolId: $0.symbolId,
-          renderSymbolId: $0.renderSymbolId,
-          position: $0.position,
-          rotationRadians: $0.rotationRadians,
-          scale: $0.scale,
-        )
-      },
-      metadataBySymbolID: symbols.renderOrderMetadataBySymbolID,
+      snapshotPlacements,
+      metadataBySymbolID: metadataBySymbolID,
     )
 
     return SnapshotMosaicLayer(
@@ -512,17 +517,22 @@ private extension MosaicPlacementPlanner {
       randomGenerator: &generator,
     )
 
+    let metadataBySymbolID = resolved.symbols.renderOrderMetadataBySymbolID
+    let snapshotPlacements: [SnapshotPlacementDescriptor] = placed.map {
+      let metadata = metadataBySymbolID[$0.symbolId]
+      return SnapshotPlacementDescriptor(
+        symbolId: $0.symbolId,
+        renderSymbolId: $0.renderSymbolId,
+        zIndex: metadata?.zIndex ?? 0,
+        sourceOrder: metadata?.sourceOrder ?? Int.max,
+        position: $0.position,
+        rotationRadians: $0.rotationRadians,
+        scale: $0.scale,
+      )
+    }
     let normalizedPlacements = ShapePlacementOrdering.normalized(
-      placed.map {
-        SnapshotPlacementDescriptor(
-          symbolId: $0.symbolId,
-          renderSymbolId: $0.renderSymbolId,
-          position: $0.position,
-          rotationRadians: $0.rotationRadians,
-          scale: $0.scale,
-        )
-      },
-      metadataBySymbolID: resolved.symbols.renderOrderMetadataBySymbolID,
+      snapshotPlacements,
+      metadataBySymbolID: metadataBySymbolID,
     )
 
     return (
@@ -694,6 +704,7 @@ enum TesseraFingerprintBuilder {
       hasher.combine(key.unitPointY)
       hasher.combine(key.offsetWidth)
       hasher.combine(key.offsetHeight)
+      hasher.combine(key.zIndex)
       hasher.combine(key.rotationRadians)
       hasher.combine(key.scale)
       combine(collisionShape: key.collisionShape, into: &hasher)

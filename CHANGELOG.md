@@ -2,9 +2,11 @@
 
 ### Added
 - **Per-Symbol Draw Order**: `TesseraSymbol` / `Symbol` now include `zIndex`, so lower values render behind higher values for deterministic generated-symbol overlap behavior.
+- **Pinned Symbol Draw Order**: `TesseraPinnedSymbol` / `PinnedSymbol` now include `zIndex`, so pinned symbols can be ordered against other pinned symbols and generated symbols.
 
 ### Changed
-- **Deterministic Overlap Ordering**: Canvas rendering and snapshot rendering now normalize generated symbol draw order by `zIndex`, then source symbol order, then placement sequence.
+- **Deterministic Overlap Ordering**: Canvas rendering and snapshot rendering now normalize generated symbol draw order by `zIndex`, then source symbol order, then placement sequence. Pinned symbols share the same `zIndex` system, and equal values still keep pinned symbols above generated symbols.
+- **Snapshot Mosaic Layering Policy**: Snapshot renders that include mosaics keep pinned symbols in a final overlay layer, so pinned symbols still draw above mosaic content instead of participating in one global mosaic/base/pinned sort.
 
 ## [4.0.1]
 
