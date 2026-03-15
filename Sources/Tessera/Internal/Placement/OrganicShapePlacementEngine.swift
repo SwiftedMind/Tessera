@@ -121,6 +121,12 @@ enum OrganicShapePlacementEngine {
         pinnedSymbol.collisionShape.boundingRadius(atScale: pinnedSymbol.scale)
       }
       .max() ?? 0
+    let symbolBoundingRadiusByID = symbolDescriptors.reduce(into: [UUID: CGFloat]()) { radiiByID, symbol in
+      radiiByID[symbol.id] = preferredBoundingRadius(
+        for: symbol,
+        maximumScaleMultiplier: CGFloat(maximumScaleMultiplier),
+      )
+    }
     let maximumBoundingRadius = max(maximumGeneratedBoundingRadius, maximumFixedBoundingRadius)
     let maximumInteractionDistance = maximumBoundingRadius * 2 + maximumMinimumSpacing
     let cellSize = max(maximumInteractionDistance, 1)
@@ -165,7 +171,20 @@ enum OrganicShapePlacementEngine {
     for placementAttemptIndex in 0..<remainingTargetCount {
       if Task.isCancelled { return placedDescriptors }
 
-      guard let selectedSymbol = pickSymbol(from: symbolDescriptors, using: &randomGenerator) else { break }
+      let symbolSelectionMode: SymbolSelectionMode = if saturationStopState.shouldUseCandidateRescue {
+        .stronglyPrefersSmallerSymbols
+      } else if saturationStopState.shouldPreferOpenCells {
+        .prefersSmallerSymbols
+      } else {
+        .defaultWeights
+      }
+
+      guard let selectedSymbol = pickSymbol(
+        from: symbolDescriptors,
+        symbolBoundingRadiusByID: symbolBoundingRadiusByID,
+        selectionMode: symbolSelectionMode,
+        using: &randomGenerator,
+      ) else { break }
 
       let choiceSeed = organicChoiceSeed(
         baseSeed: configuration.seed,
@@ -703,17 +722,60 @@ enum OrganicShapePlacementEngine {
     return maximumRadius
   }
 
+  private static func preferredBoundingRadius(
+    for symbol: PlacementSymbolDescriptor,
+    maximumScaleMultiplier: CGFloat,
+  ) -> CGFloat {
+    var maximumRadius: CGFloat = 0
+    for renderSymbol in symbol.renderableLeafDescriptors {
+      let maximumScale = max(0, renderSymbol.resolvedScaleRange.upperBound) * Double(maximumScaleMultiplier)
+      let radius = renderSymbol.collisionShape.boundingRadius(atScale: CGFloat(maximumScale))
+      maximumRadius = max(maximumRadius, radius)
+    }
+    return maximumRadius
+  }
+
+  private enum SymbolSelectionMode {
+    case defaultWeights
+    case prefersSmallerSymbols
+    case stronglyPrefersSmallerSymbols
+
+    var biasRange: ClosedRange<Double> {
+      switch self {
+      case .defaultWeights:
+        1...1
+      case .prefersSmallerSymbols:
+        1...2
+      case .stronglyPrefersSmallerSymbols:
+        1...3
+      }
+    }
+  }
+
   private static func pickSymbol(
     from symbols: [PlacementSymbolDescriptor],
+    symbolBoundingRadiusByID: [UUID: CGFloat],
+    selectionMode: SymbolSelectionMode,
     using randomGenerator: inout some RandomNumberGenerator,
   ) -> PlacementSymbolDescriptor? {
     // Weighted pick to preserve caller-defined symbol frequencies.
     guard symbols.isEmpty == false else { return nil }
 
+    let knownRadii = symbolBoundingRadiusByID.values
+    let minimumRadius = knownRadii.min() ?? 0
+    let maximumRadius = knownRadii.max() ?? minimumRadius
+
     var totalWeight = 0.0
     for symbol in symbols {
-      if symbol.weight.isFinite {
-        totalWeight += max(0, symbol.weight)
+      let selectionWeight = effectiveSelectionWeight(
+        for: symbol,
+        symbolBoundingRadiusByID: symbolBoundingRadiusByID,
+        minimumRadius: minimumRadius,
+        maximumRadius: maximumRadius,
+        selectionMode: selectionMode,
+      )
+      if selectionWeight.isFinite {
+        totalWeight += max(0, selectionWeight)
       }
     }
 
@@ -723,8 +785,15 @@ enum OrganicShapePlacementEngine {
     var accumulator = 0.0
 
     for symbol in symbols {
-      if symbol.weight.isFinite {
-        accumulator += max(0, symbol.weight)
+      let selectionWeight = effectiveSelectionWeight(
+        for: symbol,
+        symbolBoundingRadiusByID: symbolBoundingRadiusByID,
+        minimumRadius: minimumRadius,
+        maximumRadius: maximumRadius,
+        selectionMode: selectionMode,
+      )
+      if selectionWeight.isFinite {
+        accumulator += max(0, selectionWeight)
       }
       if randomValue < accumulator {
         return symbol
@@ -732,6 +801,26 @@ enum OrganicShapePlacementEngine {
     }
 
     return symbols.last
+  }
+
+  private static func effectiveSelectionWeight(
+    for symbol: PlacementSymbolDescriptor,
+    symbolBoundingRadiusByID: [UUID: CGFloat],
+    minimumRadius: CGFloat,
+    maximumRadius: CGFloat,
+    selectionMode: SymbolSelectionMode,
+  ) -> Double {
+    let baseWeight = max(0, symbol.weight)
+    guard baseWeight > 0 else { return 0 }
+    guard selectionMode != .defaultWeights else { return baseWeight }
+
+    let radius = symbolBoundingRadiusByID[symbol.id] ?? maximumRadius
+    let radiusSpan = maximumRadius - minimumRadius
+    let normalizedRadius = radiusSpan > 0 ? (radius - minimumRadius) / radiusSpan : 1
+    let smallerSymbolScore = 1 - min(1, max(0, normalizedRadius))
+    let biasRange = selectionMode.biasRange
+    let biasFactor = biasRange.lowerBound + (biasRange.upperBound - biasRange.lowerBound) * Double(smallerSymbolScore)
+    return baseWeight * biasFactor
   }
 
   private static func samplePosition(
