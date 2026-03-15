@@ -27,6 +27,7 @@ enum ShapePlacementCollision {
     var polygonChecks = 0
     var placementOuterAttempts = 0
     var placementSuccesses = 0
+    var placementSuccessesUsingRescue = 0
     var placementFailures = 0
     var terminatedForSaturation = false
   }

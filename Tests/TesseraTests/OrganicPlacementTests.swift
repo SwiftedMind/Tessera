@@ -325,6 +325,77 @@ import Testing
   }
 }
 
+@Test func organicPlacementRescuesTightGapByRetryingSmallerScales() async throws {
+  let size = CGSize(width: 160, height: 120)
+  let symbolDescriptor = makeSymbolDescriptor(
+    id: UUID(uuidString: "00000000-0000-0000-0000-000000000022")!,
+    allowedRotationRangeDegrees: 0...0,
+    resolvedScaleRange: 0.45...1,
+    collisionShape: .circle(center: .zero, radius: 20),
+  )
+  let leftPinned = ShapePlacementEngine.PinnedSymbolDescriptor(
+    id: UUID(uuidString: "00000000-0000-0000-0000-000000000023")!,
+    position: CGPoint(x: 50, y: 60),
+    rotationRadians: 0,
+    scale: 1,
+    collisionShape: .circle(center: .zero, radius: 20),
+  )
+  let rightPinned = ShapePlacementEngine.PinnedSymbolDescriptor(
+    id: UUID(uuidString: "00000000-0000-0000-0000-000000000024")!,
+    position: CGPoint(x: 114, y: 60),
+    rotationRadians: 0,
+    scale: 1,
+    collisionShape: .circle(center: .zero, radius: 20),
+  )
+  let region = TesseraCanvasRegion.polygon(
+    [
+      CGPoint(x: 79, y: 58),
+      CGPoint(x: 85, y: 58),
+      CGPoint(x: 85, y: 62),
+      CGPoint(x: 79, y: 62),
+    ],
+    mapping: .canvasCoordinates,
+  )
+  let resolvedRegion = region.resolvedPolygon(in: size)
+
+  #expect(resolvedRegion != nil)
+
+  var rescuedScale: Double?
+
+  for seed in UInt64(0)..<256 {
+    let placement = PlacementModel.Organic(
+      seed: seed,
+      minimumSpacing: 0,
+      density: 1,
+      baseScaleRange: 1...1,
+      maximumSymbolCount: 20,
+    )
+    let diagnostics = ShapePlacementCollision.Diagnostics()
+    var generator = SeededGenerator(seed: placement.seed)
+    let placed = OrganicShapePlacementEngine.placeSymbolDescriptors(
+      in: size,
+      symbolDescriptors: [symbolDescriptor],
+      pinnedSymbolDescriptors: [leftPinned, rightPinned],
+      edgeBehavior: .finite,
+      configuration: placement,
+      region: resolvedRegion,
+      randomGenerator: &generator,
+      diagnostics: diagnostics,
+    )
+
+    guard diagnostics.placementSuccessesUsingRescue == 1 else { continue }
+
+    #expect(placed.count == 1)
+    rescuedScale = Double(placed[0].scale)
+    break
+  }
+
+  #expect(rescuedScale != nil)
+  if let rescuedScale {
+    #expect(rescuedScale <= 0.6)
+  }
+}
+
 @Test func organicPlacementAvoidsPinnedSymbolCollisions() async throws {
   let size = CGSize(width: 256, height: 256)
   let placement = PlacementModel.Organic(
@@ -460,13 +531,15 @@ private func snapshot(_ placed: [ShapePlacementEngine.PlacedSymbolDescriptor]) -
 
 private func makeSymbolDescriptor(
   id: UUID,
+  allowedRotationRangeDegrees: ClosedRange<Double> = 0...0,
+  resolvedScaleRange: ClosedRange<Double> = 1...1,
   collisionShape: CollisionShape,
 ) -> ShapePlacementEngine.PlacementSymbolDescriptor {
   ShapePlacementEngine.PlacementSymbolDescriptor(
     id: id,
     weight: 1,
-    allowedRotationRangeDegrees: 0...0,
-    resolvedScaleRange: 1...1,
+    allowedRotationRangeDegrees: allowedRotationRangeDegrees,
+    resolvedScaleRange: resolvedScaleRange,
     collisionShape: collisionShape,
   )
 }
