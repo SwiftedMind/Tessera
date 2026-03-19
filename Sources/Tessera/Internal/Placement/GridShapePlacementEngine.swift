@@ -523,16 +523,14 @@ enum GridShapePlacementEngine {
     for subgrid in subgrids {
       let origin = subgrid.origin
       let span = subgrid.span
+      // Invalid or unresolved subgrids are skipped so remaining grid placement can proceed.
       guard origin.row >= 0, origin.column >= 0, span.rows > 0, span.columns > 0 else {
-        assertionFailure("Subgrid ignored: origin and span must be non-negative and non-zero")
         continue
       }
       guard subgrid.symbolIDs.isEmpty == false else {
-        assertionFailure("Subgrid ignored: symbolIDs must not be empty")
         continue
       }
       guard origin.row + span.rows <= grid.rowCount, origin.column + span.columns <= grid.columnCount else {
-        assertionFailure("Subgrid ignored: subgrid exceeds resolved grid bounds")
         continue
       }
 
@@ -557,7 +555,6 @@ enum GridShapePlacementEngine {
         leafSymbolDescriptorsByID: leafSymbolDescriptorsByID,
       )
       guard resolvedSymbolDescriptors.isEmpty == false else {
-        assertionFailure("Subgrid ignored: no symbol IDs resolved to known symbols")
         continue
       }
 

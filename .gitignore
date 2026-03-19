@@ -8,3 +8,7 @@ DerivedData/
 .netrc
 Secrets.plist
 .xcode-deriveddata
+
+# xcode-build-server files
+buildServer.json
+.compile

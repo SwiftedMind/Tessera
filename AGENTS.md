@@ -65,9 +65,15 @@ These are the defaults and conventions that keep changes consistent and easy to 
 ## Build & test commands
 
 - Use the FlowDeck skill and CLI for all iOS/macOS build, run, test, and debug tasks.
-- Reuse the agent-owned derived data folders `.xcode-deriveddata/iphone` and `.xcode-deriveddata/macos` for incremental builds. These folders are reserved for coding-agent work in this repo and are not shared with other users.
+- Always point FlowDeck at the repo workspace, `Tessera.xcworkspace`, for repo build and test commands. Do not target `Examples/ExampleApp.xcodeproj` when you need package schemes.
+- The primary build scheme is `ExampleApp`. It builds the demo app and the SDK together.
+- The primary test scheme is `TesseraTests`.
+- Reuse the agent-owned derived data folders `.xcode-deriveddata/exampleapp-ios`, `.xcode-deriveddata/tesseratests-ios`, and `.xcode-deriveddata/macos` for incremental work. These folders are reserved for coding-agent work in this repo and are not shared with other users.
+- If build and test may overlap, keep them on separate derived-data roots. Sharing one iOS root across concurrent FlowDeck commands can lock `Build/Intermediates.noindex/XCBuildData/build.db`.
 - Do not use xcodebuild, xcrun simctl, or other Apple CLI tools unless FlowDeck is unavailable.
 - If a FlowDeck command fails, troubleshoot using FlowDeck output and retry before falling back.
+- Use `flowdeck context --json` to resolve an iOS simulator first. Use a simulator UDID when the name is ambiguous.
+- `flowdeck test discover` currently reports `No tests found` for `TesseraTests` in this workspace even though the suite runs. Treat `flowdeck test --verbose` as the source of truth for package test results here.
 
 ### Shortcuts
 
@@ -75,6 +81,7 @@ These are the defaults and conventions that keep changes consistent and easy to 
 - Whenever you use a command that likely will be reused, proactively add it in this section
 - Proactively keep the commands up to date, like when the scheme or devices change. 
 
-- List schemes: `flowdeck project schemes -w "/Users/swiftedmind/Code/Workspace/Tessera/Tessera.xcworkspace"`
-- Build ExampleApp: `flowdeck build -w "/Users/swiftedmind/Code/Workspace/Tessera/Tessera.xcworkspace" -s "ExampleApp" -S "iPhone 17" -d ".xcode-deriveddata/iphone"`
-- Run package tests: `flowdeck test -w "/Users/swiftedmind/Code/Workspace/Tessera/Tessera.xcworkspace" -s "TesseraTests" -S "iPhone 17" -d ".xcode-deriveddata/iphone"``
+- Resolve simulators: `flowdeck context --json`
+- List schemes: `flowdeck project schemes -w "$PWD/Tessera.xcworkspace"`
+- Build ExampleApp: `flowdeck build -w "$PWD/Tessera.xcworkspace" -s "ExampleApp" -S "<SIMULATOR_UDID>" -d ".xcode-deriveddata/exampleapp-ios"`
+- Run TesseraTests: `flowdeck test -w "$PWD/Tessera.xcworkspace" -s "TesseraTests" -S "<SIMULATOR_UDID>" -d ".xcode-deriveddata/tesseratests-ios" --verbose`
