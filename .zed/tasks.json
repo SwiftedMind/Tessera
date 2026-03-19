@@ -4,28 +4,28 @@
 [
   {
     "label": "Build: My Mac",
-    "command": "flowdeck build -w 'Tessera.xcworkspace' -s 'ExampleApp' -D 'My Mac'",
+    "command": "flowdeck build -w 'Tessera.xcworkspace' -s 'ExampleApp' -D 'My Mac' -d '.xcode-deriveddata/macos'",
     "allow_concurrent_runs": false,
     "reveal": "no_focus",
     "hide": "never"
   },
   {
     "label": "Build: Physical iPad",
-    "command": "flowdeck build -w 'Tessera.xcworkspace' -s 'ExampleApp' -D 'iPad'",
+    "command": "flowdeck build -w 'Tessera.xcworkspace' -s 'ExampleApp' -D 'iPad' -d '.xcode-deriveddata/ipad'",
     "allow_concurrent_runs": false,
     "reveal": "no_focus",
     "hide": "never"
   },
   {
     "label": "Run: My Mac",
-    "command": "flowdeck run -w 'Tessera.xcworkspace' -s 'ExampleApp' -D 'My Mac'",
+    "command": "flowdeck run -w 'Tessera.xcworkspace' -s 'ExampleApp' -D 'My Mac' -d '.xcode-deriveddata/macos'",
     "allow_concurrent_runs": false,
     "reveal": "no_focus",
     "hide": "never"
   },
   {
     "label": "Run: Physical iPad",
-    "command": "flowdeck run -w 'Tessera.xcworkspace' -s 'ExampleApp' -D 'iPad'",
+    "command": "flowdeck run -w 'Tessera.xcworkspace' -s 'ExampleApp' -D 'iPad' -d '.xcode-deriveddata/ipad'",
     "allow_concurrent_runs": false,
     "reveal": "no_focus",
     "hide": "never"
