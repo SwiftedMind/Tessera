@@ -162,6 +162,9 @@ enum GridShapePlacementEngine {
     let normalizedOffset = normalizedOffsetAmount(from: configuration.offsetStrategy)
     let wrapOffsets = ShapePlacementWrapping.wrapOffsets(for: size, edgeBehavior: edgeBehavior)
     let maskContains = alphaMask.map { PlacementMaskContainment.containsFunction(for: $0) }
+    let finiteCanvasRect = edgeBehavior == .finite
+      ? CGRect(origin: .zero, size: size)
+      : nil
 
     let pinnedColliders: [PlacedCollider] = pinnedSymbolDescriptors.map { pinnedSymbol in
       let collisionTransform = CollisionTransform(
@@ -355,9 +358,7 @@ enum GridShapePlacementEngine {
 
         switch edgeBehavior {
         case .finite:
-          guard (0..<size.width).contains(position.x),
-                (0..<size.height).contains(position.y)
-          else { continue }
+          break
 
         case .seamlessWrapping:
           position = ShapePlacementWrapping.wrappedPosition(position, in: size)
@@ -406,6 +407,17 @@ enum GridShapePlacementEngine {
           rotation: CGFloat(rotationRadians),
           scale: CGFloat(scale),
         )
+
+        let candidateCellRect = CGRect(
+          x: position.x - (resolvedGrid.cellSize.width / 2),
+          y: position.y - (resolvedGrid.cellSize.height / 2),
+          width: resolvedGrid.cellSize.width,
+          height: resolvedGrid.cellSize.height,
+        )
+        if let finiteCanvasRect,
+           candidateCellRect.intersects(finiteCanvasRect) == false {
+          continue
+        }
 
         if let maskContains,
            ShapePlacementMaskConstraint.isPlacementInsideMask(

@@ -256,6 +256,36 @@ import Testing
   #expect(sharedFirst.map(\.position) == [CGPoint(x: 60, y: 20), CGPoint(x: 100, y: 20)])
 }
 
+@Test func fixedGridPlacementKeepsPartiallyVisibleCellsEvenWhenSymbolDoesNotReachCanvas() async throws {
+  let symbol = ShapePlacementEngine.PlacementSymbolDescriptor(
+    id: UUID(uuidString: "00000000-0000-0000-0000-000000000092")!,
+    weight: 1,
+    allowedRotationRangeDegrees: 0...0,
+    resolvedScaleRange: 1...1,
+    collisionShape: .circle(center: .zero, radius: 1),
+  )
+
+  let placed = GridShapePlacementEngine.placeSymbolDescriptors(
+    in: CGSize(width: 95, height: 70),
+    symbolDescriptors: [symbol],
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .finite,
+    configuration: PlacementModel.Grid(
+      sizing: .fixed(
+        cellSize: CGSize(width: 40, height: 40),
+        origin: CGPoint(x: 15, y: 10),
+      ),
+      symbolOrder: .rowMajor,
+      seed: 5,
+    ),
+  )
+
+  #expect(placed.count == 9)
+  #expect(placed.contains { $0.position == CGPoint(x: -5, y: -10) })
+  #expect(placed.contains { $0.position == CGPoint(x: -5, y: 70) })
+  #expect(placed.contains { $0.position == CGPoint(x: 75, y: 70) })
+}
+
 @Test func gridWeightedChoiceIsDeterministicForSameSeedAndVariesAcrossSeeds() async throws {
   let size = CGSize(width: 320, height: 240)
   let choiceSymbolID = UUID(uuidString: "00000000-0000-0000-0000-000000000030")!
