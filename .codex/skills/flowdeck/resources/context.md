@@ -1,28 +1,26 @@
 # context - Discover Project Structure
 
-Shows all project information needed to run build/run/test commands. **This is typically the FIRST command to run in a new project.**
+Inspect a project and return the workspace, schemes, build configurations, simulators, and derived data path.
 
 ```bash
-# Human-readable output
 flowdeck context
-
-# JSON output (for parsing/automation)
 flowdeck context --json
-
-# Specific project directory
 flowdeck context --project /path/to/project
+flowdeck context --examples
 ```
 
 **Options:**
 | Option | Description |
 |--------|-------------|
 | `-p, --project <path>` | Project directory |
-| `--json` | Output as JSON |
+| `-j, --json` | Output as JSON |
+| `-e, --examples` | Show usage examples |
 
 **Returns:**
-- Workspace path (needed for --workspace parameter)
-- Available schemes (use with --scheme)
-- Build configurations (Debug, Release, etc.)
-- Available simulators (use with --simulator)
+- Workspace path
+- Available schemes
+- Build configurations
+- Available simulators
+- Derived data path
 
 ---

@@ -40,6 +40,7 @@ flowdeck clean --xcode-derived-data --json
 | `-c, --config <path>` | Path to JSON config file |
 | `-j, --json` | Output JSON events |
 | `-v, --verbose` | Show clean output in console |
+| `-e, --examples` | Show usage examples |
 
 **When to Use:**
 | Problem | Solution |

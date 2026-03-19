@@ -1,28 +1,13 @@
 # logs - Stream Real-time Logs
 
-Streams print() statements and OSLog messages from a running app. Alias: `log`. Press Ctrl+C to stop streaming (the app keeps running).
+Stream logs for an app launched by FlowDeck. Alias: `log`. Press `Ctrl+C` to stop streaming; the app keeps running.
 
 ```bash
-# Stream logs (use App ID from 'flowdeck apps')
-flowdeck logs abc123
-
-# Stream logs by bundle ID
-flowdeck logs com.example.myapp
-
-# Stream logs in JSON format
-flowdeck logs abc123 --json
+flowdeck logs <app-id>
+flowdeck logs com.example.MyApp
+flowdeck logs <app-id> --json
+flowdeck logs --examples
 ```
-
-**Filtering and windows:**
-```bash
-# Filter by keyword (plain text)
-flowdeck logs abc123 | rg 'Pattern|thepattern'
-
-# Filter JSON logs (more reliable for tooling)
-flowdeck logs abc123 --json | rg 'Pattern|thepattern'
-```
-
-`flowdeck logs` is a live stream. If you need a time window like `--last 2m`, start streaming, reproduce the issue, then stop after the window you need.
 
 **Arguments:**
 | Argument | Description |
@@ -32,13 +17,17 @@ flowdeck logs abc123 --json | rg 'Pattern|thepattern'
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `--json` | Output as JSON |
+| `-j, --json` | Output JSON/NDJSON events |
+| `-e, --examples` | Show usage examples |
 
-**Output Format:**
-- `[console]` - Messages from print() statements
-- `[category]` - Messages from os_log() with category
-- `[subsystem]` - Messages from Logger() with subsystem
+**Filtering:**
+```bash
+flowdeck logs <app-id> | rg 'Pattern|thepattern'
+flowdeck logs <app-id> --json | rg 'Pattern|thepattern'
+```
 
-**Limitations:** Log streaming is available for simulators and macOS apps. For physical devices, use Console.app.
+**Notes:**
+- `logs` is a live stream. If you need a bounded window, start streaming, reproduce the issue, then stop after the relevant window.
+- Log streaming is supported for simulator and macOS launches. Physical device logs require Console.app or Xcode.
 
 ---

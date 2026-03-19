@@ -11,10 +11,10 @@ Create a new Xcode project from template (SwiftUI by default).
 flowdeck project create MyApp
 
 # Set bundle ID and platforms
-flowdeck project create MyApp --bundle-id com.example.myapp --platforms iOS,macOS,visionOS
+flowdeck project create MyApp --bundle-id com.example.myapp --platforms ios,macos,visionos
 
 # Choose output directory and deployment targets
-flowdeck project create MyApp --path ./apps --ios-target 18.0 --macos-target 15.0
+flowdeck project create MyApp --path ./apps --ios-target 17.0 --macos-target 14.0
 ```
 
 **Arguments:**
@@ -26,7 +26,7 @@ flowdeck project create MyApp --path ./apps --ios-target 18.0 --macos-target 15.
 | Option | Description |
 |--------|-------------|
 | `-b, --bundle-id <id>` | Bundle identifier (default: com.example.<name>) |
-| `--platforms <list>` | Comma-separated platforms (default: iOS) |
+| `--platforms <list>` | Comma-separated platforms: `ios`, `macos`, `visionos` (default: `ios`) |
 | `-o, --path <dir>` | Output directory (default: current directory) |
 | `--ios-target <version>` | iOS deployment target |
 | `--macos-target <version>` | macOS deployment target |
@@ -47,6 +47,9 @@ flowdeck project schemes -w App.xcworkspace
 
 # List schemes as JSON
 flowdeck project schemes -w App.xcworkspace --json
+
+# Show usage examples
+flowdeck project schemes --examples
 ```
 
 **Options:**
@@ -55,6 +58,7 @@ flowdeck project schemes -w App.xcworkspace --json
 | `-p, --project <path>` | Project directory (defaults to current) |
 | `-w, --workspace <path>` | Path to .xcworkspace or .xcodeproj |
 | `-j, --json` | Output as JSON |
+| `-e, --examples` | Show usage examples |
 
 #### project configs
 
@@ -66,6 +70,9 @@ flowdeck project configs -w App.xcworkspace
 
 # List configurations as JSON
 flowdeck project configs -w App.xcworkspace --json
+
+# Show usage examples
+flowdeck project configs --examples
 ```
 
 **Options:**
@@ -74,6 +81,7 @@ flowdeck project configs -w App.xcworkspace --json
 | `-p, --project <path>` | Project directory (defaults to current) |
 | `-w, --workspace <path>` | Path to .xcworkspace or .xcodeproj |
 | `-j, --json` | Output as JSON |
+| `-e, --examples` | Show usage examples |
 
 #### project packages - Manage Swift Packages
 
@@ -110,7 +118,7 @@ flowdeck project packages link https://github.com/owner/repo --target MyApp --pr
 | `remove` | Remove a Swift package dependency |
 | `resolve` | Resolve package dependencies |
 | `update` | Delete cache and re-resolve packages |
-| `clear` | Clear SourcePackages directory |
+| `clear` | Clear the Swift package cache (SourcePackages) |
 | `link` | Link package products to a target |
 
 **Common options (most subcommands):**
@@ -134,6 +142,9 @@ flowdeck project packages link https://github.com/owner/repo --target MyApp --pr
 | "Package not found" errors | `flowdeck project packages resolve` |
 | Outdated dependencies | `flowdeck project packages update` |
 | Corrupted package cache | `flowdeck project packages clear` |
+
+For repeated package failures, use the escalation playbook in `resources/package-resolution.md`:
+`update -> resolve -> clear -> clean` (last resort).
 
 #### project sync-profiles
 

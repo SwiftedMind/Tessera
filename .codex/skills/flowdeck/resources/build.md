@@ -23,6 +23,7 @@ flowdeck build -w App.xcworkspace -s MyApp -D "My Mac" -C Release
 
 # Build with JSON output (for automation)
 flowdeck build -w App.xcworkspace -s MyApp -S "iPhone 16" -j
+flowdeck build -w App.xcworkspace -s MyApp -S "iPhone 16" --json --show-warnings
 
 # Custom derived data path
 flowdeck build -w App.xcworkspace -s MyApp -S "iPhone 16" -d /tmp/DerivedData
@@ -52,7 +53,9 @@ flowdeck build --config /path/to/config.json
 | `--xcodebuild-env <vars>` | Xcodebuild environment variables (e.g., 'CI=true') |
 | `-c, --config <path>` | Path to JSON config file |
 | `-j, --json` | Output JSON events |
+| `--show-warnings` | Show compiler warnings (console output in text mode, `diagnostic` events in JSON mode) |
 | `-v, --verbose` | Show build output in console |
+| `-e, --examples` | Show usage examples |
 
 **Note:** Either `--simulator` or `--device` is required unless you've run `flowdeck config set`. Use `--device "My Mac"` for native macOS, or `--device "My Mac Catalyst"` for Catalyst if the scheme supports it.
 

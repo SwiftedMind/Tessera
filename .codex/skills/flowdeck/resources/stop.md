@@ -1,25 +1,13 @@
 # stop - Stop Running App
 
-Terminates an app that was launched by FlowDeck.
+Terminate an app launched by FlowDeck.
 
 ```bash
-# Stop specific app (use ID from 'flowdeck apps')
-flowdeck stop abc123
-
-# Stop by bundle ID
-flowdeck stop com.example.myapp
-
-# Stop all running apps
+flowdeck stop <app-id>
+flowdeck stop com.example.MyApp
 flowdeck stop --all
-
-# Force kill unresponsive app
-flowdeck stop abc123 --force
-
-# Force kill all running apps
-flowdeck stop --all --force
-
-# JSON output
-flowdeck stop abc123 --json
+flowdeck stop <app-id> --force
+flowdeck stop --examples
 ```
 
 **Arguments:**
@@ -31,7 +19,8 @@ flowdeck stop abc123 --json
 | Option | Description |
 |--------|-------------|
 | `-a, --all` | Stop all running apps |
-| `-f, --force` | Force kill (SIGKILL instead of SIGTERM) |
-| `-j, --json` | Output as JSON |
+| `-f, --force` | Force kill (`SIGKILL`) instead of graceful termination |
+| `-j, --json` | Output JSON/NDJSON events |
+| `-e, --examples` | Show usage examples |
 
 ---

@@ -1,19 +1,13 @@
 # apps - List Running Apps
 
-Shows all apps currently running that were launched by FlowDeck.
+List apps launched by FlowDeck, including status and identifiers.
 
 ```bash
-# List running apps
 flowdeck apps
-
-# Include stopped apps
 flowdeck apps --all
-
-# Clean up stale entries
 flowdeck apps --prune
-
-# JSON output
 flowdeck apps --json
+flowdeck apps --examples
 ```
 
 **Options:**
@@ -21,12 +15,16 @@ flowdeck apps --json
 |--------|-------------|
 | `-a, --all` | Show all apps including stopped ones |
 | `--prune` | Validate and prune stale entries |
-| `-j, --json` | Output as JSON |
+| `-j, --json` | Output JSON/NDJSON events |
+| `-e, --examples` | Show usage examples |
 
-**Returns:** App IDs, bundle IDs, PIDs, and simulators.
+**JSON Output:**
+- `apps --json` emits an NDJSON event with type `app_list`.
+- The app list is available under `data.apps`.
 
-**Next Steps:** After getting an App ID, you can:
-- `flowdeck logs <app-id>` - Stream logs from the app
-- `flowdeck stop <app-id>` - Stop the app
+**Next Steps:**
+- `flowdeck logs <app-id>` to stream logs
+- `flowdeck stop <app-id>` to stop the app
+- `flowdeck uninstall <app-id>` to uninstall from a simulator or device
 
 ---

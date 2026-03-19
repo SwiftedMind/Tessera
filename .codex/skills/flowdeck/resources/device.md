@@ -4,55 +4,57 @@ Manage physical Apple devices connected via USB or WiFi.
 
 #### device list
 
-Lists all physical devices connected via USB or WiFi.
+List connected physical devices and virtual macOS targets.
 
 ```bash
-# List all connected devices
 flowdeck device list
-
-# List only iOS devices
 flowdeck device list --platform iOS
-
-# List only available devices
 flowdeck device list --available-only
-
-# Output as JSON for scripting
 flowdeck device list --json
+flowdeck device list --examples
 ```
 
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `-P, --platform <platform>` | Filter by platform: iOS, iPadOS, watchOS, tvOS, visionOS |
+| `-P, --platform <platform>` | Filter by platform: `iOS`, `iPadOS`, `watchOS`, `tvOS`, `visionOS` |
 | `-A, --available-only` | Show only available devices |
 | `-j, --json` | Output as JSON |
+| `-e, --examples` | Show usage examples |
+
+**Note:** JSON output can include virtual targets like `My Mac` and `My Mac Catalyst`.
 
 #### device install
 
-Installs an app bundle (.app) on a physical device.
+Install an app bundle (`.app`) on a physical device.
 
 ```bash
 flowdeck device install <udid> /path/to/MyApp.app
+flowdeck device install <udid> /path/to/MyApp.app --json
+flowdeck device install <udid> /path/to/MyApp.app --examples
 ```
 
 **Arguments:**
 | Argument | Description |
 |----------|-------------|
-| `<udid>` | Device UDID (get from 'flowdeck device list') |
-| `<app-path>` | Path to .app bundle to install |
+| `<udid>` | Device UDID |
+| `<app-path>` | Path to the `.app` bundle |
 
 **Options:**
 | Option | Description |
 |--------|-------------|
 | `-v, --verbose` | Show command output |
 | `-j, --json` | Output as JSON |
+| `-e, --examples` | Show usage examples |
 
 #### device uninstall
 
-Removes an installed app from a physical device.
+Remove an installed app from a physical device.
 
 ```bash
-flowdeck device uninstall <udid> com.example.myapp
+flowdeck device uninstall <udid> com.example.MyApp
+flowdeck device uninstall <udid> com.example.MyApp --json
+flowdeck device uninstall <udid> com.example.MyApp --examples
 ```
 
 **Arguments:**
@@ -66,13 +68,16 @@ flowdeck device uninstall <udid> com.example.myapp
 |--------|-------------|
 | `-v, --verbose` | Show command output |
 | `-j, --json` | Output as JSON |
+| `-e, --examples` | Show usage examples |
 
 #### device launch
 
-Launches an installed app on a physical device.
+Launch an installed app on a physical device.
 
 ```bash
-flowdeck device launch <udid> com.example.myapp
+flowdeck device launch <udid> com.example.MyApp
+flowdeck device launch <udid> com.example.MyApp --json
+flowdeck device launch <udid> com.example.MyApp --examples
 ```
 
 **Arguments:**
@@ -86,5 +91,8 @@ flowdeck device launch <udid> com.example.myapp
 |--------|-------------|
 | `-v, --verbose` | Show command output |
 | `-j, --json` | Output as JSON |
+| `-e, --examples` | Show usage examples |
+
+**Tip:** Use `flowdeck device list --json` to get device UDIDs.
 
 ---

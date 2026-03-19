@@ -18,6 +18,9 @@ flowdeck run -w App.xcworkspace -s MyApp -D "iPhone"
 # Run with log streaming (see print() and OSLog output)
 flowdeck run -w App.xcworkspace -s MyApp -S "iPhone 16" --log
 
+# Force Simulator.app to open during the run flow
+FLOWDECK_HEADLESS=0 flowdeck run -w App.xcworkspace -s MyApp -S "iPhone 16"
+
 # Run without rebuilding
 flowdeck run -w App.xcworkspace -s MyApp -S "iPhone 16" --no-build
 
@@ -35,6 +38,9 @@ flowdeck run -w App.xcworkspace -s MyApp -S "iPhone 16" --xcodebuild-options='-q
 
 # Pass xcodebuild environment variables
 flowdeck run -w App.xcworkspace -s MyApp -S "iPhone 16" --xcodebuild-env='CI=true'
+
+# JSON output with warnings
+flowdeck run -w App.xcworkspace -s MyApp -S "iPhone 16" --json --show-warnings
 ```
 
 **Options:**
@@ -56,9 +62,13 @@ flowdeck run -w App.xcworkspace -s MyApp -S "iPhone 16" --xcodebuild-env='CI=tru
 | `--xcodebuild-env <vars>` | Xcodebuild environment variables |
 | `-c, --config <path>` | Path to JSON config file |
 | `-j, --json` | Output JSON events |
+| `--show-warnings` | Show compiler warnings (console output in text mode, `diagnostic` events in JSON mode) |
 | `-v, --verbose` | Show app console output |
+| `-e, --examples` | Show usage examples |
 
 **Note:** Either `--simulator` or `--device` is required unless you've run `flowdeck config set`. Use `--device "My Mac"` for native macOS, or `--device "My Mac Catalyst"` for Catalyst if the scheme supports it.
+
+**Note:** `flowdeck run` launches simulators headless by default. Use `FLOWDECK_HEADLESS=0` when you need Simulator.app visible during the run flow.
 
 **After Launching:**
 When the app launches, you'll get an App ID. Use it to:

@@ -1,44 +1,111 @@
-# config - Show, Save, or Reset Project Settings
+# config - Project Settings (Get / Set / Reset)
 
-Use `flowdeck config get` to read saved settings, `flowdeck config set` to save workspace/scheme/target/configuration, and `flowdeck config reset` to clear saved settings.
+Manage saved project settings. Once saved, build/run/test/clean commands work without flags.
+
+**This is the first command to run in any project.** Check if the user has saved settings before constructing commands manually.
+
+---
+
+## config get - Check Saved Settings
 
 ```bash
-# Show config command help
-flowdeck config
-
-# Read saved settings for current folder
+# Human-readable
 flowdeck config get
+
+# JSON output (preferred for agents)
 flowdeck config get --json
 
-# Save settings for iOS Simulator
+# Check a different project directory
+flowdeck config get -p /path/to/project
+```
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `-p, --project <path>` | Project directory (defaults to current) |
+| `-j, --json` | Output as JSON |
+| `-e, --examples` | Show usage examples |
+
+**Returns either:**
+- Saved workspace, scheme, simulator/device, and configuration
+- Or `No saved config found for this project.` - meaning you need to create one
+
+---
+
+## config set - Save Settings
+
+```bash
+# iOS Simulator
 flowdeck config set -w App.xcworkspace -s MyApp -S "iPhone 16"
 
-# Save settings for macOS
+# macOS
 flowdeck config set -w App.xcworkspace -s MyApp -D "My Mac"
 
-# Save settings for physical device
+# Physical device
 flowdeck config set -w App.xcworkspace -s MyApp -D "John's iPhone"
 
-# Include build configuration
+# With build configuration
 flowdeck config set -w App.xcworkspace -s MyApp -S "iPhone 16" -C Release
 
-# Overwrite existing settings
+# Overwrite existing config (ONLY when user explicitly requests)
 flowdeck config set -w App.xcworkspace -s MyApp -S "iPhone 16" --force
 
 # JSON output
 flowdeck config set -w App.xcworkspace -s MyApp -S "iPhone 16" --json
-
-# Reset saved settings
-flowdeck config reset
-flowdeck config reset -p /path/to/project
-flowdeck config reset --json
 ```
 
-**After config set, use simplified commands:**
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `-p, --project <path>` | Project directory (defaults to current) |
+| `-w, --workspace <path>` | Path to .xcworkspace or .xcodeproj |
+| `-s, --scheme <name>` | Scheme name |
+| `-C, --configuration <name>` | Build configuration (Debug/Release) |
+| `-S, --simulator <name>` | Simulator name or UDID |
+| `-D, --device <name>` | Device name or UDID (use 'My Mac' for macOS) |
+| `-f, --force` | Re-save even if already configured |
+| `-j, --json` | Output as JSON |
+| `-e, --examples` | Show usage examples |
+
+**After saving, use simplified commands:**
 ```bash
-flowdeck build
-flowdeck run
-flowdeck test
+flowdeck build                # Uses saved settings
+flowdeck run                  # Uses saved settings
+flowdeck test                 # Uses saved settings
+flowdeck clean                # Uses saved settings
 ```
+
+---
+
+## config reset - Clear Settings
+
+```bash
+# Clear saved config
+flowdeck config reset
+
+# JSON output
+flowdeck config reset --json
+
+# Different project directory
+flowdeck config reset -p /path/to/project
+```
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `-p, --project <path>` | Project directory (defaults to current) |
+| `-j, --json` | Output as JSON |
+| `-e, --examples` | Show usage examples |
+
+---
+
+## Agent Behavior Rules
+
+1. **Always check `config get` before any build/run/test** - respect the user's saved settings
+2. **If config exists** - use bare commands (`flowdeck build`, `flowdeck run`, `flowdeck test`)
+3. **If no config** - discover with `flowdeck context --json`, then create one with `config set`
+4. **Never use `--force`** unless the user explicitly asks to overwrite their config
+5. **Never use `config reset`** unless the user explicitly asks to clear their settings
+6. **Override with CLI flags** for one-off changes - flags override saved values for that invocation only
 
 ---

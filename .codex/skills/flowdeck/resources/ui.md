@@ -3,274 +3,95 @@
 UI automation is a top-level command group. Use `flowdeck ui simulator` for screen capture, element queries, gestures, taps, typing, assertions, and app control on iOS simulators. Do not use `flowdeck simulator ui`. Commands are kebab-case (for example: `double-tap`, `hide-keyboard`, `open-url`, `clear-state`).
 
 **Guidance:**
-- Always pass `-S <name-or-udid>` (or `--simulator`) on every `flowdeck ui simulator ...` command to target the correct simulator. Accepts a simulator name (e.g., `"iPhone 16"`) or a raw UDID.
-- **Start a session BEFORE any UI work**: `flowdeck ui simulator session start -S "iPhone 16" --json`. Parse the JSON output to get the `latest_screenshot` and `latest_tree` file paths. Use your Read tool on these paths to see the screen and inspect elements.
-- **Verify after EVERY action**: After each tap/type/swipe, wait ~1 second, then re-read `latest_screenshot` with your Read tool to confirm the UI changed as expected. Never chain actions without verifying.
-- Only use `flowdeck ui simulator screen -S <name-or-udid>` as a fallback when sessions are not working.
-- Prefer accessibility identifiers; use `--by-id` for taps, finds, and assertions.
-- Before tapping, read `latest_tree` to confirm the target element exists and is visible. For off-screen elements, `flowdeck ui simulator scroll --until "id:yourElement" -S "iPhone 16"` first.
+- Always pass `-S <name-or-udid>` (or `--simulator`) on every `flowdeck ui simulator ...` command in automation. It accepts either a simulator name (for example, `"iPhone 16"`) or a raw UDID.
+- **Start a session BEFORE any UI work**: `flowdeck ui simulator session start -S "iPhone 16" --json`. Parse the JSON output to get the `latest_screenshot` and `latest_tree` file paths. Use your Read tool on those paths to see the screen and inspect elements.
+- **Verify after EVERY action**: after each tap/type/swipe, wait about 1 second, then re-read `latest_screenshot` or `latest_tree`. Never chain actions without checking the result.
+- **If a session looks stale, restart it**: run `flowdeck ui simulator session start -S "iPhone 16" --json` again, replace the saved `latest_*` paths, and continue with the restarted session. Do not switch to `screen` as the first response to suspected session staleness.
+- **Use the app's own UI when testing browser apps**: do not use `flowdeck ui simulator open-url` to validate website loading or browser navigation. Use the browser's address/search field and in-app controls. Reserve `open-url` for explicit deep-link or system handoff tests.
+- **Do not invent FlowDeck syntax**: if you are unsure about flags, keycodes, or subcommand arguments, run `flowdeck ui simulator <subcommand> --help` first. Do not guess unsupported flags like `--x/--y` or string key names.
+- Prefer accessibility identifiers and `--by-id` whenever the app exposes them.
+- For off-screen elements, use `flowdeck ui simulator scroll --until "id:yourElement" -S "iPhone 16"` before tapping.
+- Coordinate-based commands accept `--geometry points`. Do not scale by @2x/@3x or device resolution; FlowDeck coordinates already match point-normalized screenshots.
+- Most subcommands support `-j, --json`, `-v, --verbose`, and `-e, --examples`. If you are unsure about current flags, run `flowdeck ui simulator <subcommand> --help`.
 
 #### ui simulator screen
 
 Capture a screenshot and accessibility tree from a simulator.
 
 ```bash
-# Screenshot + accessibility tree (JSON)
-flowdeck ui simulator screen --json
-
-# Screenshot only, optimized for size
-flowdeck ui simulator screen --output ./screen.png --optimize
-
-# Accessibility tree only
-flowdeck ui simulator screen --tree --json
+flowdeck ui simulator screen -S "iPhone 16" --json
+flowdeck ui simulator screen -S "iPhone 16" --output ./screen.png --optimize
+flowdeck ui simulator screen -S "iPhone 16" --tree --json
 ```
 
 **Options:**
 | Option | Description |
 |--------|-------------|
 | `-o, --output <path>` | Output path for screenshot |
-| `-S, --simulator <name-or-udid>` | Simulator name or UDID (pass explicitly in automation; omitting falls back to session/default simulator) |
-| `-j, --json` | Output as JSON |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `--optimize` | Optimize screenshot for agents (smaller size) |
 | `--tree` | Accessibility tree only (no screenshot) |
-| `-v, --verbose` | Show detailed output |
+
+**Notes:**
+- `screen` reports coordinates in points. JSON includes point and pixel dimensions when available.
+- If `-S` is omitted, FlowDeck falls back to the session/default simulator. Agents should not rely on that.
+- `screen` is a fallback for explicit one-off captures, not the default way to recover from a possibly stale session.
 
 #### ui simulator session
 
-Start or stop a UI automation capture session. Requires a booted simulator. Starting a session stops any active session and captures tree + screenshot every 500ms into `./.flowdeck/automation/sessions/<session-short-id>`. Screenshots are JPEG at 50% quality and only written when the tree changes. JSON output includes the session directory, files, and latest pointers.
-
-**Always pass `-S`** when multiple simulators may be booted — agents must never rely on implicit simulator selection. Accepts a simulator name (e.g., `"iPhone 16"`) or a raw UDID.
+Start or stop a background capture session. Requires a booted simulator. `session start` stops any active session first and writes captures into `./.flowdeck/automation/sessions/<session-short-id>/`.
 
 ```bash
-# Start a session targeting a specific simulator (by name or UDID)
-flowdeck ui simulator session start -S "iPhone 16"
-
-# Stop the active session
+flowdeck ui simulator session start -S "iPhone 16" --json
 flowdeck ui simulator session stop -S "iPhone 16"
 ```
 
-**Options:**
+**Options (`session start`):**
 | Option | Description |
 |--------|-------------|
-| `-S, --simulator <name-or-udid>` | Simulator name or UDID (required in automation — do not rely on implicit selection) |
-| `-j, --json` | Output as JSON |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
+| `--interval-ms <ms>` | Capture interval in milliseconds (default: `500`) |
+| `--retention-seconds <seconds>` | Retention window in seconds (default: `60`) |
+
+**Session Files:**
+- `latest.jpg` points to the latest screenshot.
+- `latest-tree.json` points to the latest accessibility tree.
+- `latest.json` points to the latest capture metadata.
+- JSON output from `session start` includes absolute paths for the session directory and latest files.
+
+**If the session appears stale:**
+1. Wait briefly and re-read the same `latest.jpg` / `latest-tree.json` paths.
+2. If they still do not reflect an obvious UI change, run `flowdeck ui simulator session start -S "iPhone 16" --json` again.
+3. Save the new `latest_screenshot`, `latest_tree`, and `latest` paths from the restarted session.
+4. Continue with the restarted session. Only fall back to `screen` if the restarted session is still wrong.
 
 #### ui simulator record
 
 Record simulator video.
 
 ```bash
-flowdeck ui simulator record --output ./demo.mov
-flowdeck ui simulator record --duration 20 --codec hevc --force
+flowdeck ui simulator record -S "iPhone 16" --output ./demo.mov
+flowdeck ui simulator record -S "iPhone 16" --duration 20 --codec hevc --force
 ```
 
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `-o, --output <path>` | Output path for video (.mov) |
-| `-t, --duration <seconds>` | Recording duration (default: 10) |
-| `--codec <codec>` | Video codec: h264 or hevc |
-| `--force` | Overwrite output file if it exists |
+| `-o, --output <path>` | Output path for video (`.mov`) |
+| `-t, --duration <seconds>` | Recording duration in seconds |
+| `--codec <codec>` | `h264` or `hevc` |
+| `--force` | Overwrite an existing output file |
 | `-S, --simulator <name-or-udid>` | Simulator name or UDID |
-| `-j, --json` | Output as JSON |
-| `-v, --verbose` | Show detailed output |
-
-#### ui simulator tap
-
-Tap an element by label or accessibility identifier, or tap coordinates.
-
-```bash
-flowdeck ui simulator tap "Log In"
-flowdeck ui simulator tap "login_button" --by-id
-flowdeck ui simulator tap --point 120,340
-```
-
-**Arguments:**
-| Argument | Description |
-|----------|-------------|
-| `<target>` | Element label/ID to tap (or use --point) |
-
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `-p, --point <point>` | Tap at coordinates (x,y) |
-| `-d, --duration <seconds>` | Hold duration for long press |
-| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
-| `--by-id` | Treat target as accessibility identifier |
-| `-j, --json` | Output as JSON |
-| `-v, --verbose` | Show detailed output |
-
-#### ui simulator double-tap
-
-Double tap an element or coordinates.
-
-```bash
-flowdeck ui simulator double-tap "Like"
-flowdeck ui simulator double-tap "like_button" --by-id
-flowdeck ui simulator double-tap --point 160,420
-```
-
-**Arguments:**
-| Argument | Description |
-|----------|-------------|
-| `<target>` | Element label/ID to double tap (or use --point) |
-
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `-p, --point <point>` | Coordinates to double tap (x,y) |
-| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
-| `--by-id` | Search by accessibility identifier |
-| `-j, --json` | Output as JSON |
-| `-v, --verbose` | Show detailed output |
-
-#### ui simulator type
-
-Type text into the focused element.
-
-```bash
-flowdeck ui simulator type "hello@example.com"
-flowdeck ui simulator type "hunter2" --mask
-flowdeck ui simulator type "New Value" --clear
-```
-
-**Arguments:**
-| Argument | Description |
-|----------|-------------|
-| `<text>` | Text to type |
-
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
-| `--clear` | Clear field before typing |
-| `--mask` | Mask text in output |
-| `-j, --json` | Output as JSON |
-| `-v, --verbose` | Show detailed output |
-
-#### ui simulator swipe
-
-Swipe on the screen.
-
-```bash
-flowdeck ui simulator swipe up
-flowdeck ui simulator swipe --from 120,700 --to 120,200 --duration 0.5
-```
-
-**Arguments:**
-| Argument | Description |
-|----------|-------------|
-| `<direction>` | Swipe direction (up, down, left, right) |
-
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `--from <point>` | Start point (x,y) |
-| `--to <point>` | End point (x,y) |
-| `--duration <seconds>` | Swipe duration (default: 0.3) |
-| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
-| `-j, --json` | Output as JSON |
-| `-v, --verbose` | Show detailed output |
-
-#### ui simulator scroll
-
-Scroll content (gentler than swipe).
-
-```bash
-flowdeck ui simulator scroll --direction DOWN
-flowdeck ui simulator scroll --until "Settings" --timeout 10000
-flowdeck ui simulator scroll --until "id:yourElement"
-```
-
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `-d, --direction <direction>` | Scroll direction (UP, DOWN, LEFT, RIGHT) |
-| `-s, --speed <speed>` | Scroll speed 0-100 (default: 40) |
-| `--until <target>` | Scroll until element becomes visible |
-| `--timeout <ms>` | Timeout in ms for --until (default: 20000) |
-| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
-| `-j, --json` | Output as JSON |
-| `-v, --verbose` | Show detailed output |
-
-#### ui simulator back
-
-Navigate back.
-
-```bash
-flowdeck ui simulator back
-```
-
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
-| `-j, --json` | Output as JSON |
-| `-v, --verbose` | Show detailed output |
-
-#### ui simulator pinch
-
-Pinch to zoom in or out.
-
-```bash
-flowdeck ui simulator pinch out
-flowdeck ui simulator pinch in --scale 0.6 --point 200,400
-```
-
-**Arguments:**
-| Argument | Description |
-|----------|-------------|
-| `<direction>` | Pinch direction (in for zoom out, out for zoom in) |
-
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `--scale <scale>` | Scale factor (default: 2.0 for out, 0.5 for in) |
-| `-p, --point <point>` | Center point for pinch (x,y) |
-| `--duration <seconds>` | Pinch duration (default: 0.5) |
-| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
-| `-j, --json` | Output as JSON |
-| `-v, --verbose` | Show detailed output |
-
-#### ui simulator gesture
-
-Perform a preset gesture (tap, double-tap, long-press, swipe, scroll, pinch) at the center or a specific point.
-
-```bash
-flowdeck ui simulator gesture tap
-flowdeck ui simulator gesture double-tap
-flowdeck ui simulator gesture long-press --duration 1.5
-flowdeck ui simulator gesture swipe-up
-flowdeck ui simulator gesture scroll-down
-flowdeck ui simulator gesture pinch-in
-flowdeck ui simulator gesture pinch-out --scale 3.0
-flowdeck ui simulator gesture tap --point 200,400
-```
-
-**Arguments:**
-| Argument | Description |
-|----------|-------------|
-| `<name>` | tap, double-tap, long-press, swipe-up/down/left/right, scroll-up/down, pinch-in/out |
-
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `-p, --point <point>` | Center point for tap/long-press/pinch (x,y) |
-| `--duration <seconds>` | Duration in seconds (long-press/swipe; also influences scroll speed) |
-| `--scale <scale>` | Pinch scale (default: 2.0 for out, 0.5 for in) |
-| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
-| `-j, --json` | Output as JSON |
-| `-v, --verbose` | Show detailed output |
 
 #### ui simulator find
 
 Find an element and return its info/text.
 
 ```bash
-flowdeck ui simulator find "Settings"
-flowdeck ui simulator find "settings_button" --by-id
-flowdeck ui simulator find "button" --by-role
-flowdeck ui simulator find "Log" --contains
+flowdeck ui simulator find "Settings" -S "iPhone 16"
+flowdeck ui simulator find "settings_button" -S "iPhone 16" --by-id
+flowdeck ui simulator find "button" -S "iPhone 16" --by-role
+flowdeck ui simulator find "Log" -S "iPhone 16" --contains
 ```
 
 **Arguments:**
@@ -281,21 +102,170 @@ flowdeck ui simulator find "Log" --contains
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 | `--by-id` | Search by accessibility identifier |
-| `--by-role` | Search by element role (button, textfield, etc.) |
+| `--by-role` | Search by element role (for example `button`, `textField`) |
 | `--contains` | Match elements containing the text |
-| `-j, --json` | Output as JSON |
-| `-v, --verbose` | Show detailed output |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
+
+#### ui simulator tap
+
+Tap an element by label or accessibility identifier, or tap coordinates.
+
+```bash
+flowdeck ui simulator tap "Log In" -S "iPhone 16"
+flowdeck ui simulator tap "login_button" -S "iPhone 16" --by-id
+flowdeck ui simulator tap --point 120,340 -S "iPhone 16"
+flowdeck ui simulator tap --point 120,340 --geometry points -S "iPhone 16"
+```
+
+**Arguments:**
+| Argument | Description |
+|----------|-------------|
+| `<target>` | Element label/ID to tap (or use `--point`) |
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `-p, --point <point>` | Tap at coordinates (`x,y`) |
+| `--geometry <geometry>` | Coordinate geometry (`points` only) |
+| `-d, --duration <seconds>` | Hold duration for a long press |
+| `--by-id` | Treat target as an accessibility identifier |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
+
+#### ui simulator double-tap
+
+Double tap an element or coordinates.
+
+```bash
+flowdeck ui simulator double-tap "Like" -S "iPhone 16"
+flowdeck ui simulator double-tap "like_button" -S "iPhone 16" --by-id
+flowdeck ui simulator double-tap --point 160,420 -S "iPhone 16"
+```
+
+**Arguments:**
+| Argument | Description |
+|----------|-------------|
+| `<target>` | Element label/ID to double tap (or use `--point`) |
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `-p, --point <point>` | Coordinates to double tap (`x,y`) |
+| `--geometry <geometry>` | Coordinate geometry (`points` only) |
+| `--by-id` | Search by accessibility identifier |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
+
+#### ui simulator type
+
+Type text into the focused element.
+
+```bash
+flowdeck ui simulator type "hello@example.com" -S "iPhone 16"
+flowdeck ui simulator type "hunter2" -S "iPhone 16" --mask
+flowdeck ui simulator type "New Value" -S "iPhone 16" --clear
+```
+
+**Arguments:**
+| Argument | Description |
+|----------|-------------|
+| `<text>` | Text to type |
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `--clear` | Clear the field before typing |
+| `--mask` | Mask the typed text in terminal output and JSON |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
+
+#### ui simulator swipe
+
+Swipe on the screen.
+
+```bash
+flowdeck ui simulator swipe up -S "iPhone 16"
+flowdeck ui simulator swipe --from 120,700 --to 120,200 --duration 0.5 -S "iPhone 16"
+flowdeck ui simulator swipe down --distance 0.25 -S "iPhone 16"
+```
+
+**Arguments:**
+| Argument | Description |
+|----------|-------------|
+| `<direction>` | Swipe direction: `up`, `down`, `left`, or `right` |
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `--from <point>` | Start point (`x,y`) |
+| `--to <point>` | End point (`x,y`) |
+| `--geometry <geometry>` | Coordinate geometry (`points` only) |
+| `--duration <seconds>` | Swipe duration in seconds (default: `0.3`) |
+| `--distance <fraction>` | Swipe distance as a fraction of the screen (`0.05`-`0.95`, default: `0.4`) |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
+
+#### ui simulator scroll
+
+Scroll content more gently than `swipe`.
+
+```bash
+flowdeck ui simulator scroll --direction DOWN -S "iPhone 16"
+flowdeck ui simulator scroll --until "Settings" --timeout 10000 -S "iPhone 16"
+flowdeck ui simulator scroll --until "id:yourElement" -S "iPhone 16"
+```
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `-d, --direction <direction>` | Scroll direction by content: `UP`, `DOWN`, `LEFT`, `RIGHT` |
+| `-s, --speed <speed>` | Scroll speed `0`-`100` (default: `40`) |
+| `--distance <fraction>` | Scroll distance as a fraction of the screen (`0.05`-`0.95`, default: `0.2`) |
+| `--until <target>` | Scroll until the target becomes visible |
+| `--timeout <ms>` | Timeout for `--until` in milliseconds |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
+
+#### ui simulator back
+
+Navigate back with the simulator back gesture.
+
+```bash
+flowdeck ui simulator back -S "iPhone 16"
+```
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
+
+#### ui simulator pinch
+
+Pinch to zoom in or out.
+
+```bash
+flowdeck ui simulator pinch out -S "iPhone 16"
+flowdeck ui simulator pinch in --scale 0.6 --point 200,400 -S "iPhone 16"
+```
+
+**Arguments:**
+| Argument | Description |
+|----------|-------------|
+| `<direction>` | `in` for zoom out, `out` for zoom in |
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `--scale <scale>` | Scale factor (defaults: `2.0` for `out`, `0.5` for `in`) |
+| `-p, --point <point>` | Pinch center point (`x,y`) |
+| `--geometry <geometry>` | Coordinate geometry (`points` only) |
+| `--duration <seconds>` | Pinch duration in seconds |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 
 #### ui simulator wait
 
-Wait for element conditions.
+Wait for an element condition.
 
 ```bash
-flowdeck ui simulator wait "Loading..."
-flowdeck ui simulator wait "Submit" --enabled --timeout 15
-flowdeck ui simulator wait "Toast" --gone
+flowdeck ui simulator wait "Loading..." -S "iPhone 16"
+flowdeck ui simulator wait "Submit" --enabled --timeout 15 -S "iPhone 16"
+flowdeck ui simulator wait "Toast" --gone -S "iPhone 16"
 ```
 
 **Arguments:**
@@ -306,391 +276,249 @@ flowdeck ui simulator wait "Toast" --gone
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `-t, --timeout <seconds>` | Timeout in seconds (default: 30) |
-| `--poll <ms>` | Poll interval in ms (default: 500) |
+| `-t, --timeout <seconds>` | Timeout in seconds (default: `30`) |
+| `--poll <ms>` | Poll interval in milliseconds (default: `500`) |
+| `--gone` | Wait for the element to disappear |
+| `--enabled` | Wait for the element to become enabled |
+| `--stable` | Wait for the element to stop moving |
 | `-S, --simulator <name-or-udid>` | Simulator name or UDID |
-| `--gone` | Wait for element to disappear |
-| `--enabled` | Wait for element to be enabled |
-| `--stable` | Wait for element to be stable (not moving) |
-| `-j, --json` | Output as JSON |
-| `-v, --verbose` | Show detailed output |
 
 #### ui simulator assert
 
 Assert element conditions.
 
 ```bash
-flowdeck ui simulator assert visible "Profile"
-flowdeck ui simulator assert hidden "Spinner"
-flowdeck ui simulator assert enabled "Submit"
-flowdeck ui simulator assert disabled "Continue"
-flowdeck ui simulator assert text "Welcome" --expected "Hello"
+flowdeck ui simulator assert visible "Profile" -S "iPhone 16"
+flowdeck ui simulator assert hidden "Spinner" -S "iPhone 16"
+flowdeck ui simulator assert enabled "Submit" -S "iPhone 16"
+flowdeck ui simulator assert disabled "Continue" -S "iPhone 16"
+flowdeck ui simulator assert text "Welcome" -S "iPhone 16" --expected "Hello"
 ```
 
 **Subcommands:**
 | Subcommand | Description |
 |------------|-------------|
-| `visible <target>` | Assert element is visible |
-| `hidden <target>` | Assert element is hidden |
-| `enabled <target>` | Assert element is enabled |
-| `disabled <target>` | Assert element is disabled |
-| `text <target>` | Assert element contains expected text |
+| `visible <target>` | Assert the element is visible |
+| `hidden <target>` | Assert the element is hidden |
+| `enabled <target>` | Assert the element is enabled |
+| `disabled <target>` | Assert the element is disabled |
+| `text <target>` | Assert the element text matches |
 
-**Options (all subcommands):**
+**Common Options:**
 | Option | Description |
 |--------|-------------|
-| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
-| `-j, --json` | Output as JSON |
 | `--by-id` | Search by accessibility identifier |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 
-**Options (text subcommand only):**
+**Text Options:**
 | Option | Description |
 |--------|-------------|
-| `--expected <text>` | Expected text content |
-| `--contains` | Check if text contains expected |
+| `--expected <text>` | Expected text value |
+| `--contains` | Check whether the text contains the expected value |
 
 #### ui simulator erase
 
 Erase text from the focused field.
 
 ```bash
-flowdeck ui simulator erase
-flowdeck ui simulator erase --characters 5
+flowdeck ui simulator erase -S "iPhone 16"
+flowdeck ui simulator erase --characters 5 -S "iPhone 16"
 ```
 
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `-c, --characters <count>` | Number of characters to erase (default: all) |
+| `-c, --characters <count>` | Number of characters to erase (omit to clear all) |
 | `-S, --simulator <name-or-udid>` | Simulator name or UDID |
-| `-j, --json` | Output as JSON |
-| `-v, --verbose` | Show detailed output |
 
 #### ui simulator hide-keyboard
 
 Hide the on-screen keyboard.
 
 ```bash
-flowdeck ui simulator hide-keyboard
+flowdeck ui simulator hide-keyboard -S "iPhone 16"
 ```
 
 **Options:**
 | Option | Description |
 |--------|-------------|
 | `-S, --simulator <name-or-udid>` | Simulator name or UDID |
-| `-j, --json` | Output as JSON |
-| `-v, --verbose` | Show detailed output |
 
 #### ui simulator key
 
-Press keyboard key codes.
+Send HID keyboard key codes.
 
 ```bash
-flowdeck ui simulator key 40
-flowdeck ui simulator key --sequence 40,42
-flowdeck ui simulator key 42 --hold 0.2
+flowdeck ui simulator key 40 -S "iPhone 16"
+flowdeck ui simulator key --sequence 40,42 -S "iPhone 16"
+flowdeck ui simulator key 42 --hold 0.2 -S "iPhone 16"
 ```
 
 **Arguments:**
 | Argument | Description |
 |----------|-------------|
-| `<keycode>` | HID keycode (e.g., 40 for Enter, 42 for Backspace) |
+| `<keycode>` | HID keycode (for example `40` for Enter, `42` for Backspace) |
 
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `--sequence <codes>` | Comma-separated keycodes |
+| `--sequence <codes>` | Comma-separated HID keycodes |
 | `--hold <seconds>` | Hold duration in seconds |
 | `-S, --simulator <name-or-udid>` | Simulator name or UDID |
-| `-j, --json` | Output as JSON |
-| `-v, --verbose` | Show detailed output |
+
+**Notes:**
+- `key` expects numeric HID keycodes, not string names. For example, Enter/Return is `40`.
+- If you are unsure which keycode you need, run `flowdeck ui simulator key --help` before retrying.
 
 #### ui simulator open-url
 
 Open a URL or deep link in the simulator.
 
 ```bash
-flowdeck ui simulator open-url https://example.com
-flowdeck ui simulator open-url myapp://path
+flowdeck ui simulator open-url https://example.com -S "iPhone 16"
+flowdeck ui simulator open-url myapp://path -S "iPhone 16"
 ```
 
 **Arguments:**
 | Argument | Description |
 |----------|-------------|
-| `<url>` | URL to open |
+| `<url>` | URL or deep link to open |
 
 **Options:**
 | Option | Description |
 |--------|-------------|
 | `-S, --simulator <name-or-udid>` | Simulator name or UDID |
-| `-j, --json` | Output as JSON |
+
+**Notes:**
+- `open-url` hands the URL to the simulator/OS. It may open Safari or another registered app.
+- Do not use `open-url` to validate browser-app navigation. Use the browser's own address bar and controls instead.
 
 #### ui simulator clear-state
 
 Clear app data/state from the simulator.
 
 ```bash
-flowdeck ui simulator clear-state com.example.app
+flowdeck ui simulator clear-state com.example.app -S "iPhone 16"
 ```
 
 **Arguments:**
 | Argument | Description |
 |----------|-------------|
-| `<bundle-id>` | Bundle identifier of app to clear |
+| `<bundle-id>` | Bundle identifier for the app to reset |
 
 **Options:**
 | Option | Description |
 |--------|-------------|
 | `-S, --simulator <name-or-udid>` | Simulator name or UDID |
-| `-j, --json` | Output as JSON |
 
 #### ui simulator rotate
 
-Rotate simulator orientation.
+Rotate with a two-finger gesture.
 
 ```bash
-flowdeck ui simulator rotate landscape
+flowdeck ui simulator rotate 90 -S "iPhone 16"
+flowdeck ui simulator rotate -45 --point 200,400 --radius 80 --duration 0.5 -S "iPhone 16"
 ```
 
 **Arguments:**
 | Argument | Description |
 |----------|-------------|
-| `<orientation>` | portrait, landscape, landscapeRight, landscapeLeft, portraitUpsideDown |
+| `<angle>` | Rotation angle in degrees (positive = clockwise, negative = counterclockwise) |
 
 **Options:**
 | Option | Description |
 |--------|-------------|
+| `-p, --point <point>` | Rotation center point (`x,y`) |
+| `--radius <radius>` | Radius in points for the two-finger rotation (default: `80`) |
+| `--geometry <geometry>` | Coordinate geometry (`points` only) |
+| `--duration <seconds>` | Rotate duration in seconds |
 | `-S, --simulator <name-or-udid>` | Simulator name or UDID |
+
+#### ui simulator set-appearance
+
+Set the simulator appearance to light or dark mode.
+
+```bash
+flowdeck ui simulator set-appearance light -S "iPhone 16"
+flowdeck ui simulator set-appearance dark -S "iPhone 16"
+flowdeck ui simulator set-appearance dark -S "iPhone 16" --json
+```
+
+**Arguments:**
+| Argument | Description |
+|----------|-------------|
+| `<appearance>` | Appearance style: `light` or `dark` |
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID (defaults to booted simulator) |
 | `-j, --json` | Output as JSON |
+| `-e, --examples` | Show usage examples |
 
 #### ui simulator button
 
 Press a hardware button.
 
 ```bash
-flowdeck ui simulator button home
-flowdeck ui simulator button lock --hold 1.0
+flowdeck ui simulator button home -S "iPhone 16"
+flowdeck ui simulator button lock --hold 1.0 -S "iPhone 16"
 ```
 
 **Arguments:**
 | Argument | Description |
 |----------|-------------|
-| `<button>` | home, lock, siri, applepay, volumeup, volumedown |
+| `<button>` | `home`, `lock`, `siri`, `applepay`, `volumeup`, or `volumedown` |
 
 **Options:**
 | Option | Description |
 |--------|-------------|
 | `--hold <seconds>` | Hold duration in seconds |
 | `-S, --simulator <name-or-udid>` | Simulator name or UDID |
-| `-j, --json` | Output as JSON |
-| `-v, --verbose` | Show detailed output |
 
 #### ui simulator touch down
 
 Touch down at coordinates.
 
 ```bash
-flowdeck ui simulator touch down 120,340
+flowdeck ui simulator touch down 120,340 -S "iPhone 16"
 ```
 
 **Arguments:**
 | Argument | Description |
 |----------|-------------|
-| `<point>` | Coordinates (x,y) in screen points |
+| `<point>` | Point coordinates (`x,y`) in screen points |
 
 **Options:**
 | Option | Description |
 |--------|-------------|
+| `--geometry <geometry>` | Coordinate geometry (`points` only) |
 | `-S, --simulator <name-or-udid>` | Simulator name or UDID |
-| `-j, --json` | Output as JSON |
-| `-v, --verbose` | Show detailed output |
 
 #### ui simulator touch up
 
 Touch up at coordinates.
 
 ```bash
-flowdeck ui simulator touch up 120,340
+flowdeck ui simulator touch up 120,340 -S "iPhone 16"
+```
+
+**Arguments:**
+| Argument | Description |
+|----------|-------------|
+| `<point>` | Point coordinates (`x,y`) in screen points |
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `--geometry <geometry>` | Coordinate geometry (`points` only) |
+| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
 
 #### UI Timing Tuning
 
 Set these environment variables when you need to slow input or improve stability:
 
-- `FLOWDECK_HID_STABILIZATION_MS` Extra settle time between HID events
-- `FLOWDECK_TYPE_DELAY_MS` Per-character typing delay
-```
-
-**Arguments:**
-| Argument | Description |
-|----------|-------------|
-| `<point>` | Coordinates (x,y) in screen points |
-
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `-S, --simulator <name-or-udid>` | Simulator name or UDID |
-| `-j, --json` | Output as JSON |
-| `-v, --verbose` | Show detailed output |
-
-#### simulator erase
-
-Erases all content and settings from a simulator, resetting it to factory defaults. The simulator must be shutdown before erasing.
-
-```bash
-flowdeck simulator erase <udid>
-```
-
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `-v, --verbose` | Show command output |
-| `-j, --json` | Output as JSON |
-
-**When to Use:**
-- To test fresh app installation
-- To clear corrupted simulator state
-- Before running UI tests that need a clean slate
-
-#### simulator clear-cache
-
-Clears simulator caches to free disk space and resolve caching issues.
-
-```bash
-flowdeck simulator clear-cache
-```
-
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `-v, --verbose` | Show command output |
-
-**When to Use:**
-- When simulators are using too much disk space
-- When experiencing strange caching behavior
-- After updating Xcode
-
-#### simulator create
-
-Creates a new simulator with the specified device type and runtime.
-
-```bash
-# Create an iPhone 16 Pro simulator with iOS 18.1
-flowdeck simulator create --name "My iPhone 16" --device-type "iPhone 16 Pro" --runtime "iOS 18.1"
-
-# List available device types and runtimes first
-flowdeck simulator device-types
-flowdeck simulator runtime list
-```
-
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `-n, --name <name>` | Name for the new simulator (REQUIRED) |
-| `--device-type <type>` | Device type, e.g., 'iPhone 16 Pro' (REQUIRED) |
-| `--runtime <runtime>` | Runtime, e.g., 'iOS 18.1' or 'iOS-18-1' (REQUIRED) |
-| `-v, --verbose` | Show command output |
-| `-j, --json` | Output as JSON |
-
-#### simulator delete
-
-Deletes a simulator by UDID or name.
-
-```bash
-# Delete by UDID
-flowdeck simulator delete <udid>
-
-# Delete by name
-flowdeck simulator delete "iPhone 15"
-
-# Delete all unavailable simulators
-flowdeck simulator delete --unavailable
-```
-
-**Arguments:**
-| Argument | Description |
-|----------|-------------|
-| `<identifier>` | Simulator UDID or name (ignored with --unavailable) |
-
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `--unavailable` | Delete all unavailable simulators |
-| `-v, --verbose` | Show command output |
-
-#### simulator prune
-
-Deletes simulators that have never been used, freeing up disk space.
-
-```bash
-# Preview what would be deleted
-flowdeck simulator prune --dry-run
-
-# Delete unused simulators
-flowdeck simulator prune
-```
-
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `--dry-run` | Show what would be deleted without deleting |
-| `-v, --verbose` | Show verbose output |
-| `-j, --json` | Output as JSON |
-
-#### simulator device-types
-
-Lists all simulator device types available for creating new simulators.
-
-```bash
-flowdeck simulator device-types
-flowdeck simulator device-types --json
-```
-
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `-P, --platform <platform>` | Filter by platform (iOS, tvOS, watchOS, visionOS) |
-| `--json` | Output as JSON |
-
-#### simulator location set
-
-Set simulator location coordinates.
-
-```bash
-flowdeck simulator location set 37.7749,-122.4194
-flowdeck simulator location set 37.7749,-122.4194 --udid <udid>
-flowdeck simulator location set 37.7749,-122.4194 --json
-```
-
-**Arguments:**
-| Argument | Description |
-|----------|-------------|
-| `<lat,lon>` | Coordinates in `latitude,longitude` format |
-
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `-u, --udid <udid>` | Simulator UDID (defaults to first booted simulator) |
-| `-j, --json` | Output as JSON |
-
-#### simulator media add
-
-Add media to a simulator (photos or videos).
-
-```bash
-flowdeck simulator media add /path/to/photo.jpg
-flowdeck simulator media add /path/to/video.mov --udid <udid>
-flowdeck simulator media add /path/to/photo.jpg --json
-```
-
-**Arguments:**
-| Argument | Description |
-|----------|-------------|
-| `<file>` | Path to media file |
-
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `-u, --udid <udid>` | Simulator UDID (defaults to first booted simulator) |
-| `-j, --json` | Output as JSON |
+- `FLOWDECK_HID_STABILIZATION_MS` adds settle time between HID events (default: `25`)
+- `FLOWDECK_TYPE_DELAY_MS` adds per-character typing delay (default: `20`)
 
 ---
