@@ -165,6 +165,16 @@ enum GridShapePlacementEngine {
     let finiteCanvasRect = edgeBehavior == .finite
       ? CGRect(origin: .zero, size: size)
       : nil
+    let finiteCanvasPolygons = finiteCanvasRect.map {
+      CollisionMath.polygons(for: .rectangle(center: .zero, size: $0.size))
+    }
+    let finiteCanvasTransform = finiteCanvasRect.map {
+      CollisionTransform(
+        position: CGPoint(x: $0.midX, y: $0.midY),
+        rotation: 0,
+        scale: 1,
+      )
+    }
 
     let pinnedColliders: [PlacedCollider] = pinnedSymbolDescriptors.map { pinnedSymbol in
       let collisionTransform = CollisionTransform(
@@ -408,14 +418,17 @@ enum GridShapePlacementEngine {
           scale: CGFloat(scale),
         )
 
-        let candidateCellRect = CGRect(
-          x: position.x - (resolvedGrid.cellSize.width / 2),
-          y: position.y - (resolvedGrid.cellSize.height / 2),
-          width: resolvedGrid.cellSize.width,
-          height: resolvedGrid.cellSize.height,
-        )
         if let finiteCanvasRect,
-           candidateCellRect.intersects(finiteCanvasRect) == false {
+           let finiteCanvasPolygons,
+           let finiteCanvasTransform,
+           placementIntersectsFiniteCanvas(
+             polygons: selectedPolygons,
+             collisionTransform: candidateTransform,
+             boundingRadius: candidateCollisionShape.boundingRadius(atScale: candidateTransform.scale),
+             finiteCanvasRect: finiteCanvasRect,
+             finiteCanvasPolygons: finiteCanvasPolygons,
+             finiteCanvasTransform: finiteCanvasTransform,
+           ) == false {
           continue
         }
 
@@ -954,6 +967,33 @@ enum GridShapePlacementEngine {
       seed ^= seed >> 29
       return Int(truncatingIfNeeded: seed)
     }
+  }
+
+  private static func placementIntersectsFiniteCanvas(
+    polygons: [CollisionPolygon],
+    collisionTransform: CollisionTransform,
+    boundingRadius: CGFloat,
+    finiteCanvasRect: CGRect,
+    finiteCanvasPolygons: [CollisionPolygon],
+    finiteCanvasTransform: CollisionTransform,
+  ) -> Bool {
+    let nearestCanvasPoint = CGPoint(
+      x: min(max(collisionTransform.position.x, finiteCanvasRect.minX), finiteCanvasRect.maxX),
+      y: min(max(collisionTransform.position.y, finiteCanvasRect.minY), finiteCanvasRect.maxY),
+    )
+    let deltaX = collisionTransform.position.x - nearestCanvasPoint.x
+    let deltaY = collisionTransform.position.y - nearestCanvasPoint.y
+    let distanceSquared = deltaX * deltaX + deltaY * deltaY
+    guard distanceSquared <= boundingRadius * boundingRadius else {
+      return false
+    }
+
+    return CollisionMath.polygonsIntersect(
+      polygons,
+      transformA: collisionTransform,
+      finiteCanvasPolygons,
+      transformB: finiteCanvasTransform,
+    )
   }
 
   private static func adjustedCountForOffsetRequirement(
