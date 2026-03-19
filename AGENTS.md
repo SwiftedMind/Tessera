@@ -25,13 +25,16 @@ These are the defaults and conventions that keep changes consistent and easy to 
 
 ---
 
-## Subagents
+## Code Review
 
-- ALWAYS wait for all subagents to complete before yielding.
-- Spawn subagents automatically when:
-  - Parallelizable work
-  - Long-running or blocking tasks where a worker can run independently.
-  - Isolation for risky changes or checks
+- Every code review must include a full pass of the `$simplify-code` skill.
+
+## Code Readability Skill
+
+- Optimize for readability and traceability before cleverness or DRY in non-performance-critical paths.
+- Keep behavior-defining logic explicit and centralized so case behavior is visible in one obvious place.
+- Keep indirection shallow; avoid registry/flag/dispatch patterns for simple mappings.
+- Allow small duplication when it improves local reasoning; abstractions must improve readability, correctness, testability, or proven reuse.
 
 ---
 
