@@ -73,11 +73,13 @@ These are the defaults and conventions that keep changes consistent and easy to 
 - The primary build scheme is `ExampleApp`. It builds the demo app and the SDK together.
 - The primary test scheme is `TesseraTests`.
 - Reuse the agent-owned derived data folders `.xcode-deriveddata/ios`, `.xcode-deriveddata/tesseratests-ios`, and `.xcode-deriveddata/macos` for incremental work. These folders are reserved for coding-agent work in this repo and are not shared with other users.
+- When updating, resolving, or clearing Swift packages, always target the same `--derived-data-path` as the build or test root you will validate next. Otherwise FlowDeck can refresh one `SourcePackages` cache while the later build or test keeps reading a different stale cache.
 - If build and test may overlap, keep them on separate derived-data roots. Sharing one iOS root across concurrent FlowDeck commands can lock `Build/Intermediates.noindex/XCBuildData/build.db`.
 - Do not use xcodebuild, xcrun simctl, or other Apple CLI tools unless FlowDeck is unavailable.
 - If a FlowDeck command fails, troubleshoot using FlowDeck output and retry before falling back.
 - Use `flowdeck context --json` to resolve an iOS simulator first. Use a simulator UDID when the name is ambiguous.
 - `flowdeck test discover` currently reports `No tests found` for `TesseraTests` in this workspace even though the suite runs. Treat `flowdeck test --verbose` as the source of truth for package test results here.
+- If package resolution fails with `Couldn’t check out revision` / `fatal: unable to read tree`, retry on the affected root in this order: `update --derived-data-path ...`, `resolve --derived-data-path ...`, `clear --derived-data-path ...`, then rerun the same build or test command.
 
 ### Shortcuts
 
@@ -87,5 +89,11 @@ These are the defaults and conventions that keep changes consistent and easy to 
 
 - Resolve simulators: `flowdeck context --json`
 - List schemes: `flowdeck project schemes -w "$PWD/Tessera.xcworkspace"`
+- Update packages for ExampleApp builds: `flowdeck project packages update -w "$PWD/Tessera.xcworkspace" -s "ExampleApp" --derived-data-path ".xcode-deriveddata/ios"`
+- Resolve packages for ExampleApp builds: `flowdeck project packages resolve -w "$PWD/Tessera.xcworkspace" -s "ExampleApp" --derived-data-path ".xcode-deriveddata/ios"`
+- Clear packages for ExampleApp builds: `flowdeck project packages clear -w "$PWD/Tessera.xcworkspace" --derived-data-path ".xcode-deriveddata/ios"`
+- Update packages for TesseraTests runs: `flowdeck project packages update -w "$PWD/Tessera.xcworkspace" -s "TesseraTests" --derived-data-path ".xcode-deriveddata/tesseratests-ios"`
+- Resolve packages for TesseraTests runs: `flowdeck project packages resolve -w "$PWD/Tessera.xcworkspace" -s "TesseraTests" --derived-data-path ".xcode-deriveddata/tesseratests-ios"`
+- Clear packages for TesseraTests runs: `flowdeck project packages clear -w "$PWD/Tessera.xcworkspace" --derived-data-path ".xcode-deriveddata/tesseratests-ios"`
 - Build ExampleApp: `flowdeck build -w "$PWD/Tessera.xcworkspace" -s "ExampleApp" -S "<SIMULATOR_UDID>" -d ".xcode-deriveddata/ios"`
 - Run TesseraTests: `flowdeck test -w "$PWD/Tessera.xcworkspace" -s "TesseraTests" -S "<SIMULATOR_UDID>" -d ".xcode-deriveddata/tesseratests-ios" --verbose`
