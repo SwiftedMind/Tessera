@@ -223,6 +223,179 @@ import Testing
   #expect(fingerprintA != fingerprintB)
 }
 
+@Test func symbolZIndexChangesSnapshotFingerprint() {
+  let baseSymbolID = UUID(uuidString: "00000000-0000-0000-0000-0000000000DA")!
+  let requestKey = SnapshotRequestKey.make(
+    mode: .canvas(size: CGSize(width: 100, height: 100), edgeBehavior: .finite),
+    resolvedSeed: 42,
+    region: .rectangle,
+    regionRendering: .clipped,
+    pinnedSymbols: [],
+  )
+  let backPattern = Pattern(
+    symbols: [
+      Symbol(id: baseSymbolID, zIndex: 0, collider: .shape(.circle(center: .zero, radius: 1))) { Circle() },
+    ],
+    placement: .grid(columns: 1, rows: 1),
+  )
+  let frontPattern = Pattern(
+    symbols: [
+      Symbol(id: baseSymbolID, zIndex: 1, collider: .shape(.circle(center: .zero, radius: 1))) { Circle() },
+    ],
+    placement: .grid(columns: 1, rows: 1),
+  )
+
+  let fingerprintA = TesseraFingerprintBuilder.fingerprint(pattern: backPattern, requestKey: requestKey)
+  let fingerprintB = TesseraFingerprintBuilder.fingerprint(pattern: frontPattern, requestKey: requestKey)
+
+  #expect(fingerprintA != fingerprintB)
+}
+
+@Test func pinnedSymbolZIndexChangesSnapshotFingerprint() {
+  let pinnedID = UUID(uuidString: "00000000-0000-0000-0000-0000000000DB")!
+  let pinnedBack = PinnedSymbol(
+    id: pinnedID,
+    position: .centered(),
+    zIndex: 0,
+    collider: .shape(.circle(center: .zero, radius: 1)),
+  ) {
+    Circle()
+  }
+  let pinnedFront = PinnedSymbol(
+    id: pinnedID,
+    position: .centered(),
+    zIndex: 1,
+    collider: .shape(.circle(center: .zero, radius: 1)),
+  ) {
+    Circle()
+  }
+  let pattern = Pattern(symbols: [], placement: .grid(columns: 1, rows: 1))
+  let requestA = SnapshotRequestKey.make(
+    mode: .canvas(size: CGSize(width: 100, height: 100), edgeBehavior: .finite),
+    resolvedSeed: 42,
+    region: .rectangle,
+    regionRendering: .clipped,
+    pinnedSymbols: [pinnedBack],
+  )
+  let requestB = SnapshotRequestKey.make(
+    mode: .canvas(size: CGSize(width: 100, height: 100), edgeBehavior: .finite),
+    resolvedSeed: 42,
+    region: .rectangle,
+    regionRendering: .clipped,
+    pinnedSymbols: [pinnedFront],
+  )
+
+  let fingerprintA = TesseraFingerprintBuilder.fingerprint(pattern: pattern, requestKey: requestA)
+  let fingerprintB = TesseraFingerprintBuilder.fingerprint(pattern: pattern, requestKey: requestB)
+
+  #expect(fingerprintA != fingerprintB)
+}
+
+@Test func fixedGridSizingChangesSnapshotFingerprint() {
+  let requestKey = SnapshotRequestKey.make(
+    mode: .canvas(size: CGSize(width: 100, height: 100), edgeBehavior: .finite),
+    resolvedSeed: 42,
+    region: .rectangle,
+    regionRendering: .clipped,
+    pinnedSymbols: [],
+  )
+  let countPattern = Pattern(symbols: [], placement: .grid(columns: 2, rows: 2))
+  let fixedPattern = Pattern(
+    symbols: [],
+    placement: .grid(
+      cellSize: CGSize(width: 50, height: 50),
+      origin: .zero,
+    ),
+  )
+
+  let fingerprintA = TesseraFingerprintBuilder.fingerprint(pattern: countPattern, requestKey: requestKey)
+  let fingerprintB = TesseraFingerprintBuilder.fingerprint(pattern: fixedPattern, requestKey: requestKey)
+
+  #expect(fingerprintA != fingerprintB)
+}
+
+@Test func fixedGridOriginChangesSnapshotFingerprint() {
+  let requestKey = SnapshotRequestKey.make(
+    mode: .canvas(size: CGSize(width: 100, height: 100), edgeBehavior: .finite),
+    resolvedSeed: 42,
+    region: .rectangle,
+    regionRendering: .clipped,
+    pinnedSymbols: [],
+  )
+  let firstPattern = Pattern(
+    symbols: [],
+    placement: .grid(
+      cellSize: CGSize(width: 40, height: 40),
+      origin: CGPoint(x: -10, y: 0),
+    ),
+  )
+  let secondPattern = Pattern(
+    symbols: [],
+    placement: .grid(
+      cellSize: CGSize(width: 40, height: 40),
+      origin: CGPoint(x: 10, y: 0),
+    ),
+  )
+
+  let fingerprintA = TesseraFingerprintBuilder.fingerprint(pattern: firstPattern, requestKey: requestKey)
+  let fingerprintB = TesseraFingerprintBuilder.fingerprint(pattern: secondPattern, requestKey: requestKey)
+
+  #expect(fingerprintA != fingerprintB)
+}
+
+@Test @MainActor func pinnedSymbolsRenderAboveMosaicLayersInSnapshotView() async throws {
+  let mosaicFillSymbol = Symbol(collider: .shape(.rectangle(center: .zero, size: CGSize(width: 120, height: 120)))) {
+    Rectangle()
+      .fill(Color.red)
+      .frame(width: 120, height: 120)
+  }
+  let fullMaskSymbol = Symbol(collider: .shape(.rectangle(center: .zero, size: CGSize(width: 120, height: 120)))) {
+    Rectangle()
+      .fill(Color.white)
+      .frame(width: 120, height: 120)
+  }
+  let pinnedSymbol = PinnedSymbol(
+    position: .centered(),
+    zIndex: -10,
+    collider: .shape(.rectangle(center: .zero, size: CGSize(width: 48, height: 48))),
+  ) {
+    Rectangle()
+      .fill(Color.blue)
+      .frame(width: 48, height: 48)
+  }
+  let pattern = Pattern(
+    symbols: [],
+    placement: .grid(columns: 1, rows: 1),
+    mosaics: [
+      Mosaic(
+        mask: MosaicMask(symbol: fullMaskSymbol, position: .centered()),
+        symbols: [mosaicFillSymbol],
+        placement: .grid(columns: 1, rows: 1),
+        rendering: .clipped,
+      ),
+    ],
+  )
+  let snapshot = try await TesseraRenderer(pattern).makeSnapshot(
+    mode: .canvas(size: CGSize(width: 120, height: 120), edgeBehavior: .finite),
+    seed: .fixed(42),
+    pinnedSymbols: [pinnedSymbol],
+  )
+
+  let renderedImage = try renderedCGImage(
+    from: TesseraSnapshotView(snapshot: snapshot),
+    size: snapshot.size,
+  )
+  let centerPixel = try pixelComponents(
+    in: renderedImage,
+    x: Int(snapshot.size.width / 2),
+    y: Int(snapshot.size.height / 2),
+  )
+
+  #expect(centerPixel.alpha > 200)
+  #expect(centerPixel.blue > 200)
+  #expect(Int(centerPixel.blue) - Int(centerPixel.red) > 100)
+}
+
 @Test func mosaicRenderingClipModeMatrixIsStable() {
   #expect(MosaicRendering.contained.clipsToMask)
   #expect(MosaicRendering.clipped.clipsToMask)

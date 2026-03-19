@@ -121,6 +121,12 @@ enum OrganicShapePlacementEngine {
         pinnedSymbol.collisionShape.boundingRadius(atScale: pinnedSymbol.scale)
       }
       .max() ?? 0
+    let symbolBoundingRadiusByID = symbolDescriptors.reduce(into: [UUID: CGFloat]()) { radiiByID, symbol in
+      radiiByID[symbol.id] = preferredBoundingRadius(
+        for: symbol,
+        maximumScaleMultiplier: CGFloat(maximumScaleMultiplier),
+      )
+    }
     let maximumBoundingRadius = max(maximumGeneratedBoundingRadius, maximumFixedBoundingRadius)
     let maximumInteractionDistance = maximumBoundingRadius * 2 + maximumMinimumSpacing
     let cellSize = max(maximumInteractionDistance, 1)
@@ -158,13 +164,27 @@ enum OrganicShapePlacementEngine {
 
     diagnostics?.placementOuterAttempts = 0
     diagnostics?.placementSuccesses = 0
+    diagnostics?.placementSuccessesUsingRescue = 0
     diagnostics?.placementFailures = 0
     diagnostics?.terminatedForSaturation = false
 
     for placementAttemptIndex in 0..<remainingTargetCount {
       if Task.isCancelled { return placedDescriptors }
 
-      guard let selectedSymbol = pickSymbol(from: symbolDescriptors, using: &randomGenerator) else { break }
+      let symbolSelectionMode: SymbolSelectionMode = if saturationStopState.shouldUseCandidateRescue {
+        .stronglyPrefersSmallerSymbols
+      } else if saturationStopState.shouldPreferOpenCells {
+        .prefersSmallerSymbols
+      } else {
+        .defaultWeights
+      }
+
+      guard let selectedSymbol = pickSymbol(
+        from: symbolDescriptors,
+        symbolBoundingRadiusByID: symbolBoundingRadiusByID,
+        selectionMode: symbolSelectionMode,
+        using: &randomGenerator,
+      ) else { break }
 
       let choiceSeed = organicChoiceSeed(
         baseSeed: configuration.seed,
@@ -175,19 +195,21 @@ enum OrganicShapePlacementEngine {
       var choiceRandomGenerator = SeededGenerator(seed: choiceSeed)
       var tentativeChoiceSequenceState = choiceSequenceState
       var didPlaceSymbol = false
+      var didUseRescueSearch = false
       if let selectedRenderSymbol = ShapePlacementEngine.resolveLeafSymbolDescriptor(
         from: selectedSymbol,
         randomGenerator: &choiceRandomGenerator,
         sequenceState: &tentativeChoiceSequenceState,
       ), let selectedPolygons = polygonCache[selectedRenderSymbol.id] {
-        let baseScale = Double.random(in: selectedRenderSymbol.resolvedScaleRange, using: &randomGenerator)
-        let baseRotationRadians = randomAngleRadians(
-          in: selectedRenderSymbol.allowedRotationRangeDegrees,
+        let shouldUseRescueSearch = saturationStopState.shouldUseCandidateRescue
+        didUseRescueSearch = shouldUseRescueSearch
+        let attemptPolicy = CandidateAttemptPolicy.make(
+          for: selectedRenderSymbol,
+          usesRescueSearch: shouldUseRescueSearch,
           using: &randomGenerator,
         )
-        let maximumAttempts = 20
 
-        for _ in 0..<maximumAttempts {
+        for attemptIndex in 0..<attemptPolicy.maximumAttempts {
           if Task.isCancelled { return placedDescriptors }
 
           guard let position = samplePosition(
@@ -196,8 +218,16 @@ enum OrganicShapePlacementEngine {
             regionPointSampler: regionPointSampler,
             alphaMaskContains: maskContains,
             sparseMaskPointSampler: sparseMaskPointSampler,
+            spatialIndex: spatialIndex,
+            cellSize: cellSize,
+            prefersOpenCells: saturationStopState.shouldPreferOpenCells,
             using: &randomGenerator,
           ) else { continue }
+
+          let candidateBaseParameters = attemptPolicy.baseParameters(
+            for: attemptIndex,
+            using: &randomGenerator,
+          )
 
           let spacingMultiplier = max(
             0,
@@ -208,14 +238,14 @@ enum OrganicShapePlacementEngine {
             0,
             scaleMultiplierEvaluator?.value(at: position) ?? 1,
           )
-          let scale = max(0, baseScale * scaleMultiplier)
+          let scale = max(0, candidateBaseParameters.scale * scaleMultiplier)
           let rotationMultiplier = max(
             0,
             rotationMultiplierEvaluator?.value(at: position) ?? 1,
           )
           let rotationOffsetDegrees = rotationOffsetDegreesEvaluator?.value(at: position) ?? 0
           let rotationOffsetRadians = rotationOffsetDegrees * Double.pi / 180
-          let rotationRadians = baseRotationRadians * rotationMultiplier + rotationOffsetRadians
+          let rotationRadians = candidateBaseParameters.rotationRadians * rotationMultiplier + rotationOffsetRadians
 
           let candidateTransform = CollisionTransform(
             position: position,
@@ -264,6 +294,8 @@ enum OrganicShapePlacementEngine {
           let candidate = PlacedSymbolDescriptor(
             symbolId: selectedSymbol.id,
             renderSymbolId: selectedRenderSymbol.id,
+            zIndex: selectedSymbol.zIndex,
+            sourceOrder: selectedSymbol.sourceOrder,
             position: position,
             rotationRadians: rotationRadians,
             scale: CGFloat(scale),
@@ -290,6 +322,9 @@ enum OrganicShapePlacementEngine {
 
       if didPlaceSymbol {
         diagnostics?.placementSuccesses += 1
+        if didUseRescueSearch {
+          diagnostics?.placementSuccessesUsingRescue += 1
+        }
       } else {
         diagnostics?.placementFailures += 1
       }
@@ -347,6 +382,29 @@ enum OrganicShapePlacementEngine {
       for neighboringCellIndex in neighboringCellIndices {
         output.append(contentsOf: colliderIndicesByCellIndex[neighboringCellIndex])
       }
+    }
+
+    func randomPoint(
+      inCellAt cellIndex: Int,
+      cellSize: CGFloat,
+      tileSize: CGSize,
+      using randomGenerator: inout some RandomNumberGenerator,
+    ) -> CGPoint? {
+      guard cellIndex >= 0, cellIndex < colliderIndicesByCellIndex.count else { return nil }
+      guard cellSize > 0 else { return nil }
+
+      let row = cellIndex / gridColumnCount
+      let column = cellIndex % gridColumnCount
+      let minX = CGFloat(column) * cellSize
+      let minY = CGFloat(row) * cellSize
+      let maxX = min(tileSize.width, minX + cellSize)
+      let maxY = min(tileSize.height, minY + cellSize)
+      guard maxX > minX, maxY > minY else { return nil }
+
+      return CGPoint(
+        x: CGFloat.random(in: minX..<maxX, using: &randomGenerator),
+        y: CGFloat.random(in: minY..<maxY, using: &randomGenerator),
+      )
     }
 
     func cellIndex(
@@ -488,6 +546,10 @@ enum OrganicShapePlacementEngine {
     private let minimumAttemptsBeforeEarlyStop = 128
     private let missStreakLimit: Int
     private let zeroSuccessWindowLimit = 2
+    private let openCellMissStreakThreshold = 4
+    private let rescueMissStreakThreshold = 8
+    private let rescueWindowMinimumSamples = 16
+    private let rescueWindowMinimumSuccessRate = 0.35
 
     private var consecutiveMisses = 0
     private var windowOutcomes: [Bool]
@@ -497,6 +559,13 @@ enum OrganicShapePlacementEngine {
     private var consecutiveZeroSuccessWindows = 0
 
     var outerAttempts = 0
+    var shouldPreferOpenCells: Bool {
+      consecutiveMisses >= openCellMissStreakThreshold || consecutiveZeroSuccessWindows > 0
+    }
+
+    var shouldUseCandidateRescue: Bool {
+      consecutiveMisses >= rescueMissStreakThreshold || isRecentSuccessRateLow || consecutiveZeroSuccessWindows > 0
+    }
 
     init(remainingTargetCount: Int) {
       missStreakLimit = min(512, max(128, remainingTargetCount / 10))
@@ -536,6 +605,108 @@ enum OrganicShapePlacementEngine {
 
       return consecutiveMisses >= missStreakLimit || consecutiveZeroSuccessWindows >= zeroSuccessWindowLimit
     }
+
+    private var isRecentSuccessRateLow: Bool {
+      guard windowOutcomeCount >= rescueWindowMinimumSamples else { return false }
+
+      let successRate = Double(windowSuccessCount) / Double(windowOutcomeCount)
+      return successRate <= rescueWindowMinimumSuccessRate
+    }
+  }
+
+  private struct CandidateAttemptPolicy {
+    struct BaseParameters {
+      var scale: Double
+      var rotationRadians: Double
+    }
+
+    private let stableAttemptCount = 20
+    private let rotationRescueAttemptCount = 6
+
+    let maximumAttempts: Int
+    let baseScale: Double
+    let baseRotationRadians: Double
+    let scaleRange: ClosedRange<Double>
+    let rotationRangeDegrees: ClosedRange<Double>
+
+    static func make(
+      for renderSymbol: PlacementSymbolDescriptor.RenderDescriptor,
+      usesRescueSearch: Bool,
+      using randomGenerator: inout some RandomNumberGenerator,
+    ) -> Self {
+      let canRescueRotation = renderSymbol.allowedRotationRangeDegrees.lowerBound !=
+        renderSymbol.allowedRotationRangeDegrees.upperBound
+      let canRescueScale = renderSymbol.resolvedScaleRange.lowerBound != renderSymbol.resolvedScaleRange.upperBound
+      let usesRescueSearch = usesRescueSearch && (canRescueRotation || canRescueScale)
+      return Self(
+        maximumAttempts: usesRescueSearch ? 32 : 20,
+        baseScale: Double.random(in: renderSymbol.resolvedScaleRange, using: &randomGenerator),
+        baseRotationRadians: randomAngleRadians(
+          in: renderSymbol.allowedRotationRangeDegrees,
+          using: &randomGenerator,
+        ),
+        scaleRange: renderSymbol.resolvedScaleRange,
+        rotationRangeDegrees: renderSymbol.allowedRotationRangeDegrees,
+      )
+    }
+
+    func baseParameters(
+      for attemptIndex: Int,
+      using randomGenerator: inout some RandomNumberGenerator,
+    ) -> BaseParameters {
+      let resolvedStableAttemptCount = min(stableAttemptCount, maximumAttempts)
+      // Keep the original sample stable first, then widen rotation and scale
+      // exploration only after the symbol has already struggled to fit.
+      if attemptIndex < resolvedStableAttemptCount {
+        return BaseParameters(
+          scale: baseScale,
+          rotationRadians: baseRotationRadians,
+        )
+      }
+
+      let rescueAttemptIndex = attemptIndex - resolvedStableAttemptCount
+      let resolvedRotationRescueAttemptCount = min(
+        rotationRescueAttemptCount,
+        max(0, maximumAttempts - resolvedStableAttemptCount),
+      )
+      let rescueRotationRadians = randomAngleRadians(
+        in: rotationRangeDegrees,
+        using: &randomGenerator,
+      )
+      if rescueAttemptIndex < resolvedRotationRescueAttemptCount {
+        return BaseParameters(
+          scale: baseScale,
+          rotationRadians: rescueRotationRadians,
+        )
+      }
+
+      return BaseParameters(
+        scale: rescueScale(
+          for: rescueAttemptIndex - resolvedRotationRescueAttemptCount,
+          using: &randomGenerator,
+        ),
+        rotationRadians: rescueRotationRadians,
+      )
+    }
+
+    private func rescueScale(
+      for attemptIndex: Int,
+      using randomGenerator: inout some RandomNumberGenerator,
+    ) -> Double {
+      let lowerBound = max(0, scaleRange.lowerBound)
+      let upperBound = max(lowerBound, max(0, scaleRange.upperBound))
+      guard upperBound > lowerBound else { return lowerBound }
+
+      let rescueScaleAttemptCount = max(1, maximumAttempts - stableAttemptCount - rotationRescueAttemptCount)
+      if attemptIndex >= rescueScaleAttemptCount - 1 {
+        return lowerBound
+      }
+
+      let progress = Double(attemptIndex + 1) / Double(rescueScaleAttemptCount)
+      let sampledUnit = Double.random(in: 0...1, using: &randomGenerator)
+      let lowerBiasedUnit = pow(sampledUnit, 1 + progress * 2)
+      return lowerBound + (upperBound - lowerBound) * lowerBiasedUnit
+    }
   }
 
   private static func maximumBoundingRadius(
@@ -551,17 +722,60 @@ enum OrganicShapePlacementEngine {
     return maximumRadius
   }
 
+  private static func preferredBoundingRadius(
+    for symbol: PlacementSymbolDescriptor,
+    maximumScaleMultiplier: CGFloat,
+  ) -> CGFloat {
+    var maximumRadius: CGFloat = 0
+    for renderSymbol in symbol.renderableLeafDescriptors {
+      let maximumScale = max(0, renderSymbol.resolvedScaleRange.upperBound) * Double(maximumScaleMultiplier)
+      let radius = renderSymbol.collisionShape.boundingRadius(atScale: CGFloat(maximumScale))
+      maximumRadius = max(maximumRadius, radius)
+    }
+    return maximumRadius
+  }
+
+  private enum SymbolSelectionMode {
+    case defaultWeights
+    case prefersSmallerSymbols
+    case stronglyPrefersSmallerSymbols
+
+    var biasRange: ClosedRange<Double> {
+      switch self {
+      case .defaultWeights:
+        1...1
+      case .prefersSmallerSymbols:
+        1...2
+      case .stronglyPrefersSmallerSymbols:
+        1...3
+      }
+    }
+  }
+
   private static func pickSymbol(
     from symbols: [PlacementSymbolDescriptor],
+    symbolBoundingRadiusByID: [UUID: CGFloat],
+    selectionMode: SymbolSelectionMode,
     using randomGenerator: inout some RandomNumberGenerator,
   ) -> PlacementSymbolDescriptor? {
     // Weighted pick to preserve caller-defined symbol frequencies.
     guard symbols.isEmpty == false else { return nil }
 
+    let knownRadii = symbolBoundingRadiusByID.values
+    let minimumRadius = knownRadii.min() ?? 0
+    let maximumRadius = knownRadii.max() ?? minimumRadius
+
     var totalWeight = 0.0
     for symbol in symbols {
-      if symbol.weight.isFinite {
-        totalWeight += max(0, symbol.weight)
+      let selectionWeight = effectiveSelectionWeight(
+        for: symbol,
+        symbolBoundingRadiusByID: symbolBoundingRadiusByID,
+        minimumRadius: minimumRadius,
+        maximumRadius: maximumRadius,
+        selectionMode: selectionMode,
+      )
+      if selectionWeight.isFinite {
+        totalWeight += max(0, selectionWeight)
       }
     }
 
@@ -571,8 +785,15 @@ enum OrganicShapePlacementEngine {
     var accumulator = 0.0
 
     for symbol in symbols {
-      if symbol.weight.isFinite {
-        accumulator += max(0, symbol.weight)
+      let selectionWeight = effectiveSelectionWeight(
+        for: symbol,
+        symbolBoundingRadiusByID: symbolBoundingRadiusByID,
+        minimumRadius: minimumRadius,
+        maximumRadius: maximumRadius,
+        selectionMode: selectionMode,
+      )
+      if selectionWeight.isFinite {
+        accumulator += max(0, selectionWeight)
       }
       if randomValue < accumulator {
         return symbol
@@ -582,12 +803,35 @@ enum OrganicShapePlacementEngine {
     return symbols.last
   }
 
+  private static func effectiveSelectionWeight(
+    for symbol: PlacementSymbolDescriptor,
+    symbolBoundingRadiusByID: [UUID: CGFloat],
+    minimumRadius: CGFloat,
+    maximumRadius: CGFloat,
+    selectionMode: SymbolSelectionMode,
+  ) -> Double {
+    let baseWeight = max(0, symbol.weight)
+    guard baseWeight > 0 else { return 0 }
+    guard selectionMode != .defaultWeights else { return baseWeight }
+
+    let radius = symbolBoundingRadiusByID[symbol.id] ?? maximumRadius
+    let radiusSpan = maximumRadius - minimumRadius
+    let normalizedRadius = radiusSpan > 0 ? (radius - minimumRadius) / radiusSpan : 1
+    let smallerSymbolScore = 1 - min(1, max(0, normalizedRadius))
+    let biasRange = selectionMode.biasRange
+    let biasFactor = biasRange.lowerBound + (biasRange.upperBound - biasRange.lowerBound) * Double(smallerSymbolScore)
+    return baseWeight * biasFactor
+  }
+
   private static func samplePosition(
     in size: CGSize,
     region: TesseraResolvedPolygonRegion?,
     regionPointSampler: RegionPointSampler?,
     alphaMaskContains: ((CGPoint) -> Bool)?,
     sparseMaskPointSampler: SparseMaskPointSampler?,
+    spatialIndex: OrganicSpatialIndex,
+    cellSize: CGFloat,
+    prefersOpenCells: Bool,
     using randomGenerator: inout some RandomNumberGenerator,
   ) -> CGPoint? {
     guard size.width > 0, size.height > 0 else { return nil }
@@ -608,6 +852,18 @@ enum OrganicShapePlacementEngine {
       return nil
     }
 
+    if prefersOpenCells,
+       let point = occupancyBiasedPoint(
+         in: size,
+         region: region,
+         alphaMaskContains: alphaMaskContains,
+         spatialIndex: spatialIndex,
+         cellSize: cellSize,
+         using: &randomGenerator,
+       ) {
+      return point
+    }
+
     guard let point = randomPoint(
       in: size,
       region: region,
@@ -620,6 +876,54 @@ enum OrganicShapePlacementEngine {
     }
 
     return point
+  }
+
+  private static func occupancyBiasedPoint(
+    in size: CGSize,
+    region: TesseraResolvedPolygonRegion?,
+    alphaMaskContains: ((CGPoint) -> Bool)?,
+    spatialIndex: OrganicSpatialIndex,
+    cellSize: CGFloat,
+    using randomGenerator: inout some RandomNumberGenerator,
+  ) -> CGPoint? {
+    let candidateCellCount = min(4, spatialIndex.colliderIndicesByCellIndex.count)
+    guard candidateCellCount > 0 else { return nil }
+
+    for _ in 0..<4 {
+      var preferredCellIndex: Int?
+      var preferredCellOccupancy = Int.max
+
+      for _ in 0..<candidateCellCount {
+        let candidateCellIndex = Int.random(
+          in: 0..<spatialIndex.colliderIndicesByCellIndex.count,
+          using: &randomGenerator,
+        )
+        let occupancy = spatialIndex.colliderIndicesByCellIndex[candidateCellIndex].count
+        if occupancy < preferredCellOccupancy {
+          preferredCellIndex = candidateCellIndex
+          preferredCellOccupancy = occupancy
+        }
+      }
+
+      guard let preferredCellIndex,
+            let point = spatialIndex.randomPoint(
+              inCellAt: preferredCellIndex,
+              cellSize: cellSize,
+              tileSize: size,
+              using: &randomGenerator,
+            )
+      else { continue }
+
+      if let region, region.contains(point) == false {
+        continue
+      }
+      if let alphaMaskContains, alphaMaskContains(point) == false {
+        continue
+      }
+      return point
+    }
+
+    return nil
   }
 
   private static func randomPoint(

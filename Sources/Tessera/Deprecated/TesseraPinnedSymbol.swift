@@ -12,6 +12,10 @@ public struct TesseraPinnedSymbol: Identifiable, @unchecked Sendable {
   public var id: UUID
   /// Center position inside the canvas.
   public var position: TesseraPlacementPosition
+  /// Draw order shared with generated and other pinned symbols. Lower values render behind higher values.
+  ///
+  /// This affects rendering only. Placement and collisions stay unchanged.
+  public var zIndex: Double
   /// Rotation applied to drawing and collision checks.
   public var rotation: Angle
   /// Uniform scale applied to drawing and collision checks.
@@ -25,6 +29,7 @@ public struct TesseraPinnedSymbol: Identifiable, @unchecked Sendable {
   /// Creates a fixed symbol.
   /// - Parameters:
   ///   - position: Center position inside the canvas.
+  ///   - zIndex: Draw order shared with generated and other pinned symbols. Lower values render behind higher values.
   ///   - rotation: Rotation applied to drawing and collisions.
   ///   - scale: Uniform scale applied to drawing and collisions.
   ///   - collisionShape: Obstacle shape in local space. Complex polygons and multi-polygon shapes increase placement
@@ -33,6 +38,7 @@ public struct TesseraPinnedSymbol: Identifiable, @unchecked Sendable {
   public init(
     id: UUID = UUID(),
     position: TesseraPlacementPosition,
+    zIndex: Double = 0,
     rotation: Angle = .degrees(0),
     scale: CGFloat = 1,
     collisionShape: CollisionShape,
@@ -40,6 +46,7 @@ public struct TesseraPinnedSymbol: Identifiable, @unchecked Sendable {
   ) {
     self.id = id
     self.position = position
+    self.zIndex = zIndex
     self.rotation = rotation
     self.scale = scale
     self.collisionShape = collisionShape
@@ -50,6 +57,7 @@ public struct TesseraPinnedSymbol: Identifiable, @unchecked Sendable {
   public init(
     id: UUID = UUID(),
     position: CGPoint,
+    zIndex: Double = 0,
     rotation: Angle = .degrees(0),
     scale: CGFloat = 1,
     collisionShape: CollisionShape,
@@ -58,6 +66,7 @@ public struct TesseraPinnedSymbol: Identifiable, @unchecked Sendable {
     self.init(
       id: id,
       position: .absolute(position),
+      zIndex: zIndex,
       rotation: rotation,
       scale: scale,
       collisionShape: collisionShape,
@@ -68,6 +77,7 @@ public struct TesseraPinnedSymbol: Identifiable, @unchecked Sendable {
   /// Convenience initializer that derives a circular collision shape from an approximate size.
   /// - Parameters:
   ///   - position: Center position inside the canvas.
+  ///   - zIndex: Draw order shared with generated and other pinned symbols. Lower values render behind higher values.
   ///   - rotation: Rotation applied to drawing and collisions.
   ///   - scale: Uniform scale applied to drawing and collisions.
   ///   - approximateSize: Size used to build a conservative circular collider.
@@ -75,6 +85,7 @@ public struct TesseraPinnedSymbol: Identifiable, @unchecked Sendable {
   public init(
     id: UUID = UUID(),
     position: TesseraPlacementPosition,
+    zIndex: Double = 0,
     rotation: Angle = .degrees(0),
     scale: CGFloat = 1,
     approximateSize: CGSize = CGSize(width: 30, height: 30),
@@ -84,6 +95,7 @@ public struct TesseraPinnedSymbol: Identifiable, @unchecked Sendable {
     self.init(
       id: id,
       position: position,
+      zIndex: zIndex,
       rotation: rotation,
       scale: scale,
       collisionShape: .circle(center: .zero, radius: radius),
@@ -95,6 +107,7 @@ public struct TesseraPinnedSymbol: Identifiable, @unchecked Sendable {
   public init(
     id: UUID = UUID(),
     position: CGPoint,
+    zIndex: Double = 0,
     rotation: Angle = .degrees(0),
     scale: CGFloat = 1,
     approximateSize: CGSize = CGSize(width: 30, height: 30),
@@ -103,6 +116,7 @@ public struct TesseraPinnedSymbol: Identifiable, @unchecked Sendable {
     self.init(
       id: id,
       position: .absolute(position),
+      zIndex: zIndex,
       rotation: rotation,
       scale: scale,
       approximateSize: approximateSize,

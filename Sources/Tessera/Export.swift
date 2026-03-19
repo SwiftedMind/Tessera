@@ -167,36 +167,3 @@ public extension Tessera {
     )
   }
 }
-
-public extension TesseraCanvas {
-  /// Internal v4 bridge used by `Tessera.export(...)`.
-  @MainActor
-  @discardableResult
-  func export(
-    _ format: ExportFormat,
-    options: ExportOptions,
-    canvasSize: CGSize,
-  ) throws -> URL {
-    switch format {
-    case .png:
-      try renderPNG(
-        to: options.directory,
-        fileName: options.fileName,
-        canvasSize: canvasSize,
-        backgroundColor: options.backgroundColor,
-        colorScheme: options.colorScheme,
-        options: options.render,
-      )
-    case .pdf:
-      try renderPDF(
-        to: options.directory,
-        fileName: options.fileName,
-        canvasSize: canvasSize,
-        backgroundColor: options.backgroundColor,
-        colorScheme: options.colorScheme,
-        pageSize: options.pageSize ?? canvasSize,
-        options: options.render,
-      )
-    }
-  }
-}

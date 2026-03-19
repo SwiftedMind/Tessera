@@ -258,8 +258,7 @@ import Testing
 @Test func gridRadialRotationOffsetSteeringChangesCenterVsEdgeAverage() async throws {
   let size = CGSize(width: 240, height: 240)
   let configuration = PlacementModel.Grid(
-    columnCount: 9,
-    rowCount: 9,
+    sizing: .count(columns: 9, rows: 9),
     offsetStrategy: .none,
     symbolOrder: .rowMajor,
     seed: 404,

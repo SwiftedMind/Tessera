@@ -4,6 +4,18 @@
 
 Tessera 5.0 introduces native mosaics and a snapshot-first rendering pipeline.
 
+### Deprecated 3.x render entry points are removed
+
+The legacy shims are now gone:
+
+- `TesseraCanvas`
+- `TesseraTiledCanvas`
+- `TesseraCanvas.renderPNG(...)`
+- `TesseraCanvas.renderPDF(...)`
+- `TesseraCanvas.PlacementSnapshot`
+
+Use `Tessera(...).export(...)`, `TesseraRenderer.makeSnapshot(...)`, and `TesseraSnapshotView` instead.
+
 ### Pattern adds mosaics
 
 Before:
@@ -132,8 +144,8 @@ try Tessera(pattern)
 
 ### Compatibility
 
-- 3.x APIs remain available as deprecated shims in 4.0.
-- Remove deprecated calls before 5.0, where shims will be dropped.
+- 3.x APIs remained available as deprecated shims in 4.x.
+- Tessera 5.0 removes the legacy canvas/tiled-canvas render-entry shims.
 
 ### Grid symbol order updates
 

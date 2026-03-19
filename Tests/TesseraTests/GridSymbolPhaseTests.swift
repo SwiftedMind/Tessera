@@ -11,15 +11,13 @@ import Testing
   let size = CGSize(width: 200, height: 200)
 
   let configurationWithoutPhase = PlacementModel.Grid(
-    columnCount: 2,
-    rowCount: 2,
+    sizing: .count(columns: 2, rows: 2),
     offsetStrategy: .none,
     symbolOrder: .rowMajor,
     seed: 7,
   )
   let configurationWithZeroPhase = PlacementModel.Grid(
-    columnCount: 2,
-    rowCount: 2,
+    sizing: .count(columns: 2, rows: 2),
     offsetStrategy: .none,
     symbolOrder: .rowMajor,
     seed: 7,
@@ -50,8 +48,7 @@ import Testing
   let symbolB = makeSymbolDescriptor(id: UUID())
   let size = CGSize(width: 400, height: 400)
   let configuration = PlacementModel.Grid(
-    columnCount: 4,
-    rowCount: 4,
+    sizing: .count(columns: 4, rows: 4),
     offsetStrategy: .none,
     symbolOrder: .diagonal,
     seed: 13,
@@ -79,8 +76,7 @@ import Testing
   let symbolID = UUID()
   let size = CGSize(width: 400, height: 100)
   let configuration = PlacementModel.Grid(
-    columnCount: 4,
-    rowCount: 1,
+    sizing: .count(columns: 4, rows: 1),
     offsetStrategy: .none,
     symbolOrder: .rowMajor,
     seed: 1,
@@ -106,15 +102,13 @@ import Testing
   phase.x = .nan
   phase.y = .infinity
   let defaultConfiguration = PlacementModel.Grid(
-    columnCount: 2,
-    rowCount: 2,
+    sizing: .count(columns: 2, rows: 2),
     offsetStrategy: .none,
     symbolOrder: .rowMajor,
     seed: 3,
   )
   let nonFinitePhaseConfiguration = PlacementModel.Grid(
-    columnCount: 2,
-    rowCount: 2,
+    sizing: .count(columns: 2, rows: 2),
     offsetStrategy: .none,
     symbolOrder: .rowMajor,
     seed: 3,
@@ -146,8 +140,7 @@ import Testing
   let symbolID = UUID()
   let size = CGSize(width: 400, height: 100)
   let configuration = PlacementModel.Grid(
-    columnCount: 4,
-    rowCount: 1,
+    sizing: .count(columns: 4, rows: 1),
     offsetStrategy: .none,
     symbolOrder: .rowMajor,
     seed: 1,
@@ -180,8 +173,7 @@ import Testing
   let subgridID = UUID()
   let size = CGSize(width: 400, height: 200)
   let configuration = PlacementModel.Grid(
-    columnCount: 4,
-    rowCount: 2,
+    sizing: .count(columns: 4, rows: 2),
     offsetStrategy: .none,
     symbolOrder: .rowMajor,
     seed: 31,

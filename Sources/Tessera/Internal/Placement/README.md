@@ -18,6 +18,8 @@ common collision and wrapping helpers.
   - Designed for repeating, predictable layouts.
 - `Shared/ShapePlacementEngine+Types.swift`
   - Shared descriptor and helper structs used by both engines.
+- `Shared/ShapePlacementOrdering.swift`
+  - Shared normalization of generated-symbol draw order (`zIndex`, source order, placement sequence).
 - `Shared/ShapePlacementCollision.swift`
   - Collision checks that account for spacing and seamless wrapping.
 - `Shared/ShapePlacementWrapping.swift`
@@ -31,7 +33,9 @@ common collision and wrapping helpers.
    engine based on `PlacementModel`.
 3. The chosen engine creates `PlacedSymbolDescriptor` values and relies on shared
    collision and wrapping helpers to validate placements.
-4. The entry point converts the placed descriptors back into `PlacedSymbol` values.
+4. `ShapePlacementOrdering` normalizes generated draw order by `zIndex`, source
+   symbol order, then original placement sequence.
+5. The entry point converts the normalized descriptors back into `PlacedSymbol` values.
 
 ## Example flow (organic)
 
@@ -78,6 +82,8 @@ The grid engine:
 ## Notes
 
 - All coordinates are in tile space.
+- Draw order normalization is rendering-only; it does not affect placement acceptance,
+  collisions, or symbol selection.
 - Seamless wrapping uses a 3x3 lattice of offsets so symbols that cross edges remain
   collision-safe when the tile repeats.
 - Polygon regions can constrain placement to arbitrary outlines when provided by the caller.

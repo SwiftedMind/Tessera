@@ -23,6 +23,7 @@ public extension Symbol {
   /// - Parameters:
   ///   - id: Stable identifier for the symbol.
   ///   - weight: Relative sampling weight.
+  ///   - zIndex: Draw order used when generated symbols overlap. Lower values render behind higher values.
   ///   - rotation: Allowed rotation range.
   ///   - scale: Optional symbol-specific scale override.
   ///   - collider: Collision behavior used for placement checks.
@@ -30,7 +31,8 @@ public extension Symbol {
   init(
     id: UUID = UUID(),
     weight: Double = 1,
-    rotation: ClosedRange<Angle> = (.zero)...(.zero),
+    zIndex: Double = 0,
+    rotation: ClosedRange<Angle> = .zero...(.zero),
     scale: ClosedRange<Double>? = nil,
     collider: Collider,
     @ViewBuilder content: @escaping () -> some View,
@@ -40,6 +42,7 @@ public extension Symbol {
       self.init(
         id: id,
         weight: weight,
+        zIndex: zIndex,
         allowedRotationRange: rotation,
         scaleRange: scale,
         collisionShape: shape,
@@ -49,6 +52,7 @@ public extension Symbol {
       self.init(
         id: id,
         weight: weight,
+        zIndex: zIndex,
         allowedRotationRange: rotation,
         scaleRange: scale,
         approximateSize: size,

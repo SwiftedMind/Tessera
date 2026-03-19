@@ -22,6 +22,10 @@ extension ShapePlacementEngine {
     var id: UUID
     /// The selection weight used by top-level symbol selection.
     var weight: Double
+    /// Draw order for generated symbols. Lower values render behind higher values.
+    var zIndex: Double
+    /// The source-array position of the top-level symbol.
+    var sourceOrder: Int
     /// The strategy used when `choices` is non-empty.
     var choiceStrategy: TesseraSymbolChoiceStrategy
     /// Optional seed salt mixed into choice resolution.
@@ -60,6 +64,10 @@ extension ShapePlacementEngine {
     var symbolId: UUID
     /// The identifier of the resolved render symbol (leaf choice).
     var renderSymbolId: UUID
+    /// Draw order for generated symbols. Lower values render behind higher values.
+    var zIndex: Double
+    /// The source-array position of the top-level symbol.
+    var sourceOrder: Int
     /// The final position of the symbol in tile coordinates.
     var position: CGPoint
     /// The final rotation in radians.
@@ -103,16 +111,57 @@ extension ShapePlacementEngine {
 
   /// Stores the resolved grid dimensions and derived cell size.
   struct ResolvedGrid: Sendable {
-    /// The number of columns in the resolved grid.
-    var columnCount: Int
-    /// The number of rows in the resolved grid.
-    var rowCount: Int
+    enum SizingSource: Hashable, Sendable {
+      case count
+      case fixed
+    }
+
+    /// Whether the resolved grid came from count-based or fixed-cell sizing.
+    var sizingSource: SizingSource
+    /// The visible lattice columns that intersect the placement bounds.
+    var columnRange: Range<Int>
+    /// The visible lattice rows that intersect the placement bounds.
+    var rowRange: Range<Int>
     /// The size of each resolved cell in points.
     var cellSize: CGSize
+    /// The top-left position of lattice cell `(0, 0)` in placement-bounds-local coordinates.
+    var origin: CGPoint
+
+    /// The number of visible columns in the resolved grid window.
+    var columnCount: Int {
+      columnRange.count
+    }
+
+    /// The number of visible rows in the resolved grid window.
+    var rowCount: Int {
+      rowRange.count
+    }
 
     /// The total number of cells in the resolved grid.
     var totalCellCount: Int {
       columnCount * rowCount
+    }
+
+    /// Checked total cell count used before allocating grid-backed buffers.
+    var safeTotalCellCount: Int? {
+      let (count, overflow) = columnCount.multipliedReportingOverflow(by: rowCount)
+      return overflow ? nil : count
+    }
+
+    func absoluteColumnIndex(forVisibleColumnIndex visibleColumnIndex: Int) -> Int {
+      columnRange.lowerBound + visibleColumnIndex
+    }
+
+    func absoluteRowIndex(forVisibleRowIndex visibleRowIndex: Int) -> Int {
+      rowRange.lowerBound + visibleRowIndex
+    }
+
+    func x(forLatticeColumn columnIndex: Int) -> CGFloat {
+      origin.x + CGFloat(columnIndex) * cellSize.width
+    }
+
+    func y(forLatticeRow rowIndex: Int) -> CGFloat {
+      origin.y + CGFloat(rowIndex) * cellSize.height
     }
   }
 }
@@ -122,6 +171,8 @@ extension ShapePlacementEngine.PlacementSymbolDescriptor {
   init(
     id: UUID,
     weight: Double,
+    zIndex: Double = 0,
+    sourceOrder: Int = 0,
     allowedRotationRangeDegrees: ClosedRange<Double>,
     resolvedScaleRange: ClosedRange<Double>,
     collisionShape: CollisionShape,
@@ -129,6 +180,8 @@ extension ShapePlacementEngine.PlacementSymbolDescriptor {
     self.init(
       id: id,
       weight: weight,
+      zIndex: zIndex,
+      sourceOrder: sourceOrder,
       choiceStrategy: .weightedRandom,
       choiceSeed: nil,
       renderDescriptor: RenderDescriptor(
@@ -158,6 +211,8 @@ extension ShapePlacementEngine.PlacedSymbolDescriptor {
   /// Convenience initializer that uses `symbolId` as the render symbol ID.
   init(
     symbolId: UUID,
+    zIndex: Double = 0,
+    sourceOrder: Int = 0,
     position: CGPoint,
     rotationRadians: Double,
     scale: CGFloat,
@@ -166,6 +221,8 @@ extension ShapePlacementEngine.PlacedSymbolDescriptor {
     self.init(
       symbolId: symbolId,
       renderSymbolId: symbolId,
+      zIndex: zIndex,
+      sourceOrder: sourceOrder,
       position: position,
       rotationRadians: rotationRadians,
       scale: scale,

@@ -52,6 +52,40 @@ extension DemoDestination {
   }
 
   @ViewBuilder
+  func fixedCellGridView() -> some View {
+    DemoExampleScreen(title: "Fixed Cell Grid", ignoresSafeArea: false) {
+      VStack(spacing: 20) {
+        Text("The grid starts outside the visible canvas, so the first and last cells are intentionally clipped.")
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+          .multilineTextAlignment(.center)
+          .padding(.horizontal, 24)
+          .padding(.top, 24)
+
+        ZStack {
+          RoundedRectangle(cornerRadius: 28, style: .continuous)
+            .fill(DemoPalette.canvasBackground)
+
+          Tessera(DemoConfigurations.grid)
+            .mode(.canvas(edgeBehavior: .finite))
+            .seed(.fixed(0))
+            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        }
+        .frame(width: 220, height: 220)
+        .overlay {
+          RoundedRectangle(cornerRadius: 28, style: .continuous)
+            .stroke(DemoPalette.strokePrimary.opacity(0.22), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.18), radius: 18, y: 10)
+
+        Spacer(minLength: 0)
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .background(DemoPalette.canvasBackground.ignoresSafeArea())
+    }
+  }
+
+  @ViewBuilder
   func gridColumnMajorView() -> some View {
     DemoExampleScreen(title: "Grid Column Major") {
       Tessera(DemoConfigurations.gridColumnMajor)

@@ -57,9 +57,12 @@ struct SnapshotStaticCanvasView: View {
       nil
     }
 
+    let shouldRenderPinnedInBaseLayer = renderModel.mosaics.isEmpty
+
     let baseLayer = SnapshotPlacementCanvasView(
       symbols: renderModel.baseSymbols.uniqueRenderableLeafSymbols,
       placements: renderModel.basePlacements,
+      pinnedSymbols: shouldRenderPinnedInBaseLayer ? renderModel.pinnedSymbols : [],
       size: snapshot.size,
       edgeBehavior: renderModel.edgeBehavior,
       offset: renderModel.baseOffset,
@@ -107,7 +110,7 @@ struct SnapshotStaticCanvasView: View {
         }
       }
       .overlay {
-        if renderModel.pinnedSymbols.isEmpty == false {
+        if renderModel.mosaics.isEmpty == false, renderModel.pinnedSymbols.isEmpty == false {
           SnapshotPinnedCanvasView(
             pinnedSymbols: renderModel.pinnedSymbols,
             size: snapshot.size,
@@ -130,6 +133,30 @@ struct SnapshotStaticCanvasView: View {
     }
     .frame(width: snapshot.size.width, height: snapshot.size.height)
     .clipped()
+  }
+}
+
+/// Draws pinned symbols as a dedicated top-most layer.
+private struct SnapshotPinnedCanvasView: View {
+  var pinnedSymbols: [PinnedSymbol]
+  var size: CGSize
+  var edgeBehavior: TesseraEdgeBehavior
+  var clipPath: Path?
+  var rendersAsynchronously: Bool
+  var showsCollisionShapes: Bool
+
+  var body: some View {
+    SnapshotPlacementCanvasView(
+      symbols: [],
+      placements: [],
+      pinnedSymbols: pinnedSymbols,
+      size: size,
+      edgeBehavior: edgeBehavior,
+      offset: .zero,
+      clipPath: clipPath,
+      rendersAsynchronously: rendersAsynchronously,
+      showsCollisionShapes: showsCollisionShapes,
+    )
   }
 }
 
@@ -332,6 +359,7 @@ enum SnapshotMaskImageCache {
 private struct SnapshotPlacementCanvasView: View {
   var symbols: [Symbol]
   var placements: [SnapshotPlacementDescriptor]
+  var pinnedSymbols: [PinnedSymbol] = []
   var size: CGSize
   var edgeBehavior: TesseraEdgeBehavior
   var offset: CGSize
@@ -340,9 +368,18 @@ private struct SnapshotPlacementCanvasView: View {
   var showsCollisionShapes: Bool
 
   var body: some View {
+    let orderedRenderEntries = makeOrderedSnapshotRenderEntries(
+      placements: placements,
+      pinnedSymbols: pinnedSymbols,
+    )
     let overlayShapesBySymbolID: [UUID: CollisionOverlayShape] = showsCollisionShapes
       ? symbols.reduce(into: [:]) { cache, symbol in
         cache[symbol.id] = CollisionOverlayShape(collisionShape: symbol.collisionShape)
+      }
+      : [:]
+    let overlayShapesByPinnedSymbolID: [UUID: CollisionOverlayShape] = showsCollisionShapes
+      ? pinnedSymbols.reduce(into: [:]) { cache, pinnedSymbol in
+        cache[pinnedSymbol.id] = CollisionOverlayShape(collisionShape: pinnedSymbol.collisionShape)
       }
       : [:]
 
@@ -363,29 +400,53 @@ private struct SnapshotPlacementCanvasView: View {
       )
       let offsets = ShapePlacementWrapping.wrapOffsets(for: drawSize, edgeBehavior: edgeBehavior)
 
-      for placedSymbol in placements {
-        guard let symbol = context.resolveSymbol(id: placedSymbol.renderSymbolId) else { continue }
+      for entry in orderedRenderEntries {
+        switch entry {
+        case let .generated(placedSymbol, _):
+          guard let symbol = context.resolveSymbol(id: entry.symbolKey) else { continue }
 
-        for wrapOffset in offsets {
-          var symbolContext = context
-          symbolContext.translateBy(
-            x: wrapOffset.x + wrappedOffset.width,
-            y: wrapOffset.y + wrappedOffset.height,
-          )
-          symbolContext.translateBy(x: placedSymbol.position.x, y: placedSymbol.position.y)
-          symbolContext.rotate(by: .radians(placedSymbol.rotationRadians))
-          symbolContext.scaleBy(x: placedSymbol.scale, y: placedSymbol.scale)
-          symbolContext.draw(symbol, at: .zero, anchor: .center)
+          for wrapOffset in offsets {
+            var symbolContext = context
+            symbolContext.translateBy(
+              x: wrapOffset.x + wrappedOffset.width,
+              y: wrapOffset.y + wrappedOffset.height,
+            )
+            symbolContext.translateBy(x: placedSymbol.position.x, y: placedSymbol.position.y)
+            symbolContext.rotate(by: .radians(placedSymbol.rotationRadians))
+            symbolContext.scaleBy(x: placedSymbol.scale, y: placedSymbol.scale)
+            symbolContext.draw(symbol, at: .zero, anchor: .center)
 
-          if showsCollisionShapes,
-             let overlayShape = overlayShapesBySymbolID[placedSymbol.renderSymbolId] {
-            CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
+            if showsCollisionShapes,
+               let overlayShape = overlayShapesBySymbolID[placedSymbol.renderSymbolId] {
+              CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
+            }
+          }
+        case let .pinned(pinnedSymbol, _):
+          guard let symbol = context.resolveSymbol(id: entry.symbolKey) else { continue }
+
+          let resolvedPosition = pinnedSymbol.resolvedPosition(in: drawSize)
+
+          for wrapOffset in offsets {
+            var symbolContext = context
+            symbolContext.translateBy(x: wrapOffset.x, y: wrapOffset.y)
+            symbolContext.translateBy(x: resolvedPosition.x, y: resolvedPosition.y)
+            symbolContext.rotate(by: pinnedSymbol.rotation)
+            symbolContext.scaleBy(x: pinnedSymbol.scale, y: pinnedSymbol.scale)
+            symbolContext.draw(symbol, at: .zero, anchor: .center)
+
+            if showsCollisionShapes,
+               let overlayShape = overlayShapesByPinnedSymbolID[pinnedSymbol.id] {
+              CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
+            }
           }
         }
       }
     } symbols: {
       ForEach(symbols) { symbol in
-        symbol.makeView().tag(symbol.id)
+        symbol.makeView().tag(SnapshotRenderSymbolKey.generated(symbol.id))
+      }
+      ForEach(pinnedSymbols) { pinnedSymbol in
+        pinnedSymbol.makeView().tag(SnapshotRenderSymbolKey.pinned(pinnedSymbol.id))
       }
     }
     .frame(width: size.width, height: size.height)
@@ -393,59 +454,56 @@ private struct SnapshotPlacementCanvasView: View {
   }
 }
 
-/// Draws pinned symbols as the top-most layer.
-private struct SnapshotPinnedCanvasView: View {
-  var pinnedSymbols: [PinnedSymbol]
-  var size: CGSize
-  var edgeBehavior: TesseraEdgeBehavior
-  var clipPath: Path?
-  var rendersAsynchronously: Bool
-  var showsCollisionShapes: Bool
+private enum SnapshotRenderSymbolKey: Hashable {
+  case generated(UUID)
+  case pinned(UUID)
+}
 
-  var body: some View {
-    let overlayShapesByPinnedSymbolID: [UUID: CollisionOverlayShape] = showsCollisionShapes
-      ? pinnedSymbols.reduce(into: [:]) { cache, pinnedSymbol in
-        cache[pinnedSymbol.id] = CollisionOverlayShape(collisionShape: pinnedSymbol.collisionShape)
-      }
-      : [:]
+private enum SnapshotRenderEntry {
+  case generated(SnapshotPlacementDescriptor, placementSequence: Int)
+  case pinned(PinnedSymbol, sourceOrder: Int)
 
-    Canvas(
-      opaque: false,
-      colorMode: .nonLinear,
-      rendersAsynchronously: rendersAsynchronously,
-    ) { context, drawSize in
-      guard drawSize.width > 0, drawSize.height > 0 else { return }
-
-      if let clipPath {
-        context.clip(to: clipPath)
-      }
-
-      let offsets = ShapePlacementWrapping.wrapOffsets(for: drawSize, edgeBehavior: edgeBehavior)
-      for pinnedSymbol in pinnedSymbols {
-        guard let symbol = context.resolveSymbol(id: pinnedSymbol.id) else { continue }
-
-        let resolvedPosition = pinnedSymbol.resolvedPosition(in: drawSize)
-
-        for wrapOffset in offsets {
-          var symbolContext = context
-          symbolContext.translateBy(x: wrapOffset.x, y: wrapOffset.y)
-          symbolContext.translateBy(x: resolvedPosition.x, y: resolvedPosition.y)
-          symbolContext.rotate(by: pinnedSymbol.rotation)
-          symbolContext.scaleBy(x: pinnedSymbol.scale, y: pinnedSymbol.scale)
-          symbolContext.draw(symbol, at: .zero, anchor: .center)
-
-          if showsCollisionShapes,
-             let overlayShape = overlayShapesByPinnedSymbolID[pinnedSymbol.id] {
-            CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
-          }
-        }
-      }
-    } symbols: {
-      ForEach(pinnedSymbols) { pinnedSymbol in
-        pinnedSymbol.makeView().tag(pinnedSymbol.id)
-      }
+  var symbolKey: SnapshotRenderSymbolKey {
+    switch self {
+    case let .generated(placedSymbol, _):
+      .generated(placedSymbol.renderSymbolId)
+    case let .pinned(pinnedSymbol, _):
+      .pinned(pinnedSymbol.id)
     }
-    .frame(width: size.width, height: size.height)
-    .clipped()
+  }
+
+  var renderOrder: RenderOrderKey {
+    switch self {
+    case let .generated(placedSymbol, placementSequence):
+      RenderOrderKey(
+        zIndex: placedSymbol.zIndex,
+        layerOrder: RenderOrderLayer.generated.rawValue,
+        sourceOrder: placedSymbol.sourceOrder,
+        placementSequence: placementSequence,
+      )
+    case let .pinned(pinnedSymbol, sourceOrder):
+      RenderOrderKey(
+        zIndex: pinnedSymbol.zIndex,
+        layerOrder: RenderOrderLayer.pinned.rawValue,
+        sourceOrder: sourceOrder,
+        placementSequence: sourceOrder,
+      )
+    }
+  }
+}
+
+private func makeOrderedSnapshotRenderEntries(
+  placements: [SnapshotPlacementDescriptor],
+  pinnedSymbols: [PinnedSymbol],
+) -> [SnapshotRenderEntry] {
+  let generatedEntries = placements.enumerated().map { placementSequence, placedSymbol in
+    SnapshotRenderEntry.generated(placedSymbol, placementSequence: placementSequence)
+  }
+  let pinnedEntries = pinnedSymbols.enumerated().map { sourceOrder, pinnedSymbol in
+    SnapshotRenderEntry.pinned(pinnedSymbol, sourceOrder: sourceOrder)
+  }
+
+  return ShapePlacementOrdering.ordered(generatedEntries + pinnedEntries) { _, entry in
+    entry.renderOrder
   }
 }

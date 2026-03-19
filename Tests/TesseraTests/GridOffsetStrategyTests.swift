@@ -9,8 +9,7 @@ import Testing
   let size = CGSize(width: 200, height: 200)
 
   let configuration = PlacementModel.Grid(
-    columnCount: 2,
-    rowCount: 2,
+    sizing: .count(columns: 2, rows: 2),
     offsetStrategy: .rowShift(fraction: 1),
   )
 
@@ -33,8 +32,7 @@ import Testing
   let size = CGSize(width: 200, height: 200)
 
   let configuration = PlacementModel.Grid(
-    columnCount: 4,
-    rowCount: 2,
+    sizing: .count(columns: 4, rows: 2),
     offsetStrategy: .rowShift(fraction: 1.25),
   )
 
@@ -55,8 +53,7 @@ import Testing
   let size = CGSize(width: 200, height: 200)
 
   let configuration = PlacementModel.Grid(
-    columnCount: 2,
-    rowCount: 2,
+    sizing: .count(columns: 2, rows: 2),
     offsetStrategy: .checkerShift(fraction: 1),
   )
 
@@ -79,8 +76,7 @@ import Testing
   let size = CGSize(width: 300, height: 300)
 
   let configuration = PlacementModel.Grid(
-    columnCount: 3,
-    rowCount: 3,
+    sizing: .count(columns: 3, rows: 3),
     offsetStrategy: .rowShift(fraction: 0),
   )
 
@@ -99,8 +95,7 @@ import Testing
   let size = CGSize(width: 300, height: 300)
 
   let configuration = PlacementModel.Grid(
-    columnCount: 3,
-    rowCount: 3,
+    sizing: .count(columns: 3, rows: 3),
     offsetStrategy: .columnShift(fraction: 0),
   )
 
@@ -119,8 +114,7 @@ import Testing
   let size = CGSize(width: 300, height: 300)
 
   let configuration = PlacementModel.Grid(
-    columnCount: 3,
-    rowCount: 3,
+    sizing: .count(columns: 3, rows: 3),
     offsetStrategy: .checkerShift(fraction: 0),
   )
 
@@ -139,8 +133,7 @@ import Testing
   let size = CGSize(width: 300, height: 300)
 
   let configuration = PlacementModel.Grid(
-    columnCount: 3,
-    rowCount: 3,
+    sizing: .count(columns: 3, rows: 3),
     offsetStrategy: .rowShift(fraction: 0.25),
   )
 
@@ -159,8 +152,7 @@ import Testing
   let size = CGSize(width: 300, height: 300)
 
   let configuration = PlacementModel.Grid(
-    columnCount: 3,
-    rowCount: 3,
+    sizing: .count(columns: 3, rows: 3),
     offsetStrategy: .columnShift(fraction: 0.25),
   )
 
@@ -179,8 +171,7 @@ import Testing
   let size = CGSize(width: 300, height: 300)
 
   let configuration = PlacementModel.Grid(
-    columnCount: 3,
-    rowCount: 3,
+    sizing: .count(columns: 3, rows: 3),
     offsetStrategy: .checkerShift(fraction: 0.25),
   )
 
@@ -195,12 +186,38 @@ import Testing
   #expect(placed.count == 16)
 }
 
+@Test func fixedSizingWithNonZeroCheckerShiftDoesNotForceEvenVisibleCountsUnderWrapping() async throws {
+  let configuration = PlacementModel.Grid(
+    sizing: .fixed(
+      cellSize: CGSize(width: 40, height: 40),
+      origin: CGPoint(x: 10, y: 10),
+    ),
+    offsetStrategy: .checkerShift(fraction: 0.25),
+  )
+
+  let resolvedGrid = GridShapePlacementEngine.resolveGrid(
+    for: CGSize(width: 70, height: 70),
+    configuration: configuration,
+    edgeBehavior: .seamlessWrapping,
+  )
+  let placed = GridShapePlacementEngine.placeSymbolDescriptors(
+    in: CGSize(width: 70, height: 70),
+    symbolDescriptors: [makeTestSymbolDescriptor()],
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .seamlessWrapping,
+    configuration: configuration,
+  )
+
+  #expect(resolvedGrid.columnCount == 3)
+  #expect(resolvedGrid.rowCount == 3)
+  #expect(placed.count == 9)
+}
+
 @Test func rowShiftNegativeActsAsZero() async throws {
   let size = CGSize(width: 300, height: 300)
 
   let configuration = PlacementModel.Grid(
-    columnCount: 3,
-    rowCount: 3,
+    sizing: .count(columns: 3, rows: 3),
     offsetStrategy: .rowShift(fraction: -1),
   )
 
@@ -220,8 +237,7 @@ import Testing
   let size = CGSize(width: 300, height: 300)
 
   let configuration = PlacementModel.Grid(
-    columnCount: 3,
-    rowCount: 3,
+    sizing: .count(columns: 3, rows: 3),
     offsetStrategy: .rowShift(fraction: Double.nan),
   )
 
@@ -241,8 +257,7 @@ import Testing
   let size = CGSize(width: 200, height: 200)
 
   let configuration = PlacementModel.Grid(
-    columnCount: 4,
-    rowCount: 4,
+    sizing: .count(columns: 4, rows: 4),
     offsetStrategy: .rowShift(fraction: 2),
   )
 
@@ -270,8 +285,7 @@ import Testing
   let size = CGSize(width: 200, height: 100)
 
   let configuration = PlacementModel.Grid(
-    columnCount: 2,
-    rowCount: 1,
+    sizing: .count(columns: 2, rows: 1),
     offsetStrategy: .none,
   )
 

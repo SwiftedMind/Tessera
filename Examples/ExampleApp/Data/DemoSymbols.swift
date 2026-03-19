@@ -21,6 +21,10 @@ enum DemoSymbols {
     [.gridCross, .gridCrossRotated]
   }
 
+  static var fixedCellClipping: [Symbol] {
+    [.fixedCellBlock, .fixedCellDiamond]
+  }
+
   static var gridSubgrids: [Symbol] {
     [.subgridDot]
   }
@@ -139,6 +143,37 @@ extension Symbol {
       collider: .shape(.rectangle(center: .zero, size: CGSize(width: 28, height: 28))),
     ) {
       CrossGlyph(color: DemoPalette.amber.opacity(0.86), size: 22, lineWidth: 3)
+        .rotationEffect(.degrees(45))
+    }
+  }
+
+  static var fixedCellBlock: Symbol {
+    Symbol(
+      rotation: .degrees(0)...(.degrees(0)),
+      collider: .shape(.roundedRectangle(size: CGSize(width: 50, height: 50), cornerRadius: 14)),
+    ) {
+      RoundedRectangle(cornerRadius: 14, style: .continuous)
+        .fill(DemoPalette.blue.opacity(0.26))
+        .overlay {
+          RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .stroke(DemoPalette.blue.opacity(0.95), lineWidth: 4)
+        }
+        .frame(width: 44, height: 44)
+    }
+  }
+
+  static var fixedCellDiamond: Symbol {
+    Symbol(
+      rotation: .degrees(0)...(.degrees(0)),
+      collider: .shape(.rectangle(center: .zero, size: CGSize(width: 48, height: 48))),
+    ) {
+      RoundedRectangle(cornerRadius: 10, style: .continuous)
+        .fill(DemoPalette.amber.opacity(0.20))
+        .overlay {
+          RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .stroke(DemoPalette.amber.opacity(0.92), lineWidth: 4)
+        }
+        .frame(width: 40, height: 40)
         .rotationEffect(.degrees(45))
     }
   }

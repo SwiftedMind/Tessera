@@ -163,10 +163,12 @@ private extension TesseraRenderer {
         debugOverlay: options.render.showsCollisionOverlay ? .collisionShapes : .none,
       ),
     )
+    // PDF vector rendering can reorder mixed Canvas symbols; flatten the composed result first.
+    let flattenedContent = content.drawingGroup()
     let rendererContent = if let colorScheme = options.colorScheme {
-      AnyView(content.environment(\.colorScheme, colorScheme))
+      AnyView(flattenedContent.environment(\.colorScheme, colorScheme))
     } else {
-      AnyView(content)
+      AnyView(flattenedContent)
     }
 
     let renderer = ImageRenderer(content: rendererContent)

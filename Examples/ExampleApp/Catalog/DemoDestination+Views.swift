@@ -16,6 +16,8 @@ extension DemoDestination {
       mosaicSnapshotView()
     case .gridPlacement:
       gridPlacementView()
+    case .fixedCellGrid:
+      fixedCellGridView()
     case .gridColumnMajor:
       gridColumnMajorView()
     case .gridSubgrids:

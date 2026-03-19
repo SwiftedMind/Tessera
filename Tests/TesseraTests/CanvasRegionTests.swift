@@ -28,7 +28,7 @@ import Testing
     symbolDescriptors: [symbolDescriptor],
     pinnedSymbolDescriptors: [],
     edgeBehavior: .finite,
-    configuration: PlacementModel.Grid(columnCount: 6, rowCount: 6),
+    configuration: PlacementModel.Grid(sizing: .count(columns: 6, rows: 6)),
     region: resolvedRegion,
   )
 
@@ -106,7 +106,7 @@ import Testing
     symbolDescriptors: [symbolDescriptor],
     pinnedSymbolDescriptors: [],
     edgeBehavior: .finite,
-    configuration: PlacementModel.Grid(columnCount: 6, rowCount: 6),
+    configuration: PlacementModel.Grid(sizing: .count(columns: 6, rows: 6)),
     region: nil,
     alphaMask: resolvedAlphaMask,
   )
@@ -202,42 +202,38 @@ import Testing
     mapping: .canvasCoordinates,
   )
 
-  let configuration = TesseraConfiguration(
-    symbols: [],
-    placement: .organic(
-      PlacementModel.Organic(
-        seed: 1,
-        minimumSpacing: 10,
-        density: 0,
-        baseScaleRange: 1...1,
-        maximumSymbolCount: 0,
-      ),
-    ),
-  )
-
-  let pinnedSymbol = TesseraPinnedSymbol(
+  let pinnedSymbol = PinnedSymbol(
     position: .centered(),
-    collisionShape: .rectangle(center: .zero, size: canvasSize),
+    collider: .shape(.rectangle(center: .zero, size: canvasSize)),
   ) {
     Rectangle()
       .fill(Color.red)
       .frame(width: canvasSize.width, height: canvasSize.height)
   }
 
-  let canvas = TesseraCanvas(
-    configuration,
-    pinnedSymbols: [pinnedSymbol],
-    seed: 1,
-    edgeBehavior: .finite,
-    region: region,
+  let tessera = Tessera(
+    Pattern(
+      symbols: [],
+      placement: .organic(
+        minimumSpacing: 10,
+        density: 0,
+        maximumCount: 0,
+      ),
+    ),
   )
+  .mode(.canvas(edgeBehavior: .finite))
+  .seed(.fixed(1))
+  .region(region)
+  .pinnedSymbols([pinnedSymbol])
 
   let temporaryDirectory = FileManager.default.temporaryDirectory
   let fileName = UUID().uuidString
-
-  let exportedURL = try canvas.renderPNG(
-    to: temporaryDirectory,
-    fileName: fileName,
+  let exportedURL = try await tessera.export(
+    .png,
+    options: .init(
+      directory: temporaryDirectory,
+      fileName: fileName,
+    ),
     canvasSize: canvasSize,
   )
   defer { try? FileManager.default.removeItem(at: exportedURL) }
@@ -261,43 +257,39 @@ import Testing
     mapping: .canvasCoordinates,
   )
 
-  let configuration = TesseraConfiguration(
-    symbols: [],
-    placement: .organic(
-      PlacementModel.Organic(
-        seed: 1,
-        minimumSpacing: 10,
-        density: 0,
-        baseScaleRange: 1...1,
-        maximumSymbolCount: 0,
-      ),
-    ),
-  )
-
-  let pinnedSymbol = TesseraPinnedSymbol(
+  let pinnedSymbol = PinnedSymbol(
     position: .centered(),
-    collisionShape: .rectangle(center: .zero, size: canvasSize),
+    collider: .shape(.rectangle(center: .zero, size: canvasSize)),
   ) {
     Rectangle()
       .fill(Color.red)
       .frame(width: canvasSize.width, height: canvasSize.height)
   }
 
-  let canvas = TesseraCanvas(
-    configuration,
-    pinnedSymbols: [pinnedSymbol],
-    seed: 1,
-    edgeBehavior: .finite,
-    region: region,
-    regionRendering: .unclipped,
+  let tessera = Tessera(
+    Pattern(
+      symbols: [],
+      placement: .organic(
+        minimumSpacing: 10,
+        density: 0,
+        maximumCount: 0,
+      ),
+    ),
   )
+  .mode(.canvas(edgeBehavior: .finite))
+  .seed(.fixed(1))
+  .region(region)
+  .regionRendering(.unclipped)
+  .pinnedSymbols([pinnedSymbol])
 
   let temporaryDirectory = FileManager.default.temporaryDirectory
   let fileName = UUID().uuidString
-
-  let exportedURL = try canvas.renderPNG(
-    to: temporaryDirectory,
-    fileName: fileName,
+  let exportedURL = try await tessera.export(
+    .png,
+    options: .init(
+      directory: temporaryDirectory,
+      fileName: fileName,
+    ),
     canvasSize: canvasSize,
   )
   defer { try? FileManager.default.removeItem(at: exportedURL) }
@@ -321,42 +313,38 @@ import Testing
     sampling: .nearest,
   )
 
-  let configuration = TesseraConfiguration(
-    symbols: [],
-    placement: .organic(
-      PlacementModel.Organic(
-        seed: 1,
-        minimumSpacing: 10,
-        density: 0,
-        baseScaleRange: 1...1,
-        maximumSymbolCount: 0,
-      ),
-    ),
-  )
-
-  let pinnedSymbol = TesseraPinnedSymbol(
+  let pinnedSymbol = PinnedSymbol(
     position: .centered(),
-    collisionShape: .rectangle(center: .zero, size: canvasSize),
+    collider: .shape(.rectangle(center: .zero, size: canvasSize)),
   ) {
     Rectangle()
       .fill(Color.red)
       .frame(width: canvasSize.width, height: canvasSize.height)
   }
 
-  let canvas = TesseraCanvas(
-    configuration,
-    pinnedSymbols: [pinnedSymbol],
-    seed: 1,
-    edgeBehavior: .finite,
-    region: region,
+  let tessera = Tessera(
+    Pattern(
+      symbols: [],
+      placement: .organic(
+        minimumSpacing: 10,
+        density: 0,
+        maximumCount: 0,
+      ),
+    ),
   )
+  .mode(.canvas(edgeBehavior: .finite))
+  .seed(.fixed(1))
+  .region(region)
+  .pinnedSymbols([pinnedSymbol])
 
   let temporaryDirectory = FileManager.default.temporaryDirectory
   let fileName = UUID().uuidString
-
-  let exportedURL = try canvas.renderPNG(
-    to: temporaryDirectory,
-    fileName: fileName,
+  let exportedURL = try await tessera.export(
+    .png,
+    options: .init(
+      directory: temporaryDirectory,
+      fileName: fileName,
+    ),
     canvasSize: canvasSize,
   )
   defer { try? FileManager.default.removeItem(at: exportedURL) }
@@ -380,43 +368,39 @@ import Testing
     sampling: .nearest,
   )
 
-  let configuration = TesseraConfiguration(
-    symbols: [],
-    placement: .organic(
-      PlacementModel.Organic(
-        seed: 1,
-        minimumSpacing: 10,
-        density: 0,
-        baseScaleRange: 1...1,
-        maximumSymbolCount: 0,
-      ),
-    ),
-  )
-
-  let pinnedSymbol = TesseraPinnedSymbol(
+  let pinnedSymbol = PinnedSymbol(
     position: .centered(),
-    collisionShape: .rectangle(center: .zero, size: canvasSize),
+    collider: .shape(.rectangle(center: .zero, size: canvasSize)),
   ) {
     Rectangle()
       .fill(Color.red)
       .frame(width: canvasSize.width, height: canvasSize.height)
   }
 
-  let canvas = TesseraCanvas(
-    configuration,
-    pinnedSymbols: [pinnedSymbol],
-    seed: 1,
-    edgeBehavior: .finite,
-    region: region,
-    regionRendering: .unclipped,
+  let tessera = Tessera(
+    Pattern(
+      symbols: [],
+      placement: .organic(
+        minimumSpacing: 10,
+        density: 0,
+        maximumCount: 0,
+      ),
+    ),
   )
+  .mode(.canvas(edgeBehavior: .finite))
+  .seed(.fixed(1))
+  .region(region)
+  .regionRendering(.unclipped)
+  .pinnedSymbols([pinnedSymbol])
 
   let temporaryDirectory = FileManager.default.temporaryDirectory
   let fileName = UUID().uuidString
-
-  let exportedURL = try canvas.renderPNG(
-    to: temporaryDirectory,
-    fileName: fileName,
+  let exportedURL = try await tessera.export(
+    .png,
+    options: .init(
+      directory: temporaryDirectory,
+      fileName: fileName,
+    ),
     canvasSize: canvasSize,
   )
   defer { try? FileManager.default.removeItem(at: exportedURL) }

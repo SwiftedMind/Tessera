@@ -14,6 +14,7 @@ Tessera is a Swift package for building seamless, repeating patterns from regula
 - Configure symbols and placement declaratively, then provide a size at render time.
 - Use organic placement for shape-aware spacing that avoids clustering.
 - Use grid placement for regular layouts with configurable offsets.
+- Control deterministic overlap with per-symbol `zIndex`.
 - Let a single symbol resolve to multiple child variants with choice symbols.
 - Modulate spacing, scale, and rotation from position-based steering fields.
 - Wrap tile edges toroidally for seamless repetition.
@@ -74,7 +75,7 @@ dependencies: [
 ### Configuration Basics
 
 - `Pattern` describes symbols, placement, and pattern offset.
-- `Symbol` wraps a SwiftUI view and collision behavior.
+- `Symbol` wraps a SwiftUI view, collision behavior, and optional overlap order via `zIndex`.
 - `Tessera` renders using mode/seed/region modifiers.
 
 ### Quickstart: Render a tiled background
@@ -390,6 +391,12 @@ Choice symbols let one top-level `Symbol` resolve one child symbol per accepted 
 - `.weightedRandom`: pick a child by child `weight`.
 - `.sequence`: cycle children deterministically (`first`, `second`, ... then wrap).
 - `.indexSequence([Int])`: resolve child indices in caller-defined order (`indices[0]`, `indices[1]`, ... then wrap).
+- `zIndex` lives on both top-level generated symbols and pinned symbols and controls how accepted placements overlap when they draw.
+- Lower `zIndex` values render behind higher values.
+- When two generated symbols share the same `zIndex`, Tessera falls back to the source `symbols` array order, then to placement sequence.
+- When a generated symbol and a pinned symbol share the same `zIndex`, the generated symbol draws first and the pinned symbol draws above it.
+- When two pinned symbols share the same `zIndex`, Tessera falls back to the source `pinnedSymbols` array order.
+- Snapshot renders that include mosaics still composite mosaic layers separately, so pinned symbols draw above those mosaic layers even when their `zIndex` is lower.
 - Child `weight` values are relative probabilities for `.weightedRandom`.
 - `.indexSequence` normalizes each provided index modulo child count (supports negative/out-of-range values).
 - `.indexSequence([])` emits an assertion-style warning in debug builds and falls back to `.sequence`.
@@ -415,6 +422,7 @@ let slashedCircle = Symbol(
 
 let choice = Symbol(
   id: UUID(uuidString: "F9514DB4-50B4-4F17-8BE3-26E2A48D6C38")!,
+  zIndex: 2,
   choiceStrategy: .indexSequence([0, 1, 0, 1, 1]),
   choiceSeed: 302,
   choices: [sparkle, slashedCircle]
@@ -584,8 +592,8 @@ let pattern = Pattern(
 ### Pinned symbols
 
 Pinned symbols let you place fixed content (like a logo or headline) on a finite canvas while Tessera fills the
-surrounding space with generated symbols. Pinned symbols render above generated symbols and participate in collision
-checks, so generated symbols keep their distance.
+surrounding space with generated symbols. Pinned symbols participate in collision checks so generated symbols keep
+their distance, and they share the same `zIndex` ordering system as generated symbols.
 
 ```swift
 import SwiftUI

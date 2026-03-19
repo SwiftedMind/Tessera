@@ -4,8 +4,8 @@ import CoreGraphics
 
 /// Describes the configuration used to generate a tessera layout.
 ///
-/// A configuration is size-less. Concrete rendering is performed by providing a tile size
-/// (`TesseraTile` / `TesseraTiledCanvas`) or a canvas size (`TesseraCanvas`).
+/// A configuration is size-less. Concrete rendering is performed later once a tile or canvas
+/// size has been resolved by the active renderer.
 public struct TesseraConfiguration {
   /// Symbols available for placement.
   public var symbols: [TesseraSymbol]
