@@ -26,10 +26,11 @@ These are the defaults and conventions that keep changes consistent and easy to 
 ---
 
 ## Subagents
+
 - ALWAYS wait for all subagents to complete before yielding.
 - Spawn subagents automatically when:
   - Parallelizable work
-  - Long-running or blocking tasks where a worker can run independently. 
+  - Long-running or blocking tasks where a worker can run independently.
   - Isolation for risky changes or checks
 
 ---
@@ -48,7 +49,7 @@ These are the defaults and conventions that keep changes consistent and easy to 
 
 ### SwiftUI view organization
 
-- Prefer composition; keep views small and focused. 
+- Prefer composition; keep views small and focused.
 - Avoid “actions” extensions on views; keep `@State` private. If logic grows, split into subviews or helper types instead of moving long functions into `extension SomeView`
 - Apply local conventions: prefer SwiftUI-native state, keep state local when possible, and use environment injection for shared dependencies.
 - Prefer a shared `@Observable` session/model injected via `@Environment` for heavily shared state to keep view initializers compact.
@@ -68,7 +69,7 @@ These are the defaults and conventions that keep changes consistent and easy to 
 - Always point FlowDeck at the repo workspace, `Tessera.xcworkspace`, for repo build and test commands. Do not target `Examples/ExampleApp.xcodeproj` when you need package schemes.
 - The primary build scheme is `ExampleApp`. It builds the demo app and the SDK together.
 - The primary test scheme is `TesseraTests`.
-- Reuse the agent-owned derived data folders `.xcode-deriveddata/exampleapp-ios`, `.xcode-deriveddata/tesseratests-ios`, and `.xcode-deriveddata/macos` for incremental work. These folders are reserved for coding-agent work in this repo and are not shared with other users.
+- Reuse the agent-owned derived data folders `.xcode-deriveddata/ios`, `.xcode-deriveddata/tesseratests-ios`, and `.xcode-deriveddata/macos` for incremental work. These folders are reserved for coding-agent work in this repo and are not shared with other users.
 - If build and test may overlap, keep them on separate derived-data roots. Sharing one iOS root across concurrent FlowDeck commands can lock `Build/Intermediates.noindex/XCBuildData/build.db`.
 - Do not use xcodebuild, xcrun simctl, or other Apple CLI tools unless FlowDeck is unavailable.
 - If a FlowDeck command fails, troubleshoot using FlowDeck output and retry before falling back.
@@ -79,9 +80,9 @@ These are the defaults and conventions that keep changes consistent and easy to 
 
 - Use this section to proactively and autonomously manage common flowdeck commands.
 - Whenever you use a command that likely will be reused, proactively add it in this section
-- Proactively keep the commands up to date, like when the scheme or devices change. 
+- Proactively keep the commands up to date, like when the scheme or devices change.
 
 - Resolve simulators: `flowdeck context --json`
 - List schemes: `flowdeck project schemes -w "$PWD/Tessera.xcworkspace"`
-- Build ExampleApp: `flowdeck build -w "$PWD/Tessera.xcworkspace" -s "ExampleApp" -S "<SIMULATOR_UDID>" -d ".xcode-deriveddata/exampleapp-ios"`
+- Build ExampleApp: `flowdeck build -w "$PWD/Tessera.xcworkspace" -s "ExampleApp" -S "<SIMULATOR_UDID>" -d ".xcode-deriveddata/ios"`
 - Run TesseraTests: `flowdeck test -w "$PWD/Tessera.xcworkspace" -s "TesseraTests" -S "<SIMULATOR_UDID>" -d ".xcode-deriveddata/tesseratests-ios" --verbose`
