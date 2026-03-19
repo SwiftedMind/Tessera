@@ -10,13 +10,25 @@ enum GridShapePlacementEngine {
   typealias PlacedSymbolDescriptor = ShapePlacementEngine.PlacedSymbolDescriptor
   typealias PlacedCollider = ShapePlacementEngine.PlacedCollider
   typealias ResolvedGrid = ShapePlacementEngine.ResolvedGrid
+  static let maximumFixedVisibleCellCountPerAxis = 1024
+  static let maximumFixedLatticeIndexMagnitude = 1_000_000_000
 
   struct ResolvedSubgridArea: Sendable {
     var acceptedSubgridIndex: Int
-    var rowIndex: Int
-    var columnIndex: Int
+    var originRowIndex: Int
+    var originColumnIndex: Int
     var rowCount: Int
     var columnCount: Int
+    var visibleRowRange: Range<Int>
+    var visibleColumnRange: Range<Int>
+
+    var fullRowRange: Range<Int> {
+      originRowIndex..<(originRowIndex + rowCount)
+    }
+
+    var fullColumnRange: Range<Int> {
+      originColumnIndex..<(originColumnIndex + columnCount)
+    }
   }
 
   private struct ResolvedSubgridCellAssignment: Sendable {
@@ -74,7 +86,7 @@ enum GridShapePlacementEngine {
       configuration: configuration,
       edgeBehavior: edgeBehavior,
     )
-    let totalCellCount = resolvedGrid.totalCellCount
+    guard let totalCellCount = resolvedGrid.safeTotalCellCount else { return [] }
 
     let renderableLeafDescriptors = symbolDescriptors.flatMap(\.renderableLeafDescriptors)
     let topLevelSymbolDescriptorsByID: [UUID: PlacementSymbolDescriptor] = symbolDescriptors.reduce(into: [:]) {
@@ -176,20 +188,22 @@ enum GridShapePlacementEngine {
     var choiceSequenceState = ShapePlacementEngine.ChoiceSequenceState()
     var regularAssignmentIndex = 0
 
-    for rowIndex in 0..<resolvedGrid.rowCount {
-      for columnIndex in 0..<resolvedGrid.columnCount {
+    for visibleRowIndex in 0..<resolvedGrid.rowCount {
+      let absoluteRowIndex = resolvedGrid.absoluteRowIndex(forVisibleRowIndex: visibleRowIndex)
+
+      for visibleColumnIndex in 0..<resolvedGrid.columnCount {
         if Task.isCancelled { return placedDescriptors }
 
         let gridIndex = cellIndexInGrid(
-          row: rowIndex,
-          column: columnIndex,
+          row: visibleRowIndex,
+          column: visibleColumnIndex,
           columnCount: resolvedGrid.columnCount,
         )
 
         let selectedSymbol: PlacementSymbolDescriptor
-        let symbolAssignmentIndex: Int
         let symbolSeedRowIndex: Int
         let symbolSeedColumnIndex: Int
+        let symbolSeedCellIndex: Int
 
         if let subgridAssignment = subgridCellAssignments[gridIndex] {
           let subgridContext = subgridContexts[subgridAssignment.acceptedSubgridIndex]
@@ -228,9 +242,9 @@ enum GridShapePlacementEngine {
           }
 
           selectedSymbol = subgridContext.symbolDescriptors[resolvedSymbolIndex % subgridSymbolCount]
-          symbolAssignmentIndex = subgridAssignment.localAssignmentIndex
           symbolSeedRowIndex = subgridAssignment.localRowIndex
           symbolSeedColumnIndex = subgridAssignment.localColumnIndex
+          symbolSeedCellIndex = subgridAssignment.localAssignmentIndex
         } else {
           guard regularSymbolCount > 0 else { continue }
 
@@ -245,25 +259,33 @@ enum GridShapePlacementEngine {
             currentRegularAssignmentIndex = regularAssignmentIndex
           }
           regularAssignmentIndex += 1
+          let regularSeedCellIndex = regularGridSeedCellIndex(
+            for: resolvedGrid,
+            absoluteRowIndex: absoluteRowIndex,
+            absoluteColumnIndex: resolvedGrid.absoluteColumnIndex(forVisibleColumnIndex: visibleColumnIndex),
+            countSizedAssignmentIndex: currentRegularAssignmentIndex,
+          )
 
           let resolvedSymbolIndex: Int
           switch configuration.symbolOrder {
           case .rowMajor, .columnMajor:
             resolvedSymbolIndex = currentRegularAssignmentIndex
           case .diagonal:
-            resolvedSymbolIndex = rowIndex + columnIndex
+            resolvedSymbolIndex = visibleRowIndex + visibleColumnIndex
           case .snake:
-            let snakeColumn = rowIndex.isMultiple(of: 2) ? columnIndex : (resolvedGrid.columnCount - 1 - columnIndex)
-            resolvedSymbolIndex = rowIndex * resolvedGrid.columnCount + snakeColumn
+            let snakeColumn = visibleRowIndex.isMultiple(of: 2)
+              ? visibleColumnIndex
+              : (resolvedGrid.columnCount - 1 - visibleColumnIndex)
+            resolvedSymbolIndex = visibleRowIndex * resolvedGrid.columnCount + snakeColumn
           case .shuffle:
             resolvedSymbolIndex = shuffledSymbolIndices?[currentRegularAssignmentIndex] ?? currentRegularAssignmentIndex
           case .randomWeightedPerCell:
             var randomGenerator = SeededGenerator(
               seed: GridSymbolAssignment.symbolSeed(
                 baseSeed: configuration.seed,
-                rowIndex: rowIndex,
-                columnIndex: columnIndex,
-                cellIndex: currentRegularAssignmentIndex,
+                rowIndex: absoluteRowIndex,
+                columnIndex: resolvedGrid.absoluteColumnIndex(forVisibleColumnIndex: visibleColumnIndex),
+                cellIndex: regularSeedCellIndex,
               ),
             )
             resolvedSymbolIndex = GridSymbolAssignment.randomWeightedSymbolIndex(
@@ -275,16 +297,16 @@ enum GridShapePlacementEngine {
           }
 
           selectedSymbol = regularSymbolDescriptors[resolvedSymbolIndex % regularSymbolCount]
-          symbolAssignmentIndex = currentRegularAssignmentIndex
-          symbolSeedRowIndex = rowIndex
-          symbolSeedColumnIndex = columnIndex
+          symbolSeedRowIndex = absoluteRowIndex
+          symbolSeedColumnIndex = resolvedGrid.absoluteColumnIndex(forVisibleColumnIndex: visibleColumnIndex)
+          symbolSeedCellIndex = regularSeedCellIndex
         }
 
         let choiceSeed = GridSymbolAssignment.choiceSeed(
           baseSeed: configuration.seed,
           rowIndex: symbolSeedRowIndex,
           columnIndex: symbolSeedColumnIndex,
-          cellIndex: symbolAssignmentIndex,
+          cellIndex: symbolSeedCellIndex,
           symbolID: selectedSymbol.id,
           symbolChoiceSeed: selectedSymbol.choiceSeed,
         )
@@ -301,21 +323,21 @@ enum GridShapePlacementEngine {
           baseSeed: configuration.seed,
           rowIndex: symbolSeedRowIndex,
           columnIndex: symbolSeedColumnIndex,
-          cellIndex: symbolAssignmentIndex,
+          cellIndex: symbolSeedCellIndex,
         )
 
         guard let selectedPolygons = polygonCache[selectedRenderSymbol.id] else { continue }
 
         let basePosition = gridCellCenter(
-          columnIndex: columnIndex,
-          rowIndex: rowIndex,
-          cellSize: resolvedGrid.cellSize,
+          absoluteColumnIndex: resolvedGrid.absoluteColumnIndex(forVisibleColumnIndex: visibleColumnIndex),
+          absoluteRowIndex: absoluteRowIndex,
+          grid: resolvedGrid,
         )
         let offset = gridOffset(
           for: configuration.offsetStrategy,
           normalizedOffset: normalizedOffset,
-          columnIndex: columnIndex,
-          rowIndex: rowIndex,
+          absoluteColumnIndex: resolvedGrid.absoluteColumnIndex(forVisibleColumnIndex: visibleColumnIndex),
+          absoluteRowIndex: absoluteRowIndex,
           cellSize: resolvedGrid.cellSize,
         )
         let phaseSymbolID = configuration.symbolPhases[selectedRenderSymbol.id] == nil
@@ -440,62 +462,22 @@ enum GridShapePlacementEngine {
     grid: ResolvedGrid,
     knownSymbolIDs: Set<UUID>? = nil,
   ) -> [ResolvedSubgridArea] {
-    let columnCount = grid.columnCount
-    let rowCount = grid.rowCount
-    guard columnCount > 0, rowCount > 0 else { return [] }
-
-    var occupied = Array(repeating: false, count: rowCount * columnCount)
     var acceptedSubgrids: [ResolvedSubgridArea] = []
 
     for subgrid in subgrids {
-      let origin = subgrid.origin
-      let span = subgrid.span
-      guard origin.row >= 0, origin.column >= 0, span.rows > 0, span.columns > 0 else {
+      guard let candidateArea = resolvedSubgridArea(
+        for: subgrid,
+        in: grid,
+        acceptedSubgridIndex: acceptedSubgrids.count,
+        knownSymbolIDs: knownSymbolIDs,
+      ) else {
         continue
       }
-      guard subgrid.symbolIDs.isEmpty == false else {
-        continue
-      }
-
-      if let knownSymbolIDs {
-        guard subgrid.symbolIDs.contains(where: { knownSymbolIDs.contains($0) }) else {
-          continue
-        }
-      }
-      guard origin.row + span.rows <= rowCount, origin.column + span.columns <= columnCount else {
+      guard acceptedSubgrids.contains(where: { subgridAreasOverlap($0, candidateArea) }) == false else {
         continue
       }
 
-      var overlapsExistingSubgrid = false
-      for row in origin.row..<(origin.row + span.rows) {
-        for column in origin.column..<(origin.column + span.columns) {
-          if occupied[cellIndexInGrid(row: row, column: column, columnCount: columnCount)] {
-            overlapsExistingSubgrid = true
-            break
-          }
-        }
-        if overlapsExistingSubgrid {
-          break
-        }
-      }
-
-      guard overlapsExistingSubgrid == false else { continue }
-
-      for row in origin.row..<(origin.row + span.rows) {
-        for column in origin.column..<(origin.column + span.columns) {
-          occupied[cellIndexInGrid(row: row, column: column, columnCount: columnCount)] = true
-        }
-      }
-
-      acceptedSubgrids.append(
-        ResolvedSubgridArea(
-          acceptedSubgridIndex: acceptedSubgrids.count,
-          rowIndex: origin.row,
-          columnIndex: origin.column,
-          rowCount: span.rows,
-          columnCount: span.columns,
-        ),
-      )
+      acceptedSubgrids.append(candidateArea)
     }
 
     return acceptedSubgrids
@@ -512,11 +494,14 @@ enum GridShapePlacementEngine {
     cellAssignments: [ResolvedSubgridCellAssignment?],
     reservedGridIndices: Set<Int>,
   ) {
-    let totalCellCount = grid.totalCellCount
-    var occupied = Array(repeating: false, count: totalCellCount)
+    guard let totalCellCount = grid.safeTotalCellCount else {
+      return ([], [], [])
+    }
+
     var reservedGridIndices: Set<Int> = []
     reservedGridIndices.reserveCapacity(totalCellCount)
 
+    var acceptedAreas: [ResolvedSubgridArea] = []
     var contexts: [ResolvedSubgridPlacementContext] = []
     var cellAssignments = [ResolvedSubgridCellAssignment?](repeating: nil, count: totalCellCount)
 
@@ -525,29 +510,32 @@ enum GridShapePlacementEngine {
       let span = subgrid.span
       // Invalid or unresolved subgrids are skipped so remaining grid placement can proceed.
       guard origin.row >= 0, origin.column >= 0, span.rows > 0, span.columns > 0 else {
+        reportIgnoredSubgrid("origin and span must be non-negative and non-zero")
         continue
       }
       guard subgrid.symbolIDs.isEmpty == false else {
-        continue
-      }
-      guard origin.row + span.rows <= grid.rowCount, origin.column + span.columns <= grid.columnCount else {
+        reportIgnoredSubgrid("symbolIDs must not be empty")
         continue
       }
 
-      var overlapsExistingSubgrid = false
-      for row in origin.row..<(origin.row + span.rows) {
-        for column in origin.column..<(origin.column + span.columns) {
-          if occupied[cellIndexInGrid(row: row, column: column, columnCount: grid.columnCount)] {
-            overlapsExistingSubgrid = true
-            break
-          }
-        }
-        if overlapsExistingSubgrid {
-          break
-        }
+      if grid.sizingSource == .count,
+         origin.row + span.rows > grid.rowRange.upperBound || origin.column + span.columns > grid.columnRange
+         .upperBound {
+        reportIgnoredSubgrid("subgrid exceeds resolved grid bounds")
+        continue
       }
-
-      guard overlapsExistingSubgrid == false else { continue }
+      guard let resolvedArea = resolvedSubgridArea(
+        for: subgrid,
+        in: grid,
+        acceptedSubgridIndex: contexts.count,
+      ) else {
+        reportIgnoredSubgrid("subgrid does not intersect the resolved grid")
+        continue
+      }
+      guard acceptedAreas.contains(where: { subgridAreasOverlap($0, resolvedArea) }) == false else {
+        reportIgnoredSubgrid("subgrid overlaps an earlier accepted subgrid")
+        continue
+      }
 
       let resolvedSymbolDescriptors = resolveSubgridSymbolDescriptors(
         symbolIDs: subgrid.symbolIDs,
@@ -555,6 +543,7 @@ enum GridShapePlacementEngine {
         leafSymbolDescriptorsByID: leafSymbolDescriptorsByID,
       )
       guard resolvedSymbolDescriptors.isEmpty == false else {
+        reportIgnoredSubgrid("no symbol IDs resolved to known symbols")
         continue
       }
 
@@ -577,13 +566,7 @@ enum GridShapePlacementEngine {
         : []
       let totalWeight = cumulativeWeights.last ?? 0
 
-      let resolvedArea = ResolvedSubgridArea(
-        acceptedSubgridIndex: acceptedSubgridIndex,
-        rowIndex: origin.row,
-        columnIndex: origin.column,
-        rowCount: span.rows,
-        columnCount: span.columns,
-      )
+      acceptedAreas.append(resolvedArea)
       contexts.append(
         ResolvedSubgridPlacementContext(
           area: resolvedArea,
@@ -596,13 +579,19 @@ enum GridShapePlacementEngine {
         ),
       )
 
-      for localRowIndex in 0..<span.rows {
-        for localColumnIndex in 0..<span.columns {
-          let rowIndex = origin.row + localRowIndex
-          let columnIndex = origin.column + localColumnIndex
-          let gridIndex = cellIndexInGrid(row: rowIndex, column: columnIndex, columnCount: grid.columnCount)
+      for absoluteRowIndex in resolvedArea.visibleRowRange {
+        let visibleRowIndex = absoluteRowIndex - grid.rowRange.lowerBound
+        let localRowIndex = absoluteRowIndex - origin.row
 
-          occupied[gridIndex] = true
+        for absoluteColumnIndex in resolvedArea.visibleColumnRange {
+          let visibleColumnIndex = absoluteColumnIndex - grid.columnRange.lowerBound
+          let localColumnIndex = absoluteColumnIndex - origin.column
+          let gridIndex = cellIndexInGrid(
+            row: visibleRowIndex,
+            column: visibleColumnIndex,
+            columnCount: grid.columnCount,
+          )
+
           reservedGridIndices.insert(gridIndex)
           cellAssignments[gridIndex] = ResolvedSubgridCellAssignment(
             acceptedSubgridIndex: acceptedSubgridIndex,
@@ -625,6 +614,74 @@ enum GridShapePlacementEngine {
       cellAssignments: cellAssignments,
       reservedGridIndices: reservedGridIndices,
     )
+  }
+
+  private static func resolvedSubgridArea(
+    for subgrid: PlacementModel.Grid.Subgrid,
+    in grid: ResolvedGrid,
+    acceptedSubgridIndex: Int,
+    knownSymbolIDs: Set<UUID>? = nil,
+  ) -> ResolvedSubgridArea? {
+    let origin = subgrid.origin
+    let span = subgrid.span
+    guard origin.row >= 0, origin.column >= 0, span.rows > 0, span.columns > 0 else {
+      return nil
+    }
+    guard subgrid.symbolIDs.isEmpty == false else {
+      return nil
+    }
+
+    if let knownSymbolIDs {
+      guard subgrid.symbolIDs.contains(where: { knownSymbolIDs.contains($0) }) else {
+        return nil
+      }
+    }
+
+    let fullRowRange = origin.row..<(origin.row + span.rows)
+    let fullColumnRange = origin.column..<(origin.column + span.columns)
+    if grid.sizingSource == .count {
+      guard fullRowRange.lowerBound >= grid.rowRange.lowerBound,
+            fullRowRange.upperBound <= grid.rowRange.upperBound,
+            fullColumnRange.lowerBound >= grid.columnRange.lowerBound,
+            fullColumnRange.upperBound <= grid.columnRange.upperBound
+      else {
+        return nil
+      }
+    }
+    guard let visibleRowRange = intersectingRange(fullRowRange, grid.rowRange),
+          let visibleColumnRange = intersectingRange(fullColumnRange, grid.columnRange)
+    else {
+      return nil
+    }
+
+    return ResolvedSubgridArea(
+      acceptedSubgridIndex: acceptedSubgridIndex,
+      originRowIndex: origin.row,
+      originColumnIndex: origin.column,
+      rowCount: span.rows,
+      columnCount: span.columns,
+      visibleRowRange: visibleRowRange,
+      visibleColumnRange: visibleColumnRange,
+    )
+  }
+
+  private static func intersectingRange(
+    _ lhs: Range<Int>,
+    _ rhs: Range<Int>,
+  ) -> Range<Int>? {
+    let lowerBound = max(lhs.lowerBound, rhs.lowerBound)
+    let upperBound = min(lhs.upperBound, rhs.upperBound)
+    guard lowerBound < upperBound else { return nil }
+
+    return lowerBound..<upperBound
+  }
+
+  private static func subgridAreasOverlap(
+    _ lhs: ResolvedSubgridArea,
+    _ rhs: ResolvedSubgridArea,
+  ) -> Bool {
+    intersectingRange(lhs.fullRowRange, rhs.fullRowRange) != nil &&
+      intersectingRange(lhs.fullColumnRange, rhs.fullColumnRange) != nil
   }
 
   private static func resolveSubgridSymbolDescriptors(
@@ -717,33 +774,53 @@ enum GridShapePlacementEngine {
     configuration: PlacementModel.Grid,
     edgeBehavior: TesseraEdgeBehavior,
   ) -> ResolvedGrid {
-    let baseColumnCount = max(1, configuration.columnCount)
-    let baseRowCount = max(1, configuration.rowCount)
-    let normalizedOffset = normalizedOffsetAmount(from: configuration.offsetStrategy)
-    let rowNeedsEven = edgeBehavior == .seamlessWrapping && normalizedOffset > 0 && rowShiftRequiresEvenRowCount(
-      for: configuration.offsetStrategy,
-    )
-    let columnNeedsEven = edgeBehavior == .seamlessWrapping && normalizedOffset > 0 &&
-      columnShiftRequiresEvenColumnCount(
+    switch configuration.sizing {
+    case let .count(columns, rows):
+      let normalizedOffset = normalizedOffsetAmount(from: configuration.offsetStrategy)
+      let rowNeedsEven = edgeBehavior == .seamlessWrapping && normalizedOffset > 0 && rowShiftRequiresEvenRowCount(
         for: configuration.offsetStrategy,
       )
-    let columnCount = adjustedCountForOffsetRequirement(
-      baseCount: baseColumnCount,
-      requiresEven: columnNeedsEven,
-    )
-    let rowCount = adjustedCountForOffsetRequirement(
-      baseCount: baseRowCount,
-      requiresEven: rowNeedsEven,
-    )
-    let resolvedCellSize = CGSize(
-      width: size.width / CGFloat(columnCount),
-      height: size.height / CGFloat(rowCount),
-    )
-    return ResolvedGrid(
-      columnCount: columnCount,
-      rowCount: rowCount,
-      cellSize: resolvedCellSize,
-    )
+      let columnNeedsEven = edgeBehavior == .seamlessWrapping && normalizedOffset > 0 &&
+        columnShiftRequiresEvenColumnCount(
+          for: configuration.offsetStrategy,
+        )
+      let columnCount = adjustedCountForOffsetRequirement(
+        baseCount: columns,
+        requiresEven: columnNeedsEven,
+      )
+      let rowCount = adjustedCountForOffsetRequirement(
+        baseCount: rows,
+        requiresEven: rowNeedsEven,
+      )
+      let resolvedCellSize = CGSize(
+        width: size.width / CGFloat(columnCount),
+        height: size.height / CGFloat(rowCount),
+      )
+      return ResolvedGrid(
+        sizingSource: .count,
+        columnRange: 0..<columnCount,
+        rowRange: 0..<rowCount,
+        cellSize: resolvedCellSize,
+        origin: .zero,
+      )
+
+    case let .fixed(cellSize, origin):
+      return ResolvedGrid(
+        sizingSource: .fixed,
+        columnRange: visibleLatticeRange(
+          axisExtent: size.width,
+          origin: origin.x,
+          cellDimension: cellSize.width,
+        ),
+        rowRange: visibleLatticeRange(
+          axisExtent: size.height,
+          origin: origin.y,
+          cellDimension: cellSize.height,
+        ),
+        cellSize: cellSize,
+        origin: origin,
+      )
+    }
   }
 
   private static func resolvedPlacementRect(
@@ -761,13 +838,72 @@ enum GridShapePlacementEngine {
     return clampedBounds
   }
 
+  private static func visibleLatticeRange(
+    axisExtent: CGFloat,
+    origin: CGFloat,
+    cellDimension: CGFloat,
+  ) -> Range<Int> {
+    let rawLowerBound = floor(-origin / cellDimension)
+    let rawUpperBound = ceil((axisExtent - origin) / cellDimension)
+    return boundedLatticeRange(
+      rawLowerBound: rawLowerBound,
+      rawUpperBound: rawUpperBound,
+    )
+  }
+
+  private static func boundedLatticeRange(
+    rawLowerBound: Double,
+    rawUpperBound: Double,
+  ) -> Range<Int> {
+    let minimumIndex = -maximumFixedLatticeIndexMagnitude
+    let maximumIndex = maximumFixedLatticeIndexMagnitude
+
+    var lowerBound = clampedLatticeIndex(rawLowerBound)
+    var upperBound = clampedLatticeIndex(rawUpperBound)
+    if upperBound <= lowerBound {
+      upperBound = min(maximumIndex, lowerBound + 1)
+      if upperBound <= lowerBound {
+        lowerBound = max(minimumIndex, upperBound - 1)
+      }
+    }
+
+    let visibleCellCount = upperBound - lowerBound
+    guard visibleCellCount > maximumFixedVisibleCellCountPerAxis else {
+      return lowerBound..<upperBound
+    }
+
+    let midpoint = (rawLowerBound + rawUpperBound) * 0.5
+    let halfWindow = Double(maximumFixedVisibleCellCountPerAxis) * 0.5
+    lowerBound = clampedLatticeIndex(midpoint - halfWindow)
+    upperBound = min(maximumIndex, lowerBound + maximumFixedVisibleCellCountPerAxis)
+    if upperBound - lowerBound < maximumFixedVisibleCellCountPerAxis {
+      lowerBound = max(minimumIndex, upperBound - maximumFixedVisibleCellCountPerAxis)
+    }
+
+    return lowerBound..<max(lowerBound + 1, upperBound)
+  }
+
+  private static func clampedLatticeIndex(_ value: Double) -> Int {
+    guard value.isFinite else {
+      return value.sign == .minus ? -maximumFixedLatticeIndexMagnitude : maximumFixedLatticeIndexMagnitude
+    }
+
+    let minimumIndex = Double(-maximumFixedLatticeIndexMagnitude)
+    let maximumIndex = Double(maximumFixedLatticeIndexMagnitude)
+    let clamped = min(maximumIndex, max(minimumIndex, value))
+    return Int(clamped)
+  }
+
   private static func makeColumnMajorRegularAssignmentIndicesByGridIndex(
     rowCount: Int,
     columnCount: Int,
     reservedGridIndices: Set<Int>,
   ) -> [Int: Int] {
     var indicesByGridIndex: [Int: Int] = [:]
-    indicesByGridIndex.reserveCapacity(max(0, rowCount * columnCount - reservedGridIndices.count))
+    let (totalGridCellCount, overflow) = rowCount.multipliedReportingOverflow(by: columnCount)
+    if overflow == false {
+      indicesByGridIndex.reserveCapacity(max(0, totalGridCellCount - reservedGridIndices.count))
+    }
     var regularAssignmentIndex = 0
 
     for column in 0..<columnCount {
@@ -789,6 +925,23 @@ enum GridShapePlacementEngine {
     columnCount: Int,
   ) -> Int {
     row * columnCount + column
+  }
+
+  private static func regularGridSeedCellIndex(
+    for grid: ResolvedGrid,
+    absoluteRowIndex: Int,
+    absoluteColumnIndex: Int,
+    countSizedAssignmentIndex: Int,
+  ) -> Int {
+    switch grid.sizingSource {
+    case .count:
+      return countSizedAssignmentIndex
+    case .fixed:
+      var seed = UInt64(bitPattern: Int64(absoluteRowIndex)) &* 0x9E37_79B9_7F4A_7C15
+      seed ^= UInt64(bitPattern: Int64(absoluteColumnIndex)) &* 0xBF58_476D_1CE4_E5B9
+      seed ^= seed >> 29
+      return Int(truncatingIfNeeded: seed)
+    }
   }
 
   private static func adjustedCountForOffsetRequirement(
@@ -840,22 +993,28 @@ enum GridShapePlacementEngine {
     return max(0, offset)
   }
 
+  private static func reportIgnoredSubgrid(_ reason: String) {
+    #if DEBUG
+    NSLog("Tessera grid ignored subgrid: %@", reason)
+    #endif
+  }
+
   private static func gridCellCenter(
-    columnIndex: Int,
-    rowIndex: Int,
-    cellSize: CGSize,
+    absoluteColumnIndex: Int,
+    absoluteRowIndex: Int,
+    grid: ResolvedGrid,
   ) -> CGPoint {
     CGPoint(
-      x: (CGFloat(columnIndex) + 0.5) * cellSize.width,
-      y: (CGFloat(rowIndex) + 0.5) * cellSize.height,
+      x: grid.x(forLatticeColumn: absoluteColumnIndex) + 0.5 * grid.cellSize.width,
+      y: grid.y(forLatticeRow: absoluteRowIndex) + 0.5 * grid.cellSize.height,
     )
   }
 
   private static func gridOffset(
     for strategy: PlacementModel.GridOffsetStrategy,
     normalizedOffset: Double,
-    columnIndex: Int,
-    rowIndex: Int,
+    absoluteColumnIndex: Int,
+    absoluteRowIndex: Int,
     cellSize: CGSize,
   ) -> CGSize {
     guard normalizedOffset > 0 else { return .zero }
@@ -867,11 +1026,11 @@ enum GridShapePlacementEngine {
     case .none:
       .zero
     case .rowShift:
-      rowIndex.isMultiple(of: 2) ? .zero : CGSize(width: offsetX, height: 0)
+      absoluteRowIndex.isMultiple(of: 2) ? .zero : CGSize(width: offsetX, height: 0)
     case .columnShift:
-      columnIndex.isMultiple(of: 2) ? .zero : CGSize(width: 0, height: offsetY)
+      absoluteColumnIndex.isMultiple(of: 2) ? .zero : CGSize(width: 0, height: offsetY)
     case .checkerShift:
-      (rowIndex + columnIndex).isMultiple(of: 2) ? .zero : CGSize(width: offsetX, height: offsetY)
+      (absoluteRowIndex + absoluteColumnIndex).isMultiple(of: 2) ? .zero : CGSize(width: offsetX, height: offsetY)
     }
   }
 

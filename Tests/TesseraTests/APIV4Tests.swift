@@ -69,14 +69,40 @@ import Testing
     return
   }
 
-  #expect(options.columnCount == 3)
-  #expect(options.rowCount == 2)
+  #expect(options.sizing == .count(columns: 3, rows: 2))
   #expect(options.offsetStrategy == .none)
   #expect(options.symbolOrder == .rowMajor)
   #expect(options.symbolPhases.isEmpty)
   #expect(options.showsGridOverlay == false)
   #expect(options.subgrids.isEmpty)
   #expect(options.steering == .none)
+}
+
+@Test func fixedGridPlacementFactoryMapsSizing() async throws {
+  let placement = TesseraPlacement.grid(
+    cellSize: CGSize(width: 24, height: 18),
+    origin: CGPoint(x: -6, y: 12),
+  )
+
+  guard case let .grid(options) = placement else {
+    Issue.record("Expected grid placement")
+    return
+  }
+
+  #expect(options.sizing == .fixed(
+    cellSize: CGSize(width: 24, height: 18),
+    origin: CGPoint(x: -6, y: 12),
+  ))
+}
+
+@Test func gridSizingSquareCreatesFixedSquareCells() async throws {
+  #expect(
+    TesseraPlacement.Grid.Sizing.square(20, origin: CGPoint(x: 3, y: -4)) ==
+      .fixed(
+        cellSize: CGSize(width: 20, height: 20),
+        origin: CGPoint(x: 3, y: -4),
+      ),
+  )
 }
 
 @Test func gridPlacementFactoryMapsSymbolPhases() async throws {
@@ -197,8 +223,7 @@ import Testing
 @Test func gridOptionsCanWrapInternalBaseConfiguration() async throws {
   let subgridID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B5")!
   let internalBase = PlacementModel.Grid(
-    columnCount: 7,
-    rowCount: 5,
+    sizing: .count(columns: 7, rows: 5),
     offsetStrategy: .checkerShift(fraction: 0.5),
     symbolOrder: .snake,
     seed: 909,
@@ -217,8 +242,7 @@ import Testing
   )
   let options = TesseraPlacement.Grid(base: internalBase)
 
-  #expect(options.columnCount == 7)
-  #expect(options.rowCount == 5)
+  #expect(options.sizing == .count(columns: 7, rows: 5))
   #expect(options.offsetStrategy == .checkerShift(fraction: 0.5))
   #expect(options.symbolOrder == .snake)
   #expect(options.seed == 909)
@@ -235,8 +259,7 @@ import Testing
   let importedID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B6")!
   let inlineID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B7")!
   let internalBase = PlacementModel.Grid(
-    columnCount: 4,
-    rowCount: 4,
+    sizing: .count(columns: 4, rows: 4),
     subgrids: [
       .init(
         at: .init(row: 0, column: 0),
@@ -258,8 +281,7 @@ import Testing
 @Test func gridOptionsPreserveImportedSubgridIDsWhenInlineSymbolsAreCleared() async throws {
   let importedID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B8")!
   let internalBase = PlacementModel.Grid(
-    columnCount: 4,
-    rowCount: 4,
+    sizing: .count(columns: 4, rows: 4),
     subgrids: [
       .init(
         at: .init(row: 0, column: 0),

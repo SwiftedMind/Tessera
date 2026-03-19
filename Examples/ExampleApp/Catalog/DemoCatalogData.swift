@@ -39,6 +39,12 @@ enum DemoCatalog {
           systemImage: "square.grid.2x2",
         ),
         DemoCatalogExample(
+          destination: .fixedCellGrid,
+          title: "Fixed Cell Grid",
+          summary: "Square cells with clipped edges",
+          systemImage: "squareshape.split.3x3",
+        ),
+        DemoCatalogExample(
           destination: .gridColumnMajor,
           title: "Grid Column Major",
           summary: "Top-to-bottom symbol assignment order",

@@ -30,13 +30,13 @@ enum GridDebugOverlayRenderer {
     let cellSize = resolvedGrid.cellSize
 
     var baseGridPath = Path()
-    for column in 0...resolvedGrid.columnCount {
-      let x = CGFloat(column) * cellSize.width
+    for column in resolvedGrid.columnRange.lowerBound...resolvedGrid.columnRange.upperBound {
+      let x = resolvedGrid.x(forLatticeColumn: column)
       baseGridPath.move(to: CGPoint(x: x, y: 0))
       baseGridPath.addLine(to: CGPoint(x: x, y: size.height))
     }
-    for row in 0...resolvedGrid.rowCount {
-      let y = CGFloat(row) * cellSize.height
+    for row in resolvedGrid.rowRange.lowerBound...resolvedGrid.rowRange.upperBound {
+      let y = resolvedGrid.y(forLatticeRow: row)
       baseGridPath.move(to: CGPoint(x: 0, y: y))
       baseGridPath.addLine(to: CGPoint(x: size.width, y: y))
     }
@@ -64,10 +64,10 @@ enum GridDebugOverlayRenderer {
     var subgridStrokePath = Path()
     for subgrid in subgrids {
       let rectangle = CGRect(
-        x: CGFloat(subgrid.columnIndex) * cellSize.width,
-        y: CGFloat(subgrid.rowIndex) * cellSize.height,
-        width: CGFloat(subgrid.columnCount) * cellSize.width,
-        height: CGFloat(subgrid.rowCount) * cellSize.height,
+        x: resolvedGrid.x(forLatticeColumn: subgrid.visibleColumnRange.lowerBound),
+        y: resolvedGrid.y(forLatticeRow: subgrid.visibleRowRange.lowerBound),
+        width: CGFloat(subgrid.visibleColumnRange.count) * cellSize.width,
+        height: CGFloat(subgrid.visibleRowRange.count) * cellSize.height,
       )
       subgridFillPath.addRect(rectangle)
       subgridStrokePath.addRect(rectangle)

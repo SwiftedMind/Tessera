@@ -271,8 +271,7 @@ import Testing
 @Test func gridScaleSteeringIncreasesScaleAcrossRows() async throws {
   let size = CGSize(width: 100, height: 100)
   let configuration = PlacementModel.Grid(
-    columnCount: 1,
-    rowCount: 5,
+    sizing: .count(columns: 1, rows: 5),
     offsetStrategy: .none,
     symbolOrder: .rowMajor,
     seed: 1,
@@ -313,8 +312,7 @@ import Testing
 @Test func gridRotationMultiplierSteeringIncreasesRotationAcrossColumns() async throws {
   let size = CGSize(width: 120, height: 40)
   let configuration = PlacementModel.Grid(
-    columnCount: 5,
-    rowCount: 1,
+    sizing: .count(columns: 5, rows: 1),
     offsetStrategy: .none,
     symbolOrder: .rowMajor,
     seed: 1,

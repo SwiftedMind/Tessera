@@ -32,8 +32,7 @@ extension DemoConfigurations {
       symbols: DemoSymbols.rotationBars,
       placement: .grid(
         TesseraPlacement.Grid(
-          columnCount: 9,
-          rowCount: 9,
+          sizing: .count(columns: 9, rows: 9),
           seed: 303,
           steering: .init(
             rotationOffsetDegrees: .radial(

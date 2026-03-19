@@ -28,7 +28,7 @@ import Testing
     symbolDescriptors: [symbolDescriptor],
     pinnedSymbolDescriptors: [],
     edgeBehavior: .finite,
-    configuration: PlacementModel.Grid(columnCount: 6, rowCount: 6),
+    configuration: PlacementModel.Grid(sizing: .count(columns: 6, rows: 6)),
     region: resolvedRegion,
   )
 
@@ -106,7 +106,7 @@ import Testing
     symbolDescriptors: [symbolDescriptor],
     pinnedSymbolDescriptors: [],
     edgeBehavior: .finite,
-    configuration: PlacementModel.Grid(columnCount: 6, rowCount: 6),
+    configuration: PlacementModel.Grid(sizing: .count(columns: 6, rows: 6)),
     region: nil,
     alphaMask: resolvedAlphaMask,
   )

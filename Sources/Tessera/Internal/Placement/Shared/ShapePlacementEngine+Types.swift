@@ -111,16 +111,57 @@ extension ShapePlacementEngine {
 
   /// Stores the resolved grid dimensions and derived cell size.
   struct ResolvedGrid: Sendable {
-    /// The number of columns in the resolved grid.
-    var columnCount: Int
-    /// The number of rows in the resolved grid.
-    var rowCount: Int
+    enum SizingSource: Hashable, Sendable {
+      case count
+      case fixed
+    }
+
+    /// Whether the resolved grid came from count-based or fixed-cell sizing.
+    var sizingSource: SizingSource
+    /// The visible lattice columns that intersect the placement bounds.
+    var columnRange: Range<Int>
+    /// The visible lattice rows that intersect the placement bounds.
+    var rowRange: Range<Int>
     /// The size of each resolved cell in points.
     var cellSize: CGSize
+    /// The top-left position of lattice cell `(0, 0)` in placement-bounds-local coordinates.
+    var origin: CGPoint
+
+    /// The number of visible columns in the resolved grid window.
+    var columnCount: Int {
+      columnRange.count
+    }
+
+    /// The number of visible rows in the resolved grid window.
+    var rowCount: Int {
+      rowRange.count
+    }
 
     /// The total number of cells in the resolved grid.
     var totalCellCount: Int {
       columnCount * rowCount
+    }
+
+    /// Checked total cell count used before allocating grid-backed buffers.
+    var safeTotalCellCount: Int? {
+      let (count, overflow) = columnCount.multipliedReportingOverflow(by: rowCount)
+      return overflow ? nil : count
+    }
+
+    func absoluteColumnIndex(forVisibleColumnIndex visibleColumnIndex: Int) -> Int {
+      columnRange.lowerBound + visibleColumnIndex
+    }
+
+    func absoluteRowIndex(forVisibleRowIndex visibleRowIndex: Int) -> Int {
+      rowRange.lowerBound + visibleRowIndex
+    }
+
+    func x(forLatticeColumn columnIndex: Int) -> CGFloat {
+      origin.x + CGFloat(columnIndex) * cellSize.width
+    }
+
+    func y(forLatticeRow rowIndex: Int) -> CGFloat {
+      origin.y + CGFloat(rowIndex) * cellSize.height
     }
   }
 }
