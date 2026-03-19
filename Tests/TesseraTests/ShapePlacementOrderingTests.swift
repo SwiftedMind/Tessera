@@ -89,7 +89,7 @@ import Testing
 
   let descriptors = ShapePlacementEngine.makeSymbolDescriptors(
     from: [choiceSymbol],
-    placement: .grid(PlacementModel.Grid(columnCount: 1, rowCount: 1)),
+    placement: .grid(PlacementModel.Grid(sizing: .count(columns: 1, rows: 1))),
   )
   let descriptor = try #require(descriptors.first)
   let childDescriptor = try #require(descriptor.choices.first)
@@ -122,8 +122,7 @@ import Testing
     ],
     placement: .grid(
       PlacementModel.Grid(
-        columnCount: 2,
-        rowCount: 1,
+        sizing: .count(columns: 2, rows: 1),
       ),
     ),
   )

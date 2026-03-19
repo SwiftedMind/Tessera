@@ -12,8 +12,7 @@ import Testing
   let symbols = ids.map { makeSymbolDescriptor(id: $0) }
 
   let configuration = PlacementModel.Grid(
-    columnCount: 2,
-    rowCount: 2,
+    sizing: .count(columns: 2, rows: 2),
     offsetStrategy: .none,
     symbolOrder: .rowMajor,
     seed: 1,
@@ -37,8 +36,7 @@ import Testing
   let symbols = ids.map { makeSymbolDescriptor(id: $0) }
 
   let configuration = PlacementModel.Grid(
-    columnCount: 3,
-    rowCount: 2,
+    sizing: .count(columns: 3, rows: 2),
     offsetStrategy: .none,
     symbolOrder: .columnMajor,
     seed: 1,
@@ -67,8 +65,7 @@ import Testing
   let symbols = ids.map { makeSymbolDescriptor(id: $0) }
 
   let configuration = PlacementModel.Grid(
-    columnCount: 3,
-    rowCount: 3,
+    sizing: .count(columns: 3, rows: 3),
     offsetStrategy: .none,
     symbolOrder: .diagonal,
     seed: 1,
@@ -95,8 +92,7 @@ import Testing
   let symbols = ids.map { makeSymbolDescriptor(id: $0) }
 
   let configuration = PlacementModel.Grid(
-    columnCount: 4,
-    rowCount: 2,
+    sizing: .count(columns: 4, rows: 2),
     offsetStrategy: .none,
     symbolOrder: .snake,
     seed: 1,
@@ -120,8 +116,7 @@ import Testing
   let symbols = ids.map { makeSymbolDescriptor(id: $0) }
 
   let configuration = PlacementModel.Grid(
-    columnCount: 4,
-    rowCount: 2,
+    sizing: .count(columns: 4, rows: 2),
     offsetStrategy: .none,
     symbolOrder: .shuffle,
     seed: 123,
@@ -146,7 +141,7 @@ import Testing
 
   let expectedIndices = expectedShuffleIndices(
     symbolCount: symbols.count,
-    totalCellCount: configuration.columnCount * configuration.rowCount,
+    totalCellCount: 8,
     seed: configuration.seed,
   )
   #expect(first.map(\.symbolId) == expectedIndices.map { ids[$0] })
@@ -169,8 +164,7 @@ import Testing
   ]
 
   let configuration = PlacementModel.Grid(
-    columnCount: 3,
-    rowCount: 3,
+    sizing: .count(columns: 3, rows: 3),
     offsetStrategy: .none,
     symbolOrder: .randomWeightedPerCell,
     seed: 999,
@@ -191,8 +185,7 @@ import Testing
     makeSymbolDescriptor(id: ids[1], weight: 2),
   ]
   let deterministicConfiguration = PlacementModel.Grid(
-    columnCount: 3,
-    rowCount: 3,
+    sizing: .count(columns: 3, rows: 3),
     offsetStrategy: .none,
     symbolOrder: .randomWeightedPerCell,
     seed: 42,

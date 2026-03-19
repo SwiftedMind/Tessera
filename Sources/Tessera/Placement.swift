@@ -1,5 +1,6 @@
 // By Dennis Müller
 
+import CoreGraphics
 import Foundation
 
 /// Primary placement API for Tessera v4.
@@ -31,6 +32,8 @@ public enum TesseraPlacement: Sendable {
   /// engine-facing placement behavior (`PlacementModel.Grid`), while subgrid authoring
   /// overlays can carry inline symbol definitions.
   public struct Grid: Sendable {
+    /// Alias for `PlacementModel.Grid.Sizing`.
+    public typealias Sizing = PlacementModel.Grid.Sizing
     /// Alias for `PlacementModel.Grid.SymbolPhase`.
     public typealias SymbolPhase = PlacementModel.Grid.SymbolPhase
     /// Alias for `PlacementModel.Grid.Subgrid.Origin`.
@@ -190,8 +193,7 @@ public enum TesseraPlacement: Sendable {
     /// Creates grid placement configuration.
     ///
     /// - Parameters:
-    ///   - columnCount: The number of columns in the grid.
-    ///   - rowCount: The number of rows in the grid.
+    ///   - sizing: Canonical grid sizing definition.
     ///   - offsetStrategy: Offset strategy applied to grid rows or columns.
     ///   - symbolOrder: Order in which symbols are assigned to regular grid cells.
     ///   - seed: Seed used for deterministic grid assignment.
@@ -200,8 +202,7 @@ public enum TesseraPlacement: Sendable {
     ///   - showsGridOverlay: Whether to draw a debug overlay for the resolved grid.
     ///   - subgrids: Optional subgrid definitions in zero-based base-grid coordinates.
     public init(
-      columnCount: Int,
-      rowCount: Int,
+      sizing: Sizing,
       offsetStrategy: GridOffsetStrategy = .none,
       symbolOrder: GridSymbolOrder = .rowMajor,
       seed: UInt64 = TesseraConfiguration.randomSeed(),
@@ -211,8 +212,7 @@ public enum TesseraPlacement: Sendable {
       subgrids: [Subgrid] = [],
     ) {
       base = PlacementModel.Grid(
-        columnCount: columnCount,
-        rowCount: rowCount,
+        sizing: sizing,
         offsetStrategy: offsetStrategy,
         symbolOrder: symbolOrder,
         seed: seed,
@@ -224,16 +224,10 @@ public enum TesseraPlacement: Sendable {
       self.subgrids = subgrids
     }
 
-    /// The number of columns in the grid.
-    public var columnCount: Int {
-      get { base.columnCount }
-      set { base.columnCount = newValue }
-    }
-
-    /// The number of rows in the grid.
-    public var rowCount: Int {
-      get { base.rowCount }
-      set { base.rowCount = newValue }
+    /// The canonical grid sizing definition.
+    public var sizing: Sizing {
+      get { base.sizing }
+      set { base.sizing = newValue }
     }
 
     /// Offset strategy applied to grid rows or columns.
@@ -321,8 +315,44 @@ public extension TesseraPlacement {
   ) -> TesseraPlacement {
     .grid(
       Grid(
-        columnCount: columns,
-        rowCount: rows,
+        sizing: .count(columns: columns, rows: rows),
+        offsetStrategy: offset,
+        symbolOrder: symbolOrder,
+        seed: seed,
+        symbolPhases: symbolPhases,
+        steering: steering,
+        showsGridOverlay: showsGridOverlay,
+        subgrids: subgrids,
+      ),
+    )
+  }
+
+  /// Creates grid placement with fixed cell dimensions and a lattice origin.
+  ///
+  /// - Parameters:
+  ///   - cellSize: Fixed grid cell size in points.
+  ///   - origin: Top-left position of lattice cell `(0, 0)` relative to the placement bounds.
+  ///   - offset: Row/column offset strategy.
+  ///   - symbolOrder: Symbol assignment strategy for regular grid cells.
+  ///   - seed: Seed used for deterministic grid assignment.
+  ///   - symbolPhases: Optional per-symbol phase offsets keyed by symbol ID.
+  ///   - showsGridOverlay: Whether to draw a debug overlay for the resolved grid.
+  ///   - subgrids: Optional subgrid definitions in zero-based base-grid coordinates.
+  ///   - steering: Position-based steering controls.
+  static func grid(
+    cellSize: CGSize,
+    origin: CGPoint = .zero,
+    offset: GridOffsetStrategy = .none,
+    symbolOrder: GridSymbolOrder = .rowMajor,
+    seed: UInt64 = Pattern.randomSeed(),
+    symbolPhases: [UUID: Grid.SymbolPhase] = [:],
+    showsGridOverlay: Bool = false,
+    subgrids: [Grid.Subgrid] = [],
+    steering: GridSteering = .none,
+  ) -> TesseraPlacement {
+    .grid(
+      Grid(
+        sizing: .fixed(cellSize: cellSize, origin: origin),
         offsetStrategy: offset,
         symbolOrder: symbolOrder,
         seed: seed,
@@ -350,18 +380,6 @@ public extension TesseraPlacement.Organic {
 }
 
 public extension TesseraPlacement.Grid {
-  /// Alias for `columnCount`.
-  var columns: Int {
-    get { columnCount }
-    set { columnCount = newValue }
-  }
-
-  /// Alias for `rowCount`.
-  var rows: Int {
-    get { rowCount }
-    set { rowCount = newValue }
-  }
-
   /// Alias for `offsetStrategy`.
   var offset: TesseraPlacement.GridOffsetStrategy {
     get { offsetStrategy }

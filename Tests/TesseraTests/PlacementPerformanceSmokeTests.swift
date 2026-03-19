@@ -232,8 +232,7 @@ import Testing
 @Test func gridCenterPointMaskValidationChecksCenterOnlyOncePerCell() async throws {
   let size = CGSize(width: 120, height: 80)
   let placement = PlacementModel.Grid(
-    columnCount: 4,
-    rowCount: 3,
+    sizing: .count(columns: 4, rows: 3),
     seed: 9,
   )
   let symbolDescriptor = makePerformanceSymbolDescriptor(
@@ -253,8 +252,8 @@ import Testing
     maskConstraintMode: .centerPoint,
   )
 
-  #expect(placed.count == placement.rowCount * placement.columnCount)
-  #expect(counter.value == placement.rowCount * placement.columnCount)
+  #expect(placed.count == 12)
+  #expect(counter.value == 12)
 }
 
 @Test func sliceAlphaMaskContainsMatchesDenseMaskForSampledPoints() async throws {

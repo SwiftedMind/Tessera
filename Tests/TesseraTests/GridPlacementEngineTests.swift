@@ -12,8 +12,7 @@ import Testing
     pinnedSymbolDescriptors: [],
     edgeBehavior: .finite,
     configuration: PlacementModel.Grid(
-      columnCount: 4,
-      rowCount: 3,
+      sizing: .count(columns: 4, rows: 3),
       offsetStrategy: .none,
       symbolOrder: .rowMajor,
       seed: 9,
@@ -36,8 +35,7 @@ import Testing
     pinnedSymbolDescriptors: [],
     edgeBehavior: .finite,
     configuration: PlacementModel.Grid(
-      columnCount: 6,
-      rowCount: 4,
+      sizing: .count(columns: 6, rows: 4),
       offsetStrategy: .none,
       symbolOrder: .rowMajor,
       seed: 1,
@@ -49,8 +47,7 @@ import Testing
     pinnedSymbolDescriptors: [],
     edgeBehavior: .finite,
     configuration: PlacementModel.Grid(
-      columnCount: 6,
-      rowCount: 4,
+      sizing: .count(columns: 6, rows: 4),
       offsetStrategy: .none,
       symbolOrder: .rowMajor,
       seed: 2,
@@ -59,6 +56,204 @@ import Testing
 
   #expect(first.count == second.count)
   #expect(first.map(\.rotationRadians) != second.map(\.rotationRadians))
+}
+
+@Test func fixedGridResolveGridIncludesIntersectingCellsForPositiveOrigin() async throws {
+  let configuration = PlacementModel.Grid(
+    sizing: .fixed(
+      cellSize: CGSize(width: 40, height: 40),
+      origin: CGPoint(x: 15, y: 10),
+    ),
+  )
+
+  let resolvedGrid = GridShapePlacementEngine.resolveGrid(
+    for: CGSize(width: 95, height: 70),
+    configuration: configuration,
+    edgeBehavior: .finite,
+  )
+
+  #expect(resolvedGrid.sizingSource == .fixed)
+  #expect(resolvedGrid.columnRange == -1..<2)
+  #expect(resolvedGrid.rowRange == -1..<2)
+  #expect(resolvedGrid.columnCount == 3)
+  #expect(resolvedGrid.rowCount == 3)
+  #expect(resolvedGrid.cellSize == CGSize(width: 40, height: 40))
+  #expect(resolvedGrid.x(forLatticeColumn: -1) == -25)
+  #expect(resolvedGrid.x(forLatticeColumn: 0) == 15)
+  #expect(resolvedGrid.y(forLatticeRow: -1) == -30)
+  #expect(resolvedGrid.y(forLatticeRow: 0) == 10)
+}
+
+@Test func fixedGridResolveGridIncludesIntersectingCellsForNegativeOrigin() async throws {
+  let configuration = PlacementModel.Grid(
+    sizing: .fixed(
+      cellSize: CGSize(width: 40, height: 30),
+      origin: CGPoint(x: -12, y: -18),
+    ),
+  )
+
+  let resolvedGrid = GridShapePlacementEngine.resolveGrid(
+    for: CGSize(width: 95, height: 70),
+    configuration: configuration,
+    edgeBehavior: .finite,
+  )
+
+  #expect(resolvedGrid.sizingSource == .fixed)
+  #expect(resolvedGrid.columnRange == 0..<3)
+  #expect(resolvedGrid.rowRange == 0..<3)
+  #expect(resolvedGrid.cellSize == CGSize(width: 40, height: 30))
+  #expect(resolvedGrid.x(forLatticeColumn: 0) == -12)
+  #expect(resolvedGrid.x(forLatticeColumn: 2) == 68)
+  #expect(resolvedGrid.y(forLatticeRow: 0) == -18)
+  #expect(resolvedGrid.y(forLatticeRow: 2) == 42)
+}
+
+@Test func fixedGridResolveGridClampsTinyCellDimensionsToMinimumSize() async throws {
+  let configuration = PlacementModel.Grid(
+    sizing: .fixed(
+      cellSize: CGSize(width: 0.01, height: 0.25),
+      origin: .zero,
+    ),
+  )
+
+  let resolvedGrid = GridShapePlacementEngine.resolveGrid(
+    for: CGSize(width: 64, height: 32),
+    configuration: configuration,
+    edgeBehavior: .finite,
+  )
+
+  #expect(resolvedGrid.cellSize == CGSize(width: 1, height: 1))
+  #expect(resolvedGrid.columnRange == 0..<64)
+  #expect(resolvedGrid.rowRange == 0..<32)
+}
+
+@Test func fixedGridResolveGridCapsVisibleWindowForLargeFiniteRange() async throws {
+  let configuration = PlacementModel.Grid(
+    sizing: .fixed(
+      cellSize: CGSize(width: 1, height: 1),
+      origin: .zero,
+    ),
+  )
+
+  let resolvedGrid = GridShapePlacementEngine.resolveGrid(
+    for: CGSize(width: 5000, height: 5000),
+    configuration: configuration,
+    edgeBehavior: .finite,
+  )
+
+  #expect(resolvedGrid.columnCount == GridShapePlacementEngine.maximumFixedVisibleCellCountPerAxis)
+  #expect(resolvedGrid.rowCount == GridShapePlacementEngine.maximumFixedVisibleCellCountPerAxis)
+}
+
+@Test func fixedGridResolveGridClampsHugeFiniteOriginsWithoutOverflow() async throws {
+  let configuration = PlacementModel.Grid(
+    sizing: .fixed(
+      cellSize: CGSize(width: 40, height: 40),
+      origin: CGPoint(
+        x: CGFloat.greatestFiniteMagnitude,
+        y: -CGFloat.greatestFiniteMagnitude,
+      ),
+    ),
+  )
+
+  let resolvedGrid = GridShapePlacementEngine.resolveGrid(
+    for: CGSize(width: 120, height: 120),
+    configuration: configuration,
+    edgeBehavior: .finite,
+  )
+
+  #expect(resolvedGrid.columnCount == 1)
+  #expect(resolvedGrid.rowCount == 1)
+  #expect(resolvedGrid.columnRange.count == 1)
+  #expect(resolvedGrid.rowRange.count == 1)
+}
+
+@Test func fixedGridPlacementWithHugeFiniteOriginReturnsSafely() async throws {
+  let symbol = ShapePlacementEngine.PlacementSymbolDescriptor(
+    id: UUID(uuidString: "00000000-0000-0000-0000-0000000000A0")!,
+    weight: 1,
+    allowedRotationRangeDegrees: 0...0,
+    resolvedScaleRange: 1...1,
+    collisionShape: .circle(center: .zero, radius: 0.1),
+  )
+
+  let placed = GridShapePlacementEngine.placeSymbolDescriptors(
+    in: CGSize(width: 120, height: 120),
+    symbolDescriptors: [symbol],
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .finite,
+    configuration: PlacementModel.Grid(
+      sizing: .fixed(
+        cellSize: CGSize(width: 40, height: 40),
+        origin: CGPoint(
+          x: CGFloat.greatestFiniteMagnitude,
+          y: CGFloat.greatestFiniteMagnitude,
+        ),
+      ),
+      symbolOrder: .rowMajor,
+      seed: 7,
+    ),
+  )
+
+  #expect(placed.isEmpty)
+}
+
+@Test func fixedGridPlacementUsesOriginRelativeToPlacementBounds() async throws {
+  let firstSymbolID = UUID(uuidString: "00000000-0000-0000-0000-000000000090")!
+  let secondSymbolID = UUID(uuidString: "00000000-0000-0000-0000-000000000091")!
+  let symbols = [
+    ShapePlacementEngine.PlacementSymbolDescriptor(
+      id: firstSymbolID,
+      weight: 1,
+      allowedRotationRangeDegrees: 5...175,
+      resolvedScaleRange: 1...1,
+      collisionShape: .circle(center: .zero, radius: 1),
+    ),
+    ShapePlacementEngine.PlacementSymbolDescriptor(
+      id: secondSymbolID,
+      weight: 1,
+      allowedRotationRangeDegrees: 5...175,
+      resolvedScaleRange: 1...1,
+      collisionShape: .circle(center: .zero, radius: 1),
+    ),
+  ]
+
+  let first = GridShapePlacementEngine.placeSymbolDescriptors(
+    in: CGSize(width: 220, height: 80),
+    symbolDescriptors: symbols,
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .finite,
+    configuration: PlacementModel.Grid(
+      sizing: .fixed(
+        cellSize: CGSize(width: 40, height: 40),
+        origin: .zero,
+      ),
+      symbolOrder: .randomWeightedPerCell,
+      seed: 77,
+    ),
+    placementBounds: CGRect(x: 0, y: 0, width: 120, height: 40),
+  )
+  let second = GridShapePlacementEngine.placeSymbolDescriptors(
+    in: CGSize(width: 220, height: 80),
+    symbolDescriptors: symbols,
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .finite,
+    configuration: PlacementModel.Grid(
+      sizing: .fixed(
+        cellSize: CGSize(width: 40, height: 40),
+        origin: CGPoint(x: -40, y: 0),
+      ),
+      symbolOrder: .randomWeightedPerCell,
+      seed: 77,
+    ),
+    placementBounds: CGRect(x: 40, y: 0, width: 120, height: 40),
+  )
+
+  let sharedFirst = placementSnapshots(in: first, xRange: 40..<120)
+  let sharedSecond = placementSnapshots(in: second, xRange: 40..<120)
+
+  #expect(sharedFirst == sharedSecond)
+  #expect(sharedFirst.map(\.position) == [CGPoint(x: 60, y: 20), CGPoint(x: 100, y: 20)])
 }
 
 @Test func gridWeightedChoiceIsDeterministicForSameSeedAndVariesAcrossSeeds() async throws {
@@ -510,8 +705,7 @@ import Testing
   let unknown = UUID(uuidString: "00000000-0000-0000-0000-00000000007A")!
   let known = UUID(uuidString: "00000000-0000-0000-0000-00000000007B")!
   let configuration = PlacementModel.Grid(
-    columnCount: 3,
-    rowCount: 3,
+    sizing: .count(columns: 3, rows: 3),
     subgrids: [
       .init(
         origin: .init(row: 0, column: 0),
@@ -538,10 +732,46 @@ import Testing
   )
 
   #expect(accepted.count == 1)
-  #expect(accepted[0].rowIndex == 1)
-  #expect(accepted[0].columnIndex == 1)
+  #expect(accepted[0].originRowIndex == 1)
+  #expect(accepted[0].originColumnIndex == 1)
   #expect(accepted[0].rowCount == 2)
   #expect(accepted[0].columnCount == 2)
+}
+
+@Test func fixedGridAcceptedSubgridAreasClipVisibleRangesButKeepBaseCoordinates() async throws {
+  let known = UUID(uuidString: "00000000-0000-0000-0000-000000000092")!
+  let configuration = PlacementModel.Grid(
+    sizing: .fixed(
+      cellSize: CGSize(width: 40, height: 40),
+      origin: CGPoint(x: -15, y: -15),
+    ),
+    subgrids: [
+      .init(
+        origin: .init(row: 2, column: 2),
+        span: .init(rows: 2, columns: 2),
+        symbolIDs: [known],
+      ),
+    ],
+  )
+  let resolvedGrid = GridShapePlacementEngine.resolveGrid(
+    for: CGSize(width: 70, height: 70),
+    configuration: configuration,
+    edgeBehavior: .finite,
+  )
+
+  let accepted = GridShapePlacementEngine.resolveAcceptedSubgridAreas(
+    subgrids: configuration.subgrids,
+    grid: resolvedGrid,
+    knownSymbolIDs: Set([known]),
+  )
+
+  #expect(accepted.count == 1)
+  #expect(accepted[0].originRowIndex == 2)
+  #expect(accepted[0].originColumnIndex == 2)
+  #expect(accepted[0].rowCount == 2)
+  #expect(accepted[0].columnCount == 2)
+  #expect(accepted[0].visibleRowRange == 2..<3)
+  #expect(accepted[0].visibleColumnRange == 2..<3)
 }
 
 @Test func gridPlacementLeavesRegularCellsEmptyWhenOnlySubgridSymbolsAreAvailable() async throws {
@@ -880,8 +1110,7 @@ private func placeGrid(
     pinnedSymbolDescriptors: pinnedSymbolDescriptors,
     edgeBehavior: edgeBehavior,
     configuration: PlacementModel.Grid(
-      columnCount: columnCount,
-      rowCount: rowCount,
+      sizing: .count(columns: columnCount, rows: rowCount),
       offsetStrategy: offsetStrategy,
       symbolOrder: symbolOrder,
       seed: seed,
@@ -889,4 +1118,38 @@ private func placeGrid(
       subgrids: subgrids,
     ),
   )
+}
+
+private struct PlacementSnapshot: Equatable {
+  var symbolId: UUID
+  var renderSymbolId: UUID
+  var position: CGPoint
+  var rotationRadians: Double
+}
+
+private func placementSnapshots(
+  in placed: [ShapePlacementEngine.PlacedSymbolDescriptor],
+  xRange: Range<CGFloat>? = nil,
+) -> [PlacementSnapshot] {
+  placed
+    .filter { descriptor in
+      guard let xRange else { return true }
+
+      return xRange.contains(descriptor.position.x)
+    }
+    .map { descriptor in
+      PlacementSnapshot(
+        symbolId: descriptor.symbolId,
+        renderSymbolId: descriptor.renderSymbolId,
+        position: descriptor.position,
+        rotationRadians: descriptor.rotationRadians,
+      )
+    }
+    .sorted { lhs, rhs in
+      if lhs.position.y == rhs.position.y {
+        return lhs.position.x < rhs.position.x
+      }
+
+      return lhs.position.y < rhs.position.y
+    }
 }

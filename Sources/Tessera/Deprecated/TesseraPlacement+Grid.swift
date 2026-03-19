@@ -1,5 +1,6 @@
 // By Dennis Müller
 
+import CoreGraphics
 import Foundation
 
 public extension PlacementModel {
@@ -96,6 +97,25 @@ public extension PlacementModel {
       }
     }
 
+    /// Grid sizing configuration.
+    public enum Sizing: Hashable, Sendable {
+      /// Resolves cell size by dividing the placement bounds into a fixed row and column count.
+      case count(columns: Int, rows: Int)
+      /// Preserves a fixed cell size and places the lattice origin at the provided top-left point.
+      case fixed(cellSize: CGSize, origin: CGPoint = .zero)
+
+      /// Convenience constructor for square cells.
+      public static func square(
+        _ side: Double,
+        origin: CGPoint = .zero,
+      ) -> Self {
+        .fixed(
+          cellSize: CGSize(width: side, height: side),
+          origin: origin,
+        )
+      }
+    }
+
     /// Per-symbol phase offset in grid cell units.
     ///
     /// Values are applied relative to each resolved grid cell center.
@@ -128,14 +148,16 @@ public extension PlacementModel {
       }
     }
 
-    /// The number of columns in the grid.
-    ///
-    /// The engine may round up to an even value when seamless wrapping and non-zero offset strategies require it.
-    public var columnCount: Int
-    /// The number of rows in the grid.
-    ///
-    /// The engine may round up to an even value when seamless wrapping and non-zero offset strategies require it.
-    public var rowCount: Int
+    /// The canonical grid sizing definition.
+    public var sizing: Sizing {
+      didSet {
+        let canonical = Self.canonicalizedSizing(sizing)
+        if canonical != sizing {
+          sizing = canonical
+        }
+      }
+    }
+
     /// Offset strategy applied to grid rows or columns.
     public var offsetStrategy: GridOffsetStrategy
     /// Order in which symbols are assigned to regular grid cells.
@@ -169,8 +191,7 @@ public extension PlacementModel {
 
     /// Creates a grid placement configuration.
     /// - Parameters:
-    ///   - columnCount: The number of columns in the grid.
-    ///   - rowCount: The number of rows in the grid.
+    ///   - sizing: Canonical grid sizing definition.
     ///   - offsetStrategy: Offset strategy applied to grid rows or columns.
     ///   - symbolOrder: Order in which symbols are assigned to regular grid cells.
     ///   - seed: Seed used to drive deterministic randomness for regular grid symbol assignment.
@@ -179,8 +200,7 @@ public extension PlacementModel {
     ///   - showsGridOverlay: Whether to draw a debug overlay for the resolved grid.
     ///   - subgrids: Optional rectangular subgrid definitions.
     public init(
-      columnCount: Int,
-      rowCount: Int,
+      sizing: Sizing,
       offsetStrategy: GridOffsetStrategy = .none,
       symbolOrder: GridSymbolOrder = .rowMajor,
       seed: UInt64 = TesseraConfiguration.randomSeed(),
@@ -189,8 +209,7 @@ public extension PlacementModel {
       showsGridOverlay: Bool = false,
       subgrids: [Subgrid] = [],
     ) {
-      self.columnCount = columnCount
-      self.rowCount = rowCount
+      self.sizing = Self.canonicalizedSizing(sizing)
       self.offsetStrategy = offsetStrategy
       self.symbolOrder = symbolOrder
       self.seed = seed
@@ -204,6 +223,38 @@ public extension PlacementModel {
       symbolPhases.mapValues { phase in
         SymbolPhase(x: phase.x, y: phase.y)
       }
+    }
+
+    private static func canonicalizedSizing(_ sizing: Sizing) -> Sizing {
+      switch sizing {
+      case let .count(columns, rows):
+        .count(
+          columns: max(1, columns),
+          rows: max(1, rows),
+        )
+
+      case let .fixed(cellSize, origin):
+        .fixed(
+          cellSize: CGSize(
+            width: sanitizedCellDimension(cellSize.width),
+            height: sanitizedCellDimension(cellSize.height),
+          ),
+          origin: CGPoint(
+            x: sanitizedOriginComponent(origin.x),
+            y: sanitizedOriginComponent(origin.y),
+          ),
+        )
+      }
+    }
+
+    private static func sanitizedCellDimension(_ value: CGFloat) -> CGFloat {
+      guard value.isFinite, value > 0 else { return 1 }
+
+      return max(1, value)
+    }
+
+    private static func sanitizedOriginComponent(_ value: CGFloat) -> CGFloat {
+      value.isFinite ? value : 0
     }
   }
 }

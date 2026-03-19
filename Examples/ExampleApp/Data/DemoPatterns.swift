@@ -21,12 +21,10 @@ enum DemoConfigurations {
 
   static var grid: Pattern {
     Pattern(
-      symbols: DemoSymbols.grid,
+      symbols: DemoSymbols.fixedCellClipping,
       placement: .grid(
         TesseraPlacement.Grid(
-          columnCount: 6,
-          rowCount: 6,
-          offsetStrategy: .rowShift(fraction: 0.5),
+          sizing: .square(58, origin: CGPoint(x: -24, y: -24)),
           showsGridOverlay: true,
         ),
       ),
@@ -38,8 +36,7 @@ enum DemoConfigurations {
       symbols: [.gridCross, .gridCrossRotated, .subgridDot],
       placement: .grid(
         TesseraPlacement.Grid(
-          columnCount: 7,
-          rowCount: 5,
+          sizing: .count(columns: 7, rows: 5),
           symbolOrder: .columnMajor,
           seed: 314,
           showsGridOverlay: true,
@@ -53,8 +50,7 @@ enum DemoConfigurations {
       symbols: DemoSymbols.gridSubgrids,
       placement: .grid(
         TesseraPlacement.Grid(
-          columnCount: 10,
-          rowCount: 10,
+          sizing: .count(columns: 10, rows: 10),
           symbolOrder: .rowMajor,
           seed: 222,
           showsGridOverlay: true,
@@ -142,8 +138,7 @@ enum DemoConfigurations {
           symbols: DemoSymbols.mosaicCore,
           placement: .grid(
             TesseraPlacement.Grid(
-              columnCount: 10,
-              rowCount: 10,
+              sizing: .count(columns: 10, rows: 10),
               symbolOrder: .rowMajor,
               seed: 2603,
             ),
@@ -224,8 +219,7 @@ enum DemoConfigurations {
       symbols: DemoSymbols.grid,
       placement: .grid(
         TesseraPlacement.Grid(
-          columnCount: 8,
-          rowCount: 8,
+          sizing: .count(columns: 8, rows: 8),
           seed: 55,
           steering: .init(
             scaleMultiplier: .init(
@@ -269,8 +263,7 @@ enum DemoConfigurations {
       symbols: DemoSymbols.rotationBars,
       placement: .grid(
         TesseraPlacement.Grid(
-          columnCount: 8,
-          rowCount: 8,
+          sizing: .count(columns: 8, rows: 8),
           seed: 121,
           steering: .init(
             rotationMultiplier: .init(

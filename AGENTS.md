@@ -26,10 +26,11 @@ These are the defaults and conventions that keep changes consistent and easy to 
 ---
 
 ## Subagents
+
 - ALWAYS wait for all subagents to complete before yielding.
 - Spawn subagents automatically when:
   - Parallelizable work
-  - Long-running or blocking tasks where a worker can run independently. 
+  - Long-running or blocking tasks where a worker can run independently.
   - Isolation for risky changes or checks
 
 ---
@@ -48,7 +49,7 @@ These are the defaults and conventions that keep changes consistent and easy to 
 
 ### SwiftUI view organization
 
-- Prefer composition; keep views small and focused. 
+- Prefer composition; keep views small and focused.
 - Avoid “actions” extensions on views; keep `@State` private. If logic grows, split into subviews or helper types instead of moving long functions into `extension SomeView`
 - Apply local conventions: prefer SwiftUI-native state, keep state local when possible, and use environment injection for shared dependencies.
 - Prefer a shared `@Observable` session/model injected via `@Environment` for heavily shared state to keep view initializers compact.
@@ -73,7 +74,7 @@ These are the defaults and conventions that keep changes consistent and easy to 
 
 - Use this section to proactively and autonomously manage common flowdeck commands.
 - Whenever you use a command that likely will be reused, proactively add it in this section
-- Proactively keep the commands up to date, like when the scheme or devices change. 
+- Proactively keep the commands up to date, like when the scheme or devices change.
 
 - List schemes: `flowdeck project schemes -w "/Users/swiftedmind/Code/Workspace/Tessera/Tessera.xcworkspace"`
 - Build ExampleApp: `flowdeck build -w "/Users/swiftedmind/Code/Workspace/Tessera/Tessera.xcworkspace" -s "ExampleApp" -S "iPhone 17" -d ".xcode-deriveddata/iphone"`

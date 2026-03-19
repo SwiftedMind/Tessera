@@ -822,10 +822,141 @@ enum TesseraFingerprintBuilder {
       hasher.combine(organic.showsCollisionOverlay)
     case let .grid(grid):
       hasher.combine(1)
-      hasher.combine(grid.columnCount)
-      hasher.combine(grid.rowCount)
+      combine(gridSizing: grid.sizing, into: &hasher)
+      combine(gridOffsetStrategy: grid.offsetStrategy, into: &hasher)
+      combine(gridSymbolOrder: grid.symbolOrder, into: &hasher)
       hasher.combine(grid.seed)
+      hasher.combineSequence(grid.symbolPhases.keys.sorted(by: { $0.uuidString < $1.uuidString })) { hasher, symbolID in
+        hasher.combine(symbolID)
+        if let phase = grid.symbolPhases[symbolID] {
+          hasher.combine(phase.x)
+          hasher.combine(phase.y)
+        }
+      }
+      combine(gridSteering: grid.steering, into: &hasher)
       hasher.combine(grid.showsGridOverlay)
+      hasher.combineSequence(grid.subgrids) { hasher, subgrid in
+        hasher.combine(subgrid.origin.row)
+        hasher.combine(subgrid.origin.column)
+        hasher.combine(subgrid.span.rows)
+        hasher.combine(subgrid.span.columns)
+        hasher.combineSequence(subgrid.resolvedSymbolIDs) { hasher, symbolID in
+          hasher.combine(symbolID)
+        }
+        combine(gridSymbolOrder: subgrid.symbolOrder, into: &hasher)
+        if let seed = subgrid.seed {
+          hasher.combine(1)
+          hasher.combine(seed)
+        } else {
+          hasher.combine(0)
+        }
+      }
+    }
+  }
+
+  private static func combine(gridSizing: PlacementModel.Grid.Sizing, into hasher: inout DeterministicHasher) {
+    switch gridSizing {
+    case let .count(columns, rows):
+      hasher.combine(0)
+      hasher.combine(columns)
+      hasher.combine(rows)
+    case let .fixed(cellSize, origin):
+      hasher.combine(1)
+      hasher.combine(cellSize)
+      hasher.combine(origin)
+    }
+  }
+
+  private static func combine(
+    gridOffsetStrategy: PlacementModel.GridOffsetStrategy,
+    into hasher: inout DeterministicHasher,
+  ) {
+    switch gridOffsetStrategy {
+    case .none:
+      hasher.combine(0)
+    case let .rowShift(fraction):
+      hasher.combine(1)
+      hasher.combine(fraction)
+    case let .columnShift(fraction):
+      hasher.combine(2)
+      hasher.combine(fraction)
+    case let .checkerShift(fraction):
+      hasher.combine(3)
+      hasher.combine(fraction)
+    }
+  }
+
+  private static func combine(
+    gridSymbolOrder: PlacementModel.GridSymbolOrder,
+    into hasher: inout DeterministicHasher,
+  ) {
+    switch gridSymbolOrder {
+    case .rowMajor:
+      hasher.combine(0)
+    case .columnMajor:
+      hasher.combine(1)
+    case .randomWeightedPerCell:
+      hasher.combine(2)
+    case .shuffle:
+      hasher.combine(3)
+    case .diagonal:
+      hasher.combine(4)
+    case .snake:
+      hasher.combine(5)
+    }
+  }
+
+  private static func combine(
+    gridSteering: PlacementModel.GridSteering,
+    into hasher: inout DeterministicHasher,
+  ) {
+    combine(steeringField: gridSteering.scaleMultiplier, into: &hasher)
+    combine(steeringField: gridSteering.rotationMultiplier, into: &hasher)
+    combine(steeringField: gridSteering.rotationOffsetDegrees, into: &hasher)
+  }
+
+  private static func combine(
+    steeringField: PlacementModel.SteeringField?,
+    into hasher: inout DeterministicHasher,
+  ) {
+    guard let steeringField else {
+      hasher.combine(0)
+      return
+    }
+
+    hasher.combine(1)
+    hasher.combine(steeringField.values.lowerBound)
+    hasher.combine(steeringField.values.upperBound)
+    switch steeringField.shape {
+    case let .linear(from, to):
+      hasher.combine(0)
+      hasher.combine(from.x)
+      hasher.combine(from.y)
+      hasher.combine(to.x)
+      hasher.combine(to.y)
+    case let .radial(center, radius):
+      hasher.combine(1)
+      hasher.combine(center.x)
+      hasher.combine(center.y)
+      switch radius {
+      case .autoFarthestCorner:
+        hasher.combine(0)
+      case let .shortestSideFraction(fraction):
+        hasher.combine(1)
+        hasher.combine(fraction)
+      }
+    }
+    switch steeringField.easing {
+    case .linear:
+      hasher.combine(0)
+    case .smoothStep:
+      hasher.combine(1)
+    case .easeIn:
+      hasher.combine(2)
+    case .easeOut:
+      hasher.combine(3)
+    case .easeInOut:
+      hasher.combine(4)
     }
   }
 

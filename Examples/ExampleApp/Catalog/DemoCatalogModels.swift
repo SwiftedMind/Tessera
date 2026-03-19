@@ -37,6 +37,7 @@ enum DemoDestination: String, Hashable, Identifiable {
   case mosaicCanvas
   case mosaicSnapshot
   case gridPlacement
+  case fixedCellGrid
   case gridColumnMajor
   case gridSubgrids
   case choiceSymbols

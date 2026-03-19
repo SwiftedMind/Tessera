@@ -291,6 +291,58 @@ import Testing
   #expect(fingerprintA != fingerprintB)
 }
 
+@Test func fixedGridSizingChangesSnapshotFingerprint() {
+  let requestKey = SnapshotRequestKey.make(
+    mode: .canvas(size: CGSize(width: 100, height: 100), edgeBehavior: .finite),
+    resolvedSeed: 42,
+    region: .rectangle,
+    regionRendering: .clipped,
+    pinnedSymbols: [],
+  )
+  let countPattern = Pattern(symbols: [], placement: .grid(columns: 2, rows: 2))
+  let fixedPattern = Pattern(
+    symbols: [],
+    placement: .grid(
+      cellSize: CGSize(width: 50, height: 50),
+      origin: .zero,
+    ),
+  )
+
+  let fingerprintA = TesseraFingerprintBuilder.fingerprint(pattern: countPattern, requestKey: requestKey)
+  let fingerprintB = TesseraFingerprintBuilder.fingerprint(pattern: fixedPattern, requestKey: requestKey)
+
+  #expect(fingerprintA != fingerprintB)
+}
+
+@Test func fixedGridOriginChangesSnapshotFingerprint() {
+  let requestKey = SnapshotRequestKey.make(
+    mode: .canvas(size: CGSize(width: 100, height: 100), edgeBehavior: .finite),
+    resolvedSeed: 42,
+    region: .rectangle,
+    regionRendering: .clipped,
+    pinnedSymbols: [],
+  )
+  let firstPattern = Pattern(
+    symbols: [],
+    placement: .grid(
+      cellSize: CGSize(width: 40, height: 40),
+      origin: CGPoint(x: -10, y: 0),
+    ),
+  )
+  let secondPattern = Pattern(
+    symbols: [],
+    placement: .grid(
+      cellSize: CGSize(width: 40, height: 40),
+      origin: CGPoint(x: 10, y: 0),
+    ),
+  )
+
+  let fingerprintA = TesseraFingerprintBuilder.fingerprint(pattern: firstPattern, requestKey: requestKey)
+  let fingerprintB = TesseraFingerprintBuilder.fingerprint(pattern: secondPattern, requestKey: requestKey)
+
+  #expect(fingerprintA != fingerprintB)
+}
+
 @Test @MainActor func pinnedSymbolsRenderAboveMosaicLayersInSnapshotView() async throws {
   let mosaicFillSymbol = Symbol(collider: .shape(.rectangle(center: .zero, size: CGSize(width: 120, height: 120)))) {
     Rectangle()
