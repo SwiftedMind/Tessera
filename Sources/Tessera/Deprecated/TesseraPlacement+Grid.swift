@@ -53,7 +53,8 @@ public extension PlacementModel {
       /// Creates a rectangular subgrid definition.
       ///
       /// - Parameters:
-      ///   - origin: Zero-based top-leading origin in base grid coordinates.
+      ///   - origin: Top-leading origin in base grid coordinates.
+      ///     Fixed-cell grids can expose negative coordinates when partially visible edge cells remain on-screen.
       ///   - span: Rectangle size in base grid cell counts.
       ///   - symbolIDs: Symbol identifiers dedicated to this subgrid.
       ///   - symbolOrder: Symbol assignment order used within this subgrid.
@@ -75,7 +76,8 @@ public extension PlacementModel {
       /// Creates a rectangular subgrid definition.
       ///
       /// - Parameters:
-      ///   - at: Zero-based top-leading origin in base grid coordinates.
+      ///   - at: Top-leading origin in base grid coordinates.
+      ///     Fixed-cell grids can expose negative coordinates when partially visible edge cells remain on-screen.
       ///   - spanning: Rectangle size in base grid cell counts.
       ///   - symbolIDs: Symbol identifiers dedicated to this subgrid.
       ///   - symbolOrder: Symbol assignment order used within this subgrid.

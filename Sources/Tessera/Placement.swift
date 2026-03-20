@@ -43,7 +43,10 @@ public enum TesseraPlacement: Sendable {
 
     /// Public subgrid configuration for grid placement.
     public struct Subgrid: Hashable, Sendable {
-      /// Zero-based top-leading origin in base grid coordinates.
+      /// Top-leading origin in base grid coordinates.
+      ///
+      /// Count-sized grids use zero-based coordinates. Fixed-cell grids may use negative
+      /// coordinates when the grid origin is offset and partially visible edge cells appear.
       public var origin: Origin
       /// Rectangle size in base grid cell counts.
       public var span: Span
@@ -67,7 +70,9 @@ public enum TesseraPlacement: Sendable {
       /// Creates a subgrid definition.
       ///
       /// - Parameters:
-      ///   - origin: Zero-based top-leading origin in base grid coordinates.
+      ///   - origin: Top-leading origin in base grid coordinates.
+      ///     Count-sized grids use zero-based coordinates. Fixed-cell grids may use negative
+      ///     coordinates when the grid origin is offset and partially visible edge cells appear.
       ///   - span: Rectangle size in base grid cell counts.
       ///   - symbols: Symbols dedicated to this subgrid.
       ///   - symbolOrder: Symbol assignment order used within this subgrid.
@@ -90,7 +95,9 @@ public enum TesseraPlacement: Sendable {
       /// Creates a subgrid definition.
       ///
       /// - Parameters:
-      ///   - at: Zero-based top-leading origin in base grid coordinates.
+      ///   - at: Top-leading origin in base grid coordinates.
+      ///     Count-sized grids use zero-based coordinates. Fixed-cell grids may use negative
+      ///     coordinates when the grid origin is offset and partially visible edge cells appear.
       ///   - spanning: Rectangle size in base grid cell counts.
       ///   - symbols: Symbols dedicated to this subgrid.
       ///   - symbolOrder: Symbol assignment order used within this subgrid.
@@ -170,7 +177,7 @@ public enum TesseraPlacement: Sendable {
     ///
     /// This stays ID-based and Hashable/Sendable for deterministic placement internals.
     var base: PlacementModel.Grid
-    /// Optional subgrid rectangles in zero-based base-grid coordinates.
+    /// Optional subgrid rectangles in base-grid coordinates.
     ///
     /// Subgrids are validated against the resolved grid dimensions used for placement.
     /// Invalid or overlapping subgrids are ignored at placement time (first valid subgrid wins).
@@ -200,7 +207,8 @@ public enum TesseraPlacement: Sendable {
     ///   - symbolPhases: Optional per-symbol phase offsets keyed by `Symbol.id`.
     ///   - steering: Position-based steering controls.
     ///   - showsGridOverlay: Whether to draw a debug overlay for the resolved grid.
-    ///   - subgrids: Optional subgrid definitions in zero-based base-grid coordinates.
+    ///   - subgrids: Optional subgrid definitions in base-grid coordinates.
+    ///     Fixed-cell grids can expose negative coordinates when partially visible edge cells remain on-screen.
     public init(
       sizing: Sizing,
       offsetStrategy: GridOffsetStrategy = .none,
@@ -300,7 +308,9 @@ public extension TesseraPlacement {
   ///   - seed: Seed used for deterministic grid assignment.
   ///   - symbolPhases: Optional per-symbol phase offsets keyed by symbol ID.
   ///   - showsGridOverlay: Whether to draw a debug overlay for the resolved grid.
-  ///   - subgrids: Optional subgrid definitions in zero-based base-grid coordinates.
+  ///   - subgrids: Optional subgrid definitions in base-grid coordinates.
+  ///     Count-sized grids use zero-based coordinates; fixed-cell grids can expose negative coordinates when
+  ///     partially visible edge cells remain on-screen.
   ///   - steering: Position-based steering controls.
   static func grid(
     columns: Int,
@@ -337,7 +347,9 @@ public extension TesseraPlacement {
   ///   - seed: Seed used for deterministic grid assignment.
   ///   - symbolPhases: Optional per-symbol phase offsets keyed by symbol ID.
   ///   - showsGridOverlay: Whether to draw a debug overlay for the resolved grid.
-  ///   - subgrids: Optional subgrid definitions in zero-based base-grid coordinates.
+  ///   - subgrids: Optional subgrid definitions in base-grid coordinates.
+  ///     Count-sized grids use zero-based coordinates; fixed-cell grids can expose negative coordinates when
+  ///     partially visible edge cells remain on-screen.
   ///   - steering: Position-based steering controls.
   static func grid(
     cellSize: CGSize,

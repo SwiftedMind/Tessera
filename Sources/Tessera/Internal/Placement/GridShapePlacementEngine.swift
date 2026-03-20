@@ -533,9 +533,10 @@ enum GridShapePlacementEngine {
     for subgrid in subgrids {
       let origin = subgrid.origin
       let span = subgrid.span
-      // Invalid or unresolved subgrids are skipped so remaining grid placement can proceed.
-      guard origin.row >= 0, origin.column >= 0, span.rows > 0, span.columns > 0 else {
-        reportIgnoredSubgrid("origin and span must be non-negative and non-zero")
+      // Fixed-cell grids can expose negative lattice indices when the origin is offset into the canvas,
+      // so only zero-sized spans are invalid here.
+      guard span.rows > 0, span.columns > 0 else {
+        reportIgnoredSubgrid("span must be non-zero")
         continue
       }
       guard subgrid.symbolIDs.isEmpty == false else {
@@ -649,7 +650,7 @@ enum GridShapePlacementEngine {
   ) -> ResolvedSubgridArea? {
     let origin = subgrid.origin
     let span = subgrid.span
-    guard origin.row >= 0, origin.column >= 0, span.rows > 0, span.columns > 0 else {
+    guard span.rows > 0, span.columns > 0 else {
       return nil
     }
     guard subgrid.symbolIDs.isEmpty == false else {
