@@ -661,6 +661,202 @@ import Testing
   #expect(placed.contains { $0.symbolId == subgridSymbol && $0.position == CGPoint(x: 50, y: 50) } == false)
 }
 
+@Test func localSubgridCountGridPlacesIndependentDenseLattice() async throws {
+  let regular = UUID(uuidString: "00000000-0000-0000-0000-000000000093")!
+  let subgridSymbol = UUID(uuidString: "00000000-0000-0000-0000-000000000094")!
+  let placed = placeGrid(
+    size: CGSize(width: 400, height: 400),
+    symbolDescriptors: [
+      makeGridSymbolDescriptor(id: regular, allowedRotationRangeDegrees: 0...0),
+      makeGridSymbolDescriptor(id: subgridSymbol, allowedRotationRangeDegrees: 0...0),
+    ],
+    seed: 21,
+    columnCount: 4,
+    rowCount: 4,
+    subgrids: [
+      .init(
+        origin: .init(row: 1, column: 1),
+        span: .init(rows: 2, columns: 2),
+        symbolIDs: [subgridSymbol],
+        grid: .init(
+          sizing: .count(columns: 10, rows: 10),
+        ),
+      ),
+    ],
+  )
+
+  #expect(placed.count == 112)
+  #expect(placed.count(where: { $0.symbolId == subgridSymbol }) == 100)
+  #expect(placed.contains { $0.symbolId == subgridSymbol && $0.position == CGPoint(x: 110, y: 110) })
+  #expect(placed.contains { $0.symbolId == subgridSymbol && $0.position == CGPoint(x: 290, y: 290) })
+  #expect(placed.contains { $0.symbolId == regular && $0.position == CGPoint(x: 150, y: 150) } == false)
+}
+
+@Test func localSubgridOneByOneProducesSinglePlacementAtSubgridCenter() async throws {
+  let regular = UUID(uuidString: "00000000-0000-0000-0000-000000000095")!
+  let subgridSymbol = UUID(uuidString: "00000000-0000-0000-0000-000000000096")!
+  let placed = placeGrid(
+    size: CGSize(width: 400, height: 400),
+    symbolDescriptors: [
+      makeGridSymbolDescriptor(id: regular, allowedRotationRangeDegrees: 0...0),
+      makeGridSymbolDescriptor(id: subgridSymbol, allowedRotationRangeDegrees: 0...0),
+    ],
+    seed: 22,
+    columnCount: 4,
+    rowCount: 4,
+    subgrids: [
+      .init(
+        origin: .init(row: 1, column: 1),
+        span: .init(rows: 2, columns: 2),
+        symbolIDs: [subgridSymbol],
+        grid: .init(
+          sizing: .count(columns: 1, rows: 1),
+        ),
+      ),
+    ],
+  )
+
+  #expect(placed.count == 13)
+  #expect(placed.count(where: { $0.symbolId == subgridSymbol }) == 1)
+  #expect(placed.contains { $0.symbolId == subgridSymbol && $0.position == CGPoint(x: 200, y: 200) })
+}
+
+@Test func localSubgridFixedGridSupportsNegativeOriginsAndClipBounds() async throws {
+  let subgridSymbol = UUID(uuidString: "00000000-0000-0000-0000-000000000097")!
+  let placed = placeGrid(
+    size: CGSize(width: 400, height: 400),
+    symbolDescriptors: [
+      makeGridSymbolDescriptor(id: subgridSymbol, allowedRotationRangeDegrees: 0...0),
+    ],
+    seed: 23,
+    columnCount: 4,
+    rowCount: 4,
+    subgrids: [
+      .init(
+        origin: .init(row: 1, column: 1),
+        span: .init(rows: 2, columns: 2),
+        symbolIDs: [subgridSymbol],
+        grid: .init(
+          sizing: .fixed(
+            cellSize: CGSize(width: 100, height: 100),
+            origin: CGPoint(x: -50, y: -50),
+          ),
+        ),
+      ),
+    ],
+  )
+
+  #expect(placed.count == 9)
+  #expect(placed.contains { $0.position == CGPoint(x: 100, y: 100) })
+  #expect(placed.contains { $0.position == CGPoint(x: 200, y: 200) })
+  #expect(placed.contains { $0.position == CGPoint(x: 300, y: 300) })
+}
+
+@Test func localSubgridOffsetUsesLocalParityInsteadOfParentParity() async throws {
+  let subgridSymbol = UUID(uuidString: "00000000-0000-0000-0000-000000000098")!
+  let placed = placeGrid(
+    size: CGSize(width: 400, height: 400),
+    symbolDescriptors: [
+      makeGridSymbolDescriptor(id: subgridSymbol, allowedRotationRangeDegrees: 0...0),
+    ],
+    seed: 24,
+    columnCount: 4,
+    rowCount: 4,
+    subgrids: [
+      .init(
+        origin: .init(row: 1, column: 1),
+        span: .init(rows: 2, columns: 2),
+        symbolIDs: [subgridSymbol],
+        grid: .init(
+          sizing: .count(columns: 2, rows: 2),
+          offsetStrategy: .rowShift(fraction: 0.5),
+        ),
+      ),
+    ],
+  )
+
+  #expect(placed.contains { $0.position == CGPoint(x: 150, y: 150) })
+  #expect(placed.contains { $0.position == CGPoint(x: 250, y: 150) })
+  #expect(placed.contains { $0.position == CGPoint(x: 200, y: 250) })
+  #expect(placed.contains { $0.position == CGPoint(x: 300, y: 250) })
+  #expect(placed.contains { $0.position == CGPoint(x: 200, y: 150) } == false)
+}
+
+@Test func localSubgridDegenerateOffsetsBecomeNoOps() async throws {
+  let subgridSymbol = UUID(uuidString: "00000000-0000-0000-0000-000000000099")!
+  let rowShiftPlaced = placeGrid(
+    size: CGSize(width: 400, height: 200),
+    symbolDescriptors: [
+      makeGridSymbolDescriptor(id: subgridSymbol, allowedRotationRangeDegrees: 0...0),
+    ],
+    seed: 25,
+    columnCount: 4,
+    rowCount: 2,
+    subgrids: [
+      .init(
+        origin: .init(row: 0, column: 1),
+        span: .init(rows: 1, columns: 2),
+        symbolIDs: [subgridSymbol],
+        grid: .init(
+          sizing: .count(columns: 4, rows: 1),
+          offsetStrategy: .rowShift(fraction: 0.5),
+        ),
+      ),
+    ],
+  )
+  let checkerPlaced = placeGrid(
+    size: CGSize(width: 400, height: 200),
+    symbolDescriptors: [
+      makeGridSymbolDescriptor(id: subgridSymbol, allowedRotationRangeDegrees: 0...0),
+    ],
+    seed: 25,
+    columnCount: 4,
+    rowCount: 2,
+    subgrids: [
+      .init(
+        origin: .init(row: 0, column: 1),
+        span: .init(rows: 1, columns: 2),
+        symbolIDs: [subgridSymbol],
+        grid: .init(
+          sizing: .count(columns: 4, rows: 1),
+          offsetStrategy: .checkerShift(fraction: 0.5),
+        ),
+      ),
+    ],
+  )
+
+  let targetPositions = [CGPoint(x: 125, y: 50), CGPoint(x: 175, y: 50), CGPoint(x: 225, y: 50), CGPoint(x: 275, y: 50)]
+  #expect(targetPositions.allSatisfy { target in rowShiftPlaced.contains { $0.position == target } })
+  #expect(targetPositions.allSatisfy { target in checkerPlaced.contains { $0.position == target } })
+}
+
+@Test func localSubgridCountGridDoesNotInflateCountsForOffsetsInSeamlessMode() async throws {
+  let subgridSymbol = UUID(uuidString: "00000000-0000-0000-0000-00000000009A")!
+  let placed = placeGrid(
+    size: CGSize(width: 300, height: 300),
+    symbolDescriptors: [
+      makeGridSymbolDescriptor(id: subgridSymbol, allowedRotationRangeDegrees: 0...0),
+    ],
+    seed: 26,
+    columnCount: 3,
+    rowCount: 3,
+    edgeBehavior: .seamlessWrapping,
+    subgrids: [
+      .init(
+        origin: .init(row: 0, column: 0),
+        span: .init(rows: 3, columns: 3),
+        symbolIDs: [subgridSymbol],
+        grid: .init(
+          sizing: .count(columns: 3, rows: 3),
+          offsetStrategy: .checkerShift(fraction: 0.5),
+        ),
+      ),
+    ],
+  )
+
+  #expect(placed.count == 9)
+}
+
 @Test func gridPlacementSkipsOverlappingSubgridsAfterFirstValidSubgrid() async throws {
   let firstSubgridSymbol = UUID(uuidString: "00000000-0000-0000-0000-000000000073")!
   let secondSubgridSymbol = UUID(uuidString: "00000000-0000-0000-0000-000000000074")!
@@ -1088,6 +1284,59 @@ import Testing
     targetAreaPositions.contains { $0 == descriptor.position }
   }.map(\.symbolId)
   #expect(firstTargetIDs != shiftedTargetIDs)
+}
+
+@Test func localSubgridDerivedSeedIgnoresLegacySubgridSeedAndOrder() async throws {
+  let symbolA = UUID(uuidString: "00000000-0000-0000-0000-0000000000BC")!
+  let symbolB = UUID(uuidString: "00000000-0000-0000-0000-0000000000BD")!
+  let symbolC = UUID(uuidString: "00000000-0000-0000-0000-0000000000BE")!
+  let symbolD = UUID(uuidString: "00000000-0000-0000-0000-0000000000BF")!
+  let symbols = [symbolA, symbolB, symbolC, symbolD].map { symbolID in
+    makeGridSymbolDescriptor(id: symbolID, allowedRotationRangeDegrees: 0...0)
+  }
+
+  let first = placeGrid(
+    size: CGSize(width: 400, height: 400),
+    symbolDescriptors: symbols,
+    seed: 777,
+    columnCount: 4,
+    rowCount: 4,
+    subgrids: [
+      .init(
+        origin: .init(row: 0, column: 0),
+        span: .init(rows: 3, columns: 4),
+        symbolIDs: [symbolA, symbolB, symbolC, symbolD],
+        symbolOrder: .rowMajor,
+        seed: 111,
+        grid: .init(
+          sizing: .count(columns: 3, rows: 4),
+          symbolOrder: .shuffle,
+        ),
+      ),
+    ],
+  )
+  let second = placeGrid(
+    size: CGSize(width: 400, height: 400),
+    symbolDescriptors: symbols,
+    seed: 777,
+    columnCount: 4,
+    rowCount: 4,
+    subgrids: [
+      .init(
+        origin: .init(row: 0, column: 0),
+        span: .init(rows: 3, columns: 4),
+        symbolIDs: [symbolA, symbolB, symbolC, symbolD],
+        symbolOrder: .diagonal,
+        seed: 999,
+        grid: .init(
+          sizing: .count(columns: 3, rows: 4),
+          symbolOrder: .shuffle,
+        ),
+      ),
+    ],
+  )
+
+  #expect(first.map(\.symbolId) == second.map(\.symbolId))
 }
 
 private func makeGridSymbolDescriptor(

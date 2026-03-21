@@ -11,6 +11,39 @@ public extension PlacementModel {
     /// - Note: Invalid subgrids (negative origin, non-positive span, out of bounds, overlap, empty symbols)
     ///   are ignored by the placement engine.
     public struct Subgrid: Hashable, Sendable {
+      /// Local lattice configuration used to subdivide this subgrid rectangle.
+      public struct LocalGrid: Hashable, Sendable {
+        /// The canonical local grid sizing definition.
+        public var sizing: Grid.Sizing {
+          didSet {
+            let canonical = Grid.canonicalizedSizing(sizing)
+            if canonical != sizing {
+              sizing = canonical
+            }
+          }
+        }
+
+        /// Offset strategy applied within the local lattice.
+        public var offsetStrategy: GridOffsetStrategy
+        /// Symbol assignment order used within the local lattice.
+        public var symbolOrder: GridSymbolOrder
+        /// Optional local seed for deterministic random-based orders.
+        public var seed: UInt64?
+
+        /// Creates a local lattice definition for this subgrid.
+        public init(
+          sizing: Grid.Sizing,
+          offsetStrategy: GridOffsetStrategy = .none,
+          symbolOrder: GridSymbolOrder = .rowMajor,
+          seed: UInt64? = nil,
+        ) {
+          self.sizing = Grid.canonicalizedSizing(sizing)
+          self.offsetStrategy = offsetStrategy
+          self.symbolOrder = symbolOrder
+          self.seed = seed
+        }
+      }
+
       /// Zero-based origin of a subgrid rectangle in base grid coordinates.
       public struct Origin: Hashable, Sendable {
         /// Top row index (zero-based).
@@ -45,10 +78,15 @@ public extension PlacementModel {
       public var span: Span
       /// Symbol identifiers dedicated to this subgrid.
       public var symbolIDs: [UUID]
-      /// Symbol assignment order used within this subgrid.
+      /// Symbol assignment order used when `grid` is `nil`.
       public var symbolOrder: GridSymbolOrder
-      /// Optional subgrid-local seed for deterministic random-based orders.
+      /// Optional subgrid-local seed used when `grid` is `nil`.
       public var seed: UInt64?
+      /// Optional local lattice definition.
+      ///
+      /// When present, Tessera subdivides this subgrid rectangle into its own local grid
+      /// and places symbols using `grid.symbolOrder` and `grid.seed`.
+      public var grid: LocalGrid?
 
       /// Creates a rectangular subgrid definition.
       ///
@@ -57,20 +95,24 @@ public extension PlacementModel {
       ///     Fixed-cell grids can expose negative coordinates when partially visible edge cells remain on-screen.
       ///   - span: Rectangle size in base grid cell counts.
       ///   - symbolIDs: Symbol identifiers dedicated to this subgrid.
-      ///   - symbolOrder: Symbol assignment order used within this subgrid.
-      ///   - seed: Optional subgrid-local seed.
+      ///   - symbolOrder: Symbol assignment order used within this subgrid when `grid` is `nil`.
+      ///   - seed: Optional subgrid-local seed used when `grid` is `nil`.
+      ///   - grid: Optional local lattice definition used to subdivide the subgrid rectangle.
+      ///     When present, `grid.symbolOrder` and `grid.seed` are used within the local lattice.
       public init(
         origin: Origin,
         span: Span,
         symbolIDs: [UUID],
         symbolOrder: GridSymbolOrder = .rowMajor,
         seed: UInt64? = nil,
+        grid: LocalGrid? = nil,
       ) {
         self.origin = origin
         self.span = span
         self.symbolIDs = symbolIDs
         self.symbolOrder = symbolOrder
         self.seed = seed
+        self.grid = grid
       }
 
       /// Creates a rectangular subgrid definition.
@@ -80,14 +122,17 @@ public extension PlacementModel {
       ///     Fixed-cell grids can expose negative coordinates when partially visible edge cells remain on-screen.
       ///   - spanning: Rectangle size in base grid cell counts.
       ///   - symbolIDs: Symbol identifiers dedicated to this subgrid.
-      ///   - symbolOrder: Symbol assignment order used within this subgrid.
-      ///   - seed: Optional subgrid-local seed.
+      ///   - symbolOrder: Symbol assignment order used within this subgrid when `grid` is `nil`.
+      ///   - seed: Optional subgrid-local seed used when `grid` is `nil`.
+      ///   - grid: Optional local lattice definition used to subdivide the subgrid rectangle.
+      ///     When present, `grid.symbolOrder` and `grid.seed` are used within the local lattice.
       public init(
         at origin: Origin,
         spanning span: Span,
         symbolIDs: [UUID],
         symbolOrder: GridSymbolOrder = .rowMajor,
         seed: UInt64? = nil,
+        grid: LocalGrid? = nil,
       ) {
         self.init(
           origin: origin,
@@ -95,7 +140,37 @@ public extension PlacementModel {
           symbolIDs: symbolIDs,
           symbolOrder: symbolOrder,
           seed: seed,
+          grid: grid,
         )
+      }
+
+      public static func == (lhs: Subgrid, rhs: Subgrid) -> Bool {
+        let lhsIdentity = lhs.identityConfiguration
+        let rhsIdentity = rhs.identityConfiguration
+        return lhs.origin == rhs.origin &&
+          lhs.span == rhs.span &&
+          lhs.symbolIDs == rhs.symbolIDs &&
+          lhsIdentity.symbolOrder == rhsIdentity.symbolOrder &&
+          lhsIdentity.seed == rhsIdentity.seed &&
+          lhs.grid == rhs.grid
+      }
+
+      public func hash(into hasher: inout Hasher) {
+        let identity = identityConfiguration
+        hasher.combine(origin)
+        hasher.combine(span)
+        hasher.combine(symbolIDs)
+        hasher.combine(identity.symbolOrder)
+        hasher.combine(identity.seed)
+        hasher.combine(grid)
+      }
+
+      private var identityConfiguration: (symbolOrder: GridSymbolOrder?, seed: UInt64?) {
+        guard grid == nil else {
+          return (nil, nil)
+        }
+
+        return (symbolOrder, seed)
       }
     }
 

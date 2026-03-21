@@ -211,6 +211,17 @@ extension Symbol {
     }
   }
 
+  static var subgridMiniDot: Symbol {
+    Symbol(
+      id: DemoSymbolIDs.gridSubgridMiniDot,
+      collider: .shape(.circle(center: .zero, radius: 4.5)),
+    ) {
+      Circle()
+        .fill(DemoPalette.blue.opacity(0.88))
+        .frame(width: 4, height: 4)
+    }
+  }
+
   static var subgridDiamond: Symbol {
     Symbol(
       id: DemoSymbolIDs.gridSubgridDiamond,

@@ -85,5 +85,52 @@ enum GridDebugOverlayRenderer {
         style: StrokeStyle(lineWidth: 2),
       )
     }
+
+    for subgrid in subgrids {
+      guard let localGrid = configuration.subgrids[subgrid.sourceSubgridIndex].grid,
+            let resolvedLocalGrid = GridShapePlacementEngine.resolvedLocalSubgridGrid(
+              for: localGrid,
+              area: subgrid,
+              in: resolvedGrid,
+            ) else {
+        continue
+      }
+
+      let localGridRect = resolvedLocalGrid.subgridRect
+      let localResolvedGrid = resolvedLocalGrid.resolvedGrid
+      var localGridPath = Path()
+
+      for column in localResolvedGrid.columnRange.lowerBound...localResolvedGrid.columnRange.upperBound {
+        let localX = localResolvedGrid.x(forLatticeColumn: column)
+        guard localX >= 0, localX <= localGridRect.width else { continue }
+
+        let x = localGridRect.minX + localX
+        localGridPath.move(to: CGPoint(x: x, y: localGridRect.minY))
+        localGridPath.addLine(to: CGPoint(x: x, y: localGridRect.maxY))
+      }
+
+      for row in localResolvedGrid.rowRange.lowerBound...localResolvedGrid.rowRange.upperBound {
+        let localY = localResolvedGrid.y(forLatticeRow: row)
+        guard localY >= 0, localY <= localGridRect.height else { continue }
+
+        let y = localGridRect.minY + localY
+        localGridPath.move(to: CGPoint(x: localGridRect.minX, y: y))
+        localGridPath.addLine(to: CGPoint(x: localGridRect.maxX, y: y))
+      }
+
+      for wrapOffset in wrapOffsets {
+        let translation = CGAffineTransform(
+          translationX: wrapOffset.x + wrappedOffset.width,
+          y: wrapOffset.y + wrappedOffset.height,
+        )
+        var clippedContext = context
+        clippedContext.clip(to: Path(localGridRect).applying(translation))
+        clippedContext.stroke(
+          localGridPath.applying(translation),
+          with: .color(.cyan.opacity(0.32)),
+          style: StrokeStyle(lineWidth: 1),
+        )
+      }
+    }
   }
 }

@@ -43,6 +43,62 @@ public enum TesseraPlacement: Sendable {
 
     /// Public subgrid configuration for grid placement.
     public struct Subgrid: Hashable, Sendable {
+      /// Public local lattice configuration for a subgrid rectangle.
+      public struct LocalGrid: Hashable, Sendable {
+        /// Alias for `PlacementModel.Grid.Sizing`.
+        public typealias Sizing = PlacementModel.Grid.Sizing
+
+        /// The canonical local grid sizing definition.
+        public var sizing: Sizing {
+          didSet {
+            let canonical = Self.canonicalizedSizing(sizing)
+            if canonical != sizing {
+              sizing = canonical
+            }
+          }
+        }
+
+        /// Offset strategy applied within the local lattice.
+        public var offsetStrategy: GridOffsetStrategy
+        /// Symbol assignment order used within the local lattice.
+        public var symbolOrder: GridSymbolOrder
+        /// Optional local seed used for deterministic random-based orders.
+        public var seed: UInt64?
+
+        /// Creates a local lattice definition for this subgrid.
+        public init(
+          sizing: Sizing,
+          offsetStrategy: GridOffsetStrategy = .none,
+          symbolOrder: GridSymbolOrder = .rowMajor,
+          seed: UInt64? = nil,
+        ) {
+          self.sizing = Self.canonicalizedSizing(sizing)
+          self.offsetStrategy = offsetStrategy
+          self.symbolOrder = symbolOrder
+          self.seed = seed
+        }
+
+        init(internalLocalGrid: PlacementModel.Grid.Subgrid.LocalGrid) {
+          sizing = internalLocalGrid.sizing
+          offsetStrategy = internalLocalGrid.offsetStrategy
+          symbolOrder = internalLocalGrid.symbolOrder
+          seed = internalLocalGrid.seed
+        }
+
+        var internalLocalGrid: PlacementModel.Grid.Subgrid.LocalGrid {
+          PlacementModel.Grid.Subgrid.LocalGrid(
+            sizing: sizing,
+            offsetStrategy: offsetStrategy,
+            symbolOrder: symbolOrder,
+            seed: seed,
+          )
+        }
+
+        private static func canonicalizedSizing(_ sizing: Sizing) -> Sizing {
+          PlacementModel.Grid.Subgrid.LocalGrid(sizing: sizing).sizing
+        }
+      }
+
       /// Top-leading origin in base grid coordinates.
       ///
       /// Count-sized grids use zero-based coordinates. Fixed-cell grids may use negative
@@ -56,10 +112,12 @@ public enum TesseraPlacement: Sendable {
       /// imported IDs remain part of the resolved symbol set and these inline symbols are appended.
       public var symbols: [Symbol]
 
-      /// Symbol assignment order used within this subgrid.
+      /// Symbol assignment order used when `grid` is `nil`.
       public var symbolOrder: GridSymbolOrder
-      /// Optional seed used for this subgrid.
+      /// Optional seed used when `grid` is `nil`.
       public var seed: UInt64?
+      /// Optional local lattice definition used to subdivide this subgrid rectangle.
+      public var grid: LocalGrid?
 
       var resolvedSymbolIDs: [UUID] {
         Self.uniqueSymbolIDs(from: importedSymbolIDs + symbols.map(\.id))
@@ -75,20 +133,24 @@ public enum TesseraPlacement: Sendable {
       ///     coordinates when the grid origin is offset and partially visible edge cells appear.
       ///   - span: Rectangle size in base grid cell counts.
       ///   - symbols: Symbols dedicated to this subgrid.
-      ///   - symbolOrder: Symbol assignment order used within this subgrid.
-      ///   - seed: Optional subgrid seed.
+      ///   - symbolOrder: Symbol assignment order used within this subgrid when `grid` is `nil`.
+      ///   - seed: Optional subgrid seed used when `grid` is `nil`.
+      ///   - grid: Optional local lattice definition used to subdivide the subgrid rectangle.
+      ///     When present, `grid.symbolOrder` and `grid.seed` are used within the local lattice.
       public init(
         origin: Origin,
         span: Span,
         symbols: [Symbol],
         symbolOrder: GridSymbolOrder = .rowMajor,
         seed: UInt64? = nil,
+        grid: LocalGrid? = nil,
       ) {
         self.origin = origin
         self.span = span
         self.symbols = symbols
         self.symbolOrder = symbolOrder
         self.seed = seed
+        self.grid = grid
         importedSymbolIDs = []
       }
 
@@ -100,14 +162,17 @@ public enum TesseraPlacement: Sendable {
       ///     coordinates when the grid origin is offset and partially visible edge cells appear.
       ///   - spanning: Rectangle size in base grid cell counts.
       ///   - symbols: Symbols dedicated to this subgrid.
-      ///   - symbolOrder: Symbol assignment order used within this subgrid.
-      ///   - seed: Optional subgrid seed.
+      ///   - symbolOrder: Symbol assignment order used within this subgrid when `grid` is `nil`.
+      ///   - seed: Optional subgrid seed used when `grid` is `nil`.
+      ///   - grid: Optional local lattice definition used to subdivide the subgrid rectangle.
+      ///     When present, `grid.symbolOrder` and `grid.seed` are used within the local lattice.
       public init(
         at origin: Origin,
         spanning span: Span,
         symbols: [Symbol],
         symbolOrder: GridSymbolOrder = .rowMajor,
         seed: UInt64? = nil,
+        grid: LocalGrid? = nil,
       ) {
         self.init(
           origin: origin,
@@ -115,6 +180,7 @@ public enum TesseraPlacement: Sendable {
           symbols: symbols,
           symbolOrder: symbolOrder,
           seed: seed,
+          grid: grid,
         )
       }
 
@@ -127,6 +193,7 @@ public enum TesseraPlacement: Sendable {
         symbols: [Symbol],
         symbolOrder: GridSymbolOrder = .rowMajor,
         seed: UInt64? = nil,
+        grid: LocalGrid? = nil,
       ) {
         self.init(
           origin: .init(row: row, column: column),
@@ -134,6 +201,7 @@ public enum TesseraPlacement: Sendable {
           symbols: symbols,
           symbolOrder: symbolOrder,
           seed: seed,
+          grid: grid,
         )
       }
 
@@ -143,23 +211,37 @@ public enum TesseraPlacement: Sendable {
         symbols = []
         symbolOrder = internalSubgrid.symbolOrder
         seed = internalSubgrid.seed
+        grid = internalSubgrid.grid.map(LocalGrid.init(internalLocalGrid:))
         importedSymbolIDs = Self.uniqueSymbolIDs(from: internalSubgrid.symbolIDs)
       }
 
       public static func == (lhs: Subgrid, rhs: Subgrid) -> Bool {
-        lhs.origin == rhs.origin &&
+        let lhsIdentity = lhs.identityConfiguration
+        let rhsIdentity = rhs.identityConfiguration
+        return lhs.origin == rhs.origin &&
           lhs.span == rhs.span &&
-          lhs.symbolOrder == rhs.symbolOrder &&
-          lhs.seed == rhs.seed &&
+          lhsIdentity.symbolOrder == rhsIdentity.symbolOrder &&
+          lhsIdentity.seed == rhsIdentity.seed &&
+          lhs.grid == rhs.grid &&
           lhs.resolvedSymbolIDs == rhs.resolvedSymbolIDs
       }
 
       public func hash(into hasher: inout Hasher) {
+        let identity = identityConfiguration
         hasher.combine(origin)
         hasher.combine(span)
-        hasher.combine(symbolOrder)
-        hasher.combine(seed)
+        hasher.combine(identity.symbolOrder)
+        hasher.combine(identity.seed)
+        hasher.combine(grid)
         hasher.combine(resolvedSymbolIDs)
+      }
+
+      private var identityConfiguration: (symbolOrder: GridSymbolOrder?, seed: UInt64?) {
+        guard grid == nil else {
+          return (nil, nil)
+        }
+
+        return (symbolOrder, seed)
       }
 
       private static func uniqueSymbolIDs(from symbolIDs: [UUID]) -> [UUID] {
@@ -421,6 +503,7 @@ extension TesseraPlacement.Grid {
         symbolIDs: subgrid.resolvedSymbolIDs,
         symbolOrder: subgrid.symbolOrder,
         seed: subgrid.seed,
+        grid: subgrid.grid?.internalLocalGrid,
       )
     }
 

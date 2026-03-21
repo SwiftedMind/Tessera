@@ -843,12 +843,26 @@ enum TesseraFingerprintBuilder {
         hasher.combineSequence(subgrid.resolvedSymbolIDs) { hasher, symbolID in
           hasher.combine(symbolID)
         }
-        combine(gridSymbolOrder: subgrid.symbolOrder, into: &hasher)
-        if let seed = subgrid.seed {
+        if let localGrid = subgrid.grid {
           hasher.combine(1)
-          hasher.combine(seed)
+          combine(gridSizing: localGrid.sizing, into: &hasher)
+          combine(gridOffsetStrategy: localGrid.offsetStrategy, into: &hasher)
+          combine(gridSymbolOrder: localGrid.symbolOrder, into: &hasher)
+          if let seed = localGrid.seed {
+            hasher.combine(1)
+            hasher.combine(seed)
+          } else {
+            hasher.combine(0)
+          }
         } else {
           hasher.combine(0)
+          combine(gridSymbolOrder: subgrid.symbolOrder, into: &hasher)
+          if let seed = subgrid.seed {
+            hasher.combine(1)
+            hasher.combine(seed)
+          } else {
+            hasher.combine(0)
+          }
         }
       }
     }

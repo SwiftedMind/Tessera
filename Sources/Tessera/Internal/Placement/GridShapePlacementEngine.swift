@@ -14,6 +14,7 @@ enum GridShapePlacementEngine {
   static let maximumFixedLatticeIndexMagnitude = 1_000_000_000
 
   struct ResolvedSubgridArea: Sendable {
+    var sourceSubgridIndex: Int
     var acceptedSubgridIndex: Int
     var originRowIndex: Int
     var originColumnIndex: Int
@@ -46,6 +47,15 @@ enum GridShapePlacementEngine {
     var shuffledSymbolIndices: [Int]?
     var cumulativeWeights: [Double]
     var totalWeight: Double
+    var localGrid: ResolvedSubgridLocalGrid?
+  }
+
+  struct ResolvedSubgridLocalGrid: Sendable {
+    var resolvedGrid: ResolvedGrid
+    var subgridRect: CGRect
+    var offsetStrategy: PlacementModel.GridOffsetStrategy
+    var normalizedOffset: Double
+    var firstVisibleReservedGridIndex: Int
   }
 
   /// Generates placed symbol descriptors using the grid placement configuration.
@@ -207,6 +217,7 @@ enum GridShapePlacementEngine {
       for visibleColumnIndex in 0..<resolvedGrid.columnCount {
         if Task.isCancelled { return placedDescriptors }
 
+        let absoluteColumnIndex = resolvedGrid.absoluteColumnIndex(forVisibleColumnIndex: visibleColumnIndex)
         let gridIndex = cellIndexInGrid(
           row: visibleRowIndex,
           column: visibleColumnIndex,
@@ -220,39 +231,50 @@ enum GridShapePlacementEngine {
 
         if let subgridAssignment = subgridCellAssignments[gridIndex] {
           let subgridContext = subgridContexts[subgridAssignment.acceptedSubgridIndex]
+          if let localGrid = subgridContext.localGrid {
+            guard localGrid.firstVisibleReservedGridIndex == gridIndex else {
+              continue
+            }
+
+            placedDescriptors.append(contentsOf: generateLocalSubgridPlacements(
+              context: subgridContext,
+              configuration: configuration,
+              canvasSize: size,
+              placementRect: placementRect,
+              edgeBehavior: edgeBehavior,
+              region: region,
+              maskContains: maskContains,
+              maskConstraintMode: maskConstraintMode,
+              finiteCanvasRect: finiteCanvasRect,
+              finiteCanvasPolygons: finiteCanvasPolygons,
+              finiteCanvasTransform: finiteCanvasTransform,
+              pinnedColliders: pinnedColliders,
+              pinnedIndices: pinnedIndices,
+              wrapOffsets: wrapOffsets,
+              polygonCache: polygonCache,
+              choiceSequenceState: &choiceSequenceState,
+            ))
+            continue
+          }
+
           let subgridSymbolCount = subgridContext.symbolDescriptors.count
           guard subgridSymbolCount > 0 else { continue }
 
-          let resolvedSymbolIndex: Int
-          switch subgridContext.symbolOrder {
-          case .rowMajor, .columnMajor:
-            resolvedSymbolIndex = subgridAssignment.localAssignmentIndex
-          case .diagonal:
-            resolvedSymbolIndex = subgridAssignment.localRowIndex + subgridAssignment.localColumnIndex
-          case .snake:
-            let snakeColumn = subgridAssignment.localRowIndex.isMultiple(of: 2)
-              ? subgridAssignment.localColumnIndex
-              : (subgridContext.area.columnCount - 1 - subgridAssignment.localColumnIndex)
-            resolvedSymbolIndex = subgridAssignment.localRowIndex * subgridContext.area.columnCount + snakeColumn
-          case .shuffle:
-            resolvedSymbolIndex = subgridContext.shuffledSymbolIndices?[subgridAssignment.localAssignmentIndex] ??
-              subgridAssignment.localAssignmentIndex
-          case .randomWeightedPerCell:
-            var randomGenerator = SeededGenerator(
-              seed: GridSymbolAssignment.symbolSeed(
-                baseSeed: subgridContext.seed,
-                rowIndex: subgridAssignment.localRowIndex,
-                columnIndex: subgridAssignment.localColumnIndex,
-                cellIndex: subgridAssignment.localAssignmentIndex,
-              ),
-            )
-            resolvedSymbolIndex = GridSymbolAssignment.randomWeightedSymbolIndex(
-              symbolCount: subgridSymbolCount,
-              cumulativeWeights: subgridContext.cumulativeWeights,
-              totalWeight: subgridContext.totalWeight,
-              randomGenerator: &randomGenerator,
-            )
-          }
+          let resolvedSymbolIndex = resolvedSymbolIndex(
+            symbolOrder: subgridContext.symbolOrder,
+            assignmentIndex: subgridAssignment.localAssignmentIndex,
+            orderRowIndex: subgridAssignment.localRowIndex,
+            orderColumnIndex: subgridAssignment.localColumnIndex,
+            orderColumnCount: subgridContext.area.columnCount,
+            shuffledSymbolIndices: subgridContext.shuffledSymbolIndices,
+            randomSeedBase: subgridContext.seed,
+            randomSeedRowIndex: subgridAssignment.localRowIndex,
+            randomSeedColumnIndex: subgridAssignment.localColumnIndex,
+            randomSeedCellIndex: subgridAssignment.localAssignmentIndex,
+            symbolCount: subgridSymbolCount,
+            cumulativeWeights: subgridContext.cumulativeWeights,
+            totalWeight: subgridContext.totalWeight,
+          )
 
           selectedSymbol = subgridContext.symbolDescriptors[resolvedSymbolIndex % subgridSymbolCount]
           symbolSeedRowIndex = subgridAssignment.localRowIndex
@@ -275,211 +297,384 @@ enum GridShapePlacementEngine {
           let regularSeedCellIndex = regularGridSeedCellIndex(
             for: resolvedGrid,
             absoluteRowIndex: absoluteRowIndex,
-            absoluteColumnIndex: resolvedGrid.absoluteColumnIndex(forVisibleColumnIndex: visibleColumnIndex),
+            absoluteColumnIndex: absoluteColumnIndex,
             countSizedAssignmentIndex: currentRegularAssignmentIndex,
           )
 
-          let resolvedSymbolIndex: Int
-          switch configuration.symbolOrder {
-          case .rowMajor, .columnMajor:
-            resolvedSymbolIndex = currentRegularAssignmentIndex
-          case .diagonal:
-            resolvedSymbolIndex = visibleRowIndex + visibleColumnIndex
-          case .snake:
-            let snakeColumn = visibleRowIndex.isMultiple(of: 2)
-              ? visibleColumnIndex
-              : (resolvedGrid.columnCount - 1 - visibleColumnIndex)
-            resolvedSymbolIndex = visibleRowIndex * resolvedGrid.columnCount + snakeColumn
-          case .shuffle:
-            resolvedSymbolIndex = shuffledSymbolIndices?[currentRegularAssignmentIndex] ?? currentRegularAssignmentIndex
-          case .randomWeightedPerCell:
-            var randomGenerator = SeededGenerator(
-              seed: GridSymbolAssignment.symbolSeed(
-                baseSeed: configuration.seed,
-                rowIndex: absoluteRowIndex,
-                columnIndex: resolvedGrid.absoluteColumnIndex(forVisibleColumnIndex: visibleColumnIndex),
-                cellIndex: regularSeedCellIndex,
-              ),
-            )
-            resolvedSymbolIndex = GridSymbolAssignment.randomWeightedSymbolIndex(
-              symbolCount: regularSymbolCount,
-              cumulativeWeights: cumulativeWeights,
-              totalWeight: totalWeight,
-              randomGenerator: &randomGenerator,
-            )
-          }
+          let resolvedSymbolIndex = resolvedSymbolIndex(
+            symbolOrder: configuration.symbolOrder,
+            assignmentIndex: currentRegularAssignmentIndex,
+            orderRowIndex: visibleRowIndex,
+            orderColumnIndex: visibleColumnIndex,
+            orderColumnCount: resolvedGrid.columnCount,
+            shuffledSymbolIndices: shuffledSymbolIndices,
+            randomSeedBase: configuration.seed,
+            randomSeedRowIndex: absoluteRowIndex,
+            randomSeedColumnIndex: absoluteColumnIndex,
+            randomSeedCellIndex: regularSeedCellIndex,
+            symbolCount: regularSymbolCount,
+            cumulativeWeights: cumulativeWeights,
+            totalWeight: totalWeight,
+          )
 
           selectedSymbol = regularSymbolDescriptors[resolvedSymbolIndex % regularSymbolCount]
           symbolSeedRowIndex = absoluteRowIndex
-          symbolSeedColumnIndex = resolvedGrid.absoluteColumnIndex(forVisibleColumnIndex: visibleColumnIndex)
+          symbolSeedColumnIndex = absoluteColumnIndex
           symbolSeedCellIndex = regularSeedCellIndex
         }
 
-        let choiceSeed = GridSymbolAssignment.choiceSeed(
-          baseSeed: configuration.seed,
-          rowIndex: symbolSeedRowIndex,
-          columnIndex: symbolSeedColumnIndex,
-          cellIndex: symbolSeedCellIndex,
-          symbolID: selectedSymbol.id,
-          symbolChoiceSeed: selectedSymbol.choiceSeed,
-        )
-        var choiceRandomGenerator = SeededGenerator(seed: choiceSeed)
-        var tentativeChoiceSequenceState = choiceSequenceState
-        guard let selectedRenderSymbol = ShapePlacementEngine.resolveLeafSymbolDescriptor(
-          from: selectedSymbol,
-          randomGenerator: &choiceRandomGenerator,
-          sequenceState: &tentativeChoiceSequenceState,
-        ) else { continue }
-
-        let baseRotationRadians = rotationRadiansForGrid(
-          rangeDegrees: selectedRenderSymbol.allowedRotationRangeDegrees,
-          baseSeed: configuration.seed,
-          rowIndex: symbolSeedRowIndex,
-          columnIndex: symbolSeedColumnIndex,
-          cellIndex: symbolSeedCellIndex,
-        )
-
-        guard let selectedPolygons = polygonCache[selectedRenderSymbol.id] else { continue }
-
         let basePosition = gridCellCenter(
-          absoluteColumnIndex: resolvedGrid.absoluteColumnIndex(forVisibleColumnIndex: visibleColumnIndex),
+          absoluteColumnIndex: absoluteColumnIndex,
           absoluteRowIndex: absoluteRowIndex,
           grid: resolvedGrid,
         )
         let offset = gridOffset(
           for: configuration.offsetStrategy,
           normalizedOffset: normalizedOffset,
-          absoluteColumnIndex: resolvedGrid.absoluteColumnIndex(forVisibleColumnIndex: visibleColumnIndex),
+          absoluteColumnIndex: absoluteColumnIndex,
           absoluteRowIndex: absoluteRowIndex,
           cellSize: resolvedGrid.cellSize,
         )
-        let phaseSymbolID = configuration.symbolPhases[selectedRenderSymbol.id] == nil
-          ? selectedSymbol.id
-          : selectedRenderSymbol.id
-        let symbolPhaseOffset = symbolPhaseOffset(
-          for: phaseSymbolID,
+        guard let candidate = resolvePlacedSymbolDescriptor(
+          selectedSymbol: selectedSymbol,
+          baseSeed: configuration.seed,
+          symbolSeedRowIndex: symbolSeedRowIndex,
+          symbolSeedColumnIndex: symbolSeedColumnIndex,
+          symbolSeedCellIndex: symbolSeedCellIndex,
+          basePosition: basePosition,
+          gridOffset: offset,
           symbolPhases: configuration.symbolPhases,
-          cellSize: resolvedGrid.cellSize,
-        )
-        var position = CGPoint(
-          x: placementRect.minX + basePosition.x + offset.width + symbolPhaseOffset.width,
-          y: placementRect.minY + basePosition.y + offset.height + symbolPhaseOffset.height,
-        )
-
-        switch edgeBehavior {
-        case .finite:
-          break
-
-        case .seamlessWrapping:
-          position = ShapePlacementWrapping.wrappedPosition(position, in: size)
-        }
-
-        if let region, region.contains(position) == false {
-          continue
-        }
-
-        if let maskContains, maskContains(position) == false {
-          continue
-        }
-
-        let scaleMultiplier = max(
-          0,
-          ShapePlacementSteering.value(
-            for: configuration.steering.scaleMultiplier,
-            position: position,
-            canvasSize: size,
-            defaultValue: 1,
-          ),
-        )
-        let baseScale = selectedRenderSymbol.resolvedScaleRange.lowerBound
-        let scale = max(0, baseScale * scaleMultiplier)
-        let rotationMultiplier = max(
-          0,
-          ShapePlacementSteering.value(
-            for: configuration.steering.rotationMultiplier,
-            position: position,
-            canvasSize: size,
-            defaultValue: 1,
-          ),
-        )
-        let rotationOffsetDegrees = ShapePlacementSteering.value(
-          for: configuration.steering.rotationOffsetDegrees,
-          position: position,
+          phaseCellSize: resolvedGrid.cellSize,
+          positionOrigin: placementRect.origin,
+          steering: configuration.steering,
           canvasSize: size,
-          defaultValue: 0,
-        )
-        let rotationOffsetRadians = rotationOffsetDegrees * Double.pi / 180
-        let rotationRadians = baseRotationRadians * rotationMultiplier + rotationOffsetRadians
-
-        let candidateCollisionShape = selectedRenderSymbol.collisionShape
-        let candidateTransform = CollisionTransform(
-          position: position,
-          rotation: CGFloat(rotationRadians),
-          scale: CGFloat(scale),
-        )
-
-        if let finiteCanvasRect,
-           let finiteCanvasPolygons,
-           let finiteCanvasTransform,
-           placementIntersectsFiniteCanvas(
-             polygons: selectedPolygons,
-             collisionTransform: candidateTransform,
-             boundingRadius: candidateCollisionShape.boundingRadius(atScale: candidateTransform.scale),
-             finiteCanvasRect: finiteCanvasRect,
-             finiteCanvasPolygons: finiteCanvasPolygons,
-             finiteCanvasTransform: finiteCanvasTransform,
-           ) == false {
+          edgeBehavior: edgeBehavior,
+          region: region,
+          maskContains: maskContains,
+          maskConstraintMode: maskConstraintMode,
+          finiteCanvasRect: finiteCanvasRect,
+          finiteCanvasPolygons: finiteCanvasPolygons,
+          finiteCanvasTransform: finiteCanvasTransform,
+          pinnedColliders: pinnedColliders,
+          pinnedIndices: pinnedIndices,
+          wrapOffsets: wrapOffsets,
+          polygonCache: polygonCache,
+          choiceSequenceState: &choiceSequenceState,
+        ) else {
           continue
         }
 
-        if let maskContains,
-           ShapePlacementMaskConstraint.isPlacementInsideMask(
-             contains: maskContains,
-             collisionTransform: candidateTransform,
-             polygons: selectedPolygons,
-             mode: maskConstraintMode,
-             centerAlreadyValidated: true,
-           ) == false {
-          continue
-        }
-
-        let candidateCollision = ShapePlacementCollision.PlacementCandidate(
-          collisionShape: candidateCollisionShape,
-          collisionTransform: candidateTransform,
-          polygons: selectedPolygons,
-          boundingRadius: candidateCollisionShape.boundingRadius(atScale: candidateTransform.scale),
-          minimumSpacing: 0,
-        )
-
-        if pinnedColliders.isEmpty == false {
-          let isValid = ShapePlacementCollision.isPlacementValid(
-            candidate: candidateCollision,
-            existingColliderIndices: pinnedIndices,
-            allColliders: pinnedColliders,
-            tileSize: size,
-            edgeBehavior: edgeBehavior,
-            wrapOffsets: wrapOffsets,
-          )
-
-          guard isValid else { continue }
-        }
-
-        choiceSequenceState = tentativeChoiceSequenceState
-        let candidate = PlacedSymbolDescriptor(
-          symbolId: selectedSymbol.id,
-          renderSymbolId: selectedRenderSymbol.id,
-          zIndex: selectedSymbol.zIndex,
-          sourceOrder: selectedSymbol.sourceOrder,
-          position: position,
-          rotationRadians: rotationRadians,
-          scale: CGFloat(scale),
-          collisionShape: candidateCollisionShape,
-        )
         placedDescriptors.append(candidate)
       }
     }
 
     return placedDescriptors
+  }
+
+  private static func generateLocalSubgridPlacements(
+    context: ResolvedSubgridPlacementContext,
+    configuration: PlacementModel.Grid,
+    canvasSize: CGSize,
+    placementRect: CGRect,
+    edgeBehavior: TesseraEdgeBehavior,
+    region: TesseraResolvedPolygonRegion?,
+    maskContains: ((CGPoint) -> Bool)?,
+    maskConstraintMode: ShapePlacementMaskConstraint.Mode,
+    finiteCanvasRect: CGRect?,
+    finiteCanvasPolygons: [CollisionPolygon]?,
+    finiteCanvasTransform: CollisionTransform?,
+    pinnedColliders: [PlacedCollider],
+    pinnedIndices: [Int],
+    wrapOffsets: [CGPoint],
+    polygonCache: [UUID: [CollisionPolygon]],
+    choiceSequenceState: inout ShapePlacementEngine.ChoiceSequenceState,
+  ) -> [PlacedSymbolDescriptor] {
+    guard let localGrid = context.localGrid else { return [] }
+
+    let localResolvedGrid = localGrid.resolvedGrid
+    guard let totalCellCount = localResolvedGrid.safeTotalCellCount, totalCellCount > 0 else {
+      return []
+    }
+
+    let localPositionOrigin = CGPoint(
+      x: placementRect.minX + localGrid.subgridRect.minX,
+      y: placementRect.minY + localGrid.subgridRect.minY,
+    )
+    var descriptors: [PlacedSymbolDescriptor] = []
+    descriptors.reserveCapacity(totalCellCount)
+
+    for visibleRowIndex in 0..<localResolvedGrid.rowCount {
+      let absoluteRowIndex = localResolvedGrid.absoluteRowIndex(forVisibleRowIndex: visibleRowIndex)
+
+      for visibleColumnIndex in 0..<localResolvedGrid.columnCount {
+        let absoluteColumnIndex = localResolvedGrid.absoluteColumnIndex(forVisibleColumnIndex: visibleColumnIndex)
+        let gridIndex = cellIndexInGrid(
+          row: visibleRowIndex,
+          column: visibleColumnIndex,
+          columnCount: localResolvedGrid.columnCount,
+        )
+        let currentAssignmentIndex = context.symbolOrder == .columnMajor
+          ? cellIndexInGrid(
+            row: visibleColumnIndex,
+            column: visibleRowIndex,
+            columnCount: localResolvedGrid.rowCount,
+          )
+          : gridIndex
+
+        let symbolCount = context.symbolDescriptors.count
+        guard symbolCount > 0 else { continue }
+
+        let seedCellIndex = regularGridSeedCellIndex(
+          for: localResolvedGrid,
+          absoluteRowIndex: absoluteRowIndex,
+          absoluteColumnIndex: absoluteColumnIndex,
+          countSizedAssignmentIndex: currentAssignmentIndex,
+        )
+        let resolvedSymbolIndex = resolvedSymbolIndex(
+          symbolOrder: context.symbolOrder,
+          assignmentIndex: currentAssignmentIndex,
+          orderRowIndex: visibleRowIndex,
+          orderColumnIndex: visibleColumnIndex,
+          orderColumnCount: localResolvedGrid.columnCount,
+          shuffledSymbolIndices: context.shuffledSymbolIndices,
+          randomSeedBase: context.seed,
+          randomSeedRowIndex: absoluteRowIndex,
+          randomSeedColumnIndex: absoluteColumnIndex,
+          randomSeedCellIndex: seedCellIndex,
+          symbolCount: symbolCount,
+          cumulativeWeights: context.cumulativeWeights,
+          totalWeight: context.totalWeight,
+        )
+
+        let selectedSymbol = context.symbolDescriptors[resolvedSymbolIndex % symbolCount]
+        let basePosition = gridCellCenter(
+          absoluteColumnIndex: absoluteColumnIndex,
+          absoluteRowIndex: absoluteRowIndex,
+          grid: localResolvedGrid,
+        )
+        let offset = localSubgridGridOffset(
+          for: localGrid.offsetStrategy,
+          normalizedOffset: localGrid.normalizedOffset,
+          absoluteColumnIndex: absoluteColumnIndex,
+          absoluteRowIndex: absoluteRowIndex,
+          cellSize: localResolvedGrid.cellSize,
+          rowCount: localResolvedGrid.rowCount,
+          columnCount: localResolvedGrid.columnCount,
+        )
+
+        guard let candidate = resolvePlacedSymbolDescriptor(
+          selectedSymbol: selectedSymbol,
+          baseSeed: configuration.seed,
+          symbolSeedRowIndex: absoluteRowIndex,
+          symbolSeedColumnIndex: absoluteColumnIndex,
+          symbolSeedCellIndex: seedCellIndex,
+          basePosition: basePosition,
+          gridOffset: offset,
+          symbolPhases: configuration.symbolPhases,
+          phaseCellSize: localResolvedGrid.cellSize,
+          positionOrigin: localPositionOrigin,
+          steering: configuration.steering,
+          canvasSize: canvasSize,
+          edgeBehavior: edgeBehavior,
+          region: region,
+          maskContains: maskContains,
+          maskConstraintMode: maskConstraintMode,
+          finiteCanvasRect: finiteCanvasRect,
+          finiteCanvasPolygons: finiteCanvasPolygons,
+          finiteCanvasTransform: finiteCanvasTransform,
+          pinnedColliders: pinnedColliders,
+          pinnedIndices: pinnedIndices,
+          wrapOffsets: wrapOffsets,
+          polygonCache: polygonCache,
+          choiceSequenceState: &choiceSequenceState,
+        ) else {
+          continue
+        }
+
+        descriptors.append(candidate)
+      }
+    }
+
+    return descriptors
+  }
+
+  private static func resolvePlacedSymbolDescriptor(
+    selectedSymbol: PlacementSymbolDescriptor,
+    baseSeed: UInt64,
+    symbolSeedRowIndex: Int,
+    symbolSeedColumnIndex: Int,
+    symbolSeedCellIndex: Int,
+    basePosition: CGPoint,
+    gridOffset: CGSize,
+    symbolPhases: [UUID: PlacementModel.Grid.SymbolPhase],
+    phaseCellSize: CGSize,
+    positionOrigin: CGPoint,
+    steering: PlacementModel.GridSteering,
+    canvasSize: CGSize,
+    edgeBehavior: TesseraEdgeBehavior,
+    region: TesseraResolvedPolygonRegion?,
+    maskContains: ((CGPoint) -> Bool)?,
+    maskConstraintMode: ShapePlacementMaskConstraint.Mode,
+    finiteCanvasRect: CGRect?,
+    finiteCanvasPolygons: [CollisionPolygon]?,
+    finiteCanvasTransform: CollisionTransform?,
+    pinnedColliders: [PlacedCollider],
+    pinnedIndices: [Int],
+    wrapOffsets: [CGPoint],
+    polygonCache: [UUID: [CollisionPolygon]],
+    choiceSequenceState: inout ShapePlacementEngine.ChoiceSequenceState,
+  ) -> PlacedSymbolDescriptor? {
+    let choiceSeed = GridSymbolAssignment.choiceSeed(
+      baseSeed: baseSeed,
+      rowIndex: symbolSeedRowIndex,
+      columnIndex: symbolSeedColumnIndex,
+      cellIndex: symbolSeedCellIndex,
+      symbolID: selectedSymbol.id,
+      symbolChoiceSeed: selectedSymbol.choiceSeed,
+    )
+    var choiceRandomGenerator = SeededGenerator(seed: choiceSeed)
+    var tentativeChoiceSequenceState = choiceSequenceState
+    guard let selectedRenderSymbol = ShapePlacementEngine.resolveLeafSymbolDescriptor(
+      from: selectedSymbol,
+      randomGenerator: &choiceRandomGenerator,
+      sequenceState: &tentativeChoiceSequenceState,
+    ) else {
+      return nil
+    }
+
+    let baseRotationRadians = rotationRadiansForGrid(
+      rangeDegrees: selectedRenderSymbol.allowedRotationRangeDegrees,
+      baseSeed: baseSeed,
+      rowIndex: symbolSeedRowIndex,
+      columnIndex: symbolSeedColumnIndex,
+      cellIndex: symbolSeedCellIndex,
+    )
+
+    guard let selectedPolygons = polygonCache[selectedRenderSymbol.id] else {
+      return nil
+    }
+
+    let phaseSymbolID = symbolPhases[selectedRenderSymbol.id] == nil
+      ? selectedSymbol.id
+      : selectedRenderSymbol.id
+    let symbolPhaseOffset = symbolPhaseOffset(
+      for: phaseSymbolID,
+      symbolPhases: symbolPhases,
+      cellSize: phaseCellSize,
+    )
+    var position = CGPoint(
+      x: positionOrigin.x + basePosition.x + gridOffset.width + symbolPhaseOffset.width,
+      y: positionOrigin.y + basePosition.y + gridOffset.height + symbolPhaseOffset.height,
+    )
+
+    switch edgeBehavior {
+    case .finite:
+      break
+    case .seamlessWrapping:
+      position = ShapePlacementWrapping.wrappedPosition(position, in: canvasSize)
+    }
+
+    if let region, region.contains(position) == false {
+      return nil
+    }
+
+    if let maskContains, maskContains(position) == false {
+      return nil
+    }
+
+    let scaleMultiplier = max(
+      0,
+      ShapePlacementSteering.value(
+        for: steering.scaleMultiplier,
+        position: position,
+        canvasSize: canvasSize,
+        defaultValue: 1,
+      ),
+    )
+    let baseScale = selectedRenderSymbol.resolvedScaleRange.lowerBound
+    let scale = max(0, baseScale * scaleMultiplier)
+    let rotationMultiplier = max(
+      0,
+      ShapePlacementSteering.value(
+        for: steering.rotationMultiplier,
+        position: position,
+        canvasSize: canvasSize,
+        defaultValue: 1,
+      ),
+    )
+    let rotationOffsetDegrees = ShapePlacementSteering.value(
+      for: steering.rotationOffsetDegrees,
+      position: position,
+      canvasSize: canvasSize,
+      defaultValue: 0,
+    )
+    let rotationOffsetRadians = rotationOffsetDegrees * Double.pi / 180
+    let rotationRadians = baseRotationRadians * rotationMultiplier + rotationOffsetRadians
+
+    let candidateCollisionShape = selectedRenderSymbol.collisionShape
+    let candidateTransform = CollisionTransform(
+      position: position,
+      rotation: CGFloat(rotationRadians),
+      scale: CGFloat(scale),
+    )
+
+    if let finiteCanvasRect,
+       let finiteCanvasPolygons,
+       let finiteCanvasTransform,
+       placementIntersectsFiniteCanvas(
+         polygons: selectedPolygons,
+         collisionTransform: candidateTransform,
+         boundingRadius: candidateCollisionShape.boundingRadius(atScale: candidateTransform.scale),
+         finiteCanvasRect: finiteCanvasRect,
+         finiteCanvasPolygons: finiteCanvasPolygons,
+         finiteCanvasTransform: finiteCanvasTransform,
+       ) == false {
+      return nil
+    }
+
+    if let maskContains,
+       ShapePlacementMaskConstraint.isPlacementInsideMask(
+         contains: maskContains,
+         collisionTransform: candidateTransform,
+         polygons: selectedPolygons,
+         mode: maskConstraintMode,
+         centerAlreadyValidated: true,
+       ) == false {
+      return nil
+    }
+
+    let candidateCollision = ShapePlacementCollision.PlacementCandidate(
+      collisionShape: candidateCollisionShape,
+      collisionTransform: candidateTransform,
+      polygons: selectedPolygons,
+      boundingRadius: candidateCollisionShape.boundingRadius(atScale: candidateTransform.scale),
+      minimumSpacing: 0,
+    )
+
+    if pinnedColliders.isEmpty == false {
+      let isValid = ShapePlacementCollision.isPlacementValid(
+        candidate: candidateCollision,
+        existingColliderIndices: pinnedIndices,
+        allColliders: pinnedColliders,
+        tileSize: canvasSize,
+        edgeBehavior: edgeBehavior,
+        wrapOffsets: wrapOffsets,
+      )
+
+      guard isValid else { return nil }
+    }
+
+    choiceSequenceState = tentativeChoiceSequenceState
+    return PlacedSymbolDescriptor(
+      symbolId: selectedSymbol.id,
+      renderSymbolId: selectedRenderSymbol.id,
+      zIndex: selectedSymbol.zIndex,
+      sourceOrder: selectedSymbol.sourceOrder,
+      position: position,
+      rotationRadians: rotationRadians,
+      scale: CGFloat(scale),
+      collisionShape: candidateCollisionShape,
+    )
   }
 
   static func resolveAcceptedSubgridAreas(
@@ -489,10 +684,11 @@ enum GridShapePlacementEngine {
   ) -> [ResolvedSubgridArea] {
     var acceptedSubgrids: [ResolvedSubgridArea] = []
 
-    for subgrid in subgrids {
+    for (sourceSubgridIndex, subgrid) in subgrids.enumerated() {
       guard let candidateArea = resolvedSubgridArea(
         for: subgrid,
         in: grid,
+        sourceSubgridIndex: sourceSubgridIndex,
         acceptedSubgridIndex: acceptedSubgrids.count,
         knownSymbolIDs: knownSymbolIDs,
       ) else {
@@ -530,7 +726,7 @@ enum GridShapePlacementEngine {
     var contexts: [ResolvedSubgridPlacementContext] = []
     var cellAssignments = [ResolvedSubgridCellAssignment?](repeating: nil, count: totalCellCount)
 
-    for subgrid in subgrids {
+    for (sourceSubgridIndex, subgrid) in subgrids.enumerated() {
       let origin = subgrid.origin
       let span = subgrid.span
       // Fixed-cell grids can expose negative lattice indices when the origin is offset into the canvas,
@@ -553,6 +749,7 @@ enum GridShapePlacementEngine {
       guard let resolvedArea = resolvedSubgridArea(
         for: subgrid,
         in: grid,
+        sourceSubgridIndex: sourceSubgridIndex,
         acceptedSubgridIndex: contexts.count,
       ) else {
         reportIgnoredSubgrid("subgrid does not intersect the resolved grid")
@@ -574,20 +771,44 @@ enum GridShapePlacementEngine {
       }
 
       let acceptedSubgridIndex = contexts.count
-      let resolvedSeed = subgrid.seed ?? derivedSubgridSeed(
+      let derivedSeed = derivedSubgridSeed(
         baseSeed: baseSeed,
         acceptedSubgridIndex: acceptedSubgridIndex,
       )
-      let subgridCellCount = span.rows * span.columns
+      let resolvedSubgridSeed = subgrid.seed ?? derivedSeed
+      let localGrid = subgrid.grid.flatMap {
+        resolvedLocalSubgridGrid(
+          for: $0,
+          area: resolvedArea,
+          in: grid,
+        )
+      }
+      let resolvedSeed = if localGrid == nil {
+        resolvedSubgridSeed
+      } else {
+        subgrid.grid?.seed ?? derivedSeed
+      }
+      let resolvedSymbolOrder = subgrid.grid?.symbolOrder ?? subgrid.symbolOrder
+      let subgridCellCount: Int
+      if let localGrid {
+        guard let localCellCount = localGrid.resolvedGrid.safeTotalCellCount, localCellCount > 0 else {
+          reportIgnoredSubgrid("local subgrid grid did not resolve any visible cells")
+          continue
+        }
 
-      let shuffledSymbolIndices = subgrid.symbolOrder == .shuffle
+        subgridCellCount = localCellCount
+      } else {
+        subgridCellCount = span.rows * span.columns
+      }
+
+      let shuffledSymbolIndices = resolvedSymbolOrder == .shuffle
         ? GridSymbolAssignment.shuffledSymbolIndices(
           symbolCount: resolvedSymbolDescriptors.count,
           totalCellCount: subgridCellCount,
           seed: resolvedSeed,
         )
         : nil
-      let cumulativeWeights = subgrid.symbolOrder == .randomWeightedPerCell
+      let cumulativeWeights = resolvedSymbolOrder == .randomWeightedPerCell
         ? GridSymbolAssignment.cumulativeWeights(for: resolvedSymbolDescriptors)
         : []
       let totalWeight = cumulativeWeights.last ?? 0
@@ -596,12 +817,13 @@ enum GridShapePlacementEngine {
       contexts.append(
         ResolvedSubgridPlacementContext(
           area: resolvedArea,
-          symbolOrder: subgrid.symbolOrder,
+          symbolOrder: resolvedSymbolOrder,
           seed: resolvedSeed,
           symbolDescriptors: resolvedSymbolDescriptors,
           shuffledSymbolIndices: shuffledSymbolIndices,
           cumulativeWeights: cumulativeWeights,
           totalWeight: totalWeight,
+          localGrid: localGrid,
         ),
       )
 
@@ -619,18 +841,28 @@ enum GridShapePlacementEngine {
           )
 
           reservedGridIndices.insert(gridIndex)
-          cellAssignments[gridIndex] = ResolvedSubgridCellAssignment(
-            acceptedSubgridIndex: acceptedSubgridIndex,
-            localRowIndex: localRowIndex,
-            localColumnIndex: localColumnIndex,
-            localAssignmentIndex: subgridAssignmentIndex(
-              for: subgrid.symbolOrder,
-              rowIndex: localRowIndex,
-              columnIndex: localColumnIndex,
-              rowCount: span.rows,
-              columnCount: span.columns,
-            ),
-          )
+          let cellAssignment = if localGrid == nil {
+            ResolvedSubgridCellAssignment(
+              acceptedSubgridIndex: acceptedSubgridIndex,
+              localRowIndex: localRowIndex,
+              localColumnIndex: localColumnIndex,
+              localAssignmentIndex: subgridAssignmentIndex(
+                for: subgrid.symbolOrder,
+                rowIndex: localRowIndex,
+                columnIndex: localColumnIndex,
+                rowCount: span.rows,
+                columnCount: span.columns,
+              ),
+            )
+          } else {
+            ResolvedSubgridCellAssignment(
+              acceptedSubgridIndex: acceptedSubgridIndex,
+              localRowIndex: 0,
+              localColumnIndex: 0,
+              localAssignmentIndex: 0,
+            )
+          }
+          cellAssignments[gridIndex] = cellAssignment
         }
       }
     }
@@ -645,6 +877,7 @@ enum GridShapePlacementEngine {
   private static func resolvedSubgridArea(
     for subgrid: PlacementModel.Grid.Subgrid,
     in grid: ResolvedGrid,
+    sourceSubgridIndex: Int,
     acceptedSubgridIndex: Int,
     knownSymbolIDs: Set<UUID>? = nil,
   ) -> ResolvedSubgridArea? {
@@ -681,6 +914,7 @@ enum GridShapePlacementEngine {
     }
 
     return ResolvedSubgridArea(
+      sourceSubgridIndex: sourceSubgridIndex,
       acceptedSubgridIndex: acceptedSubgridIndex,
       originRowIndex: origin.row,
       originColumnIndex: origin.column,
@@ -747,6 +981,51 @@ enum GridShapePlacementEngine {
     }
   }
 
+  private static func resolvedSymbolIndex(
+    symbolOrder: PlacementModel.GridSymbolOrder,
+    assignmentIndex: Int,
+    orderRowIndex: Int,
+    orderColumnIndex: Int,
+    orderColumnCount: Int,
+    shuffledSymbolIndices: [Int]?,
+    randomSeedBase: UInt64,
+    randomSeedRowIndex: Int,
+    randomSeedColumnIndex: Int,
+    randomSeedCellIndex: Int,
+    symbolCount: Int,
+    cumulativeWeights: [Double],
+    totalWeight: Double,
+  ) -> Int {
+    switch symbolOrder {
+    case .rowMajor, .columnMajor:
+      return assignmentIndex
+    case .diagonal:
+      return orderRowIndex + orderColumnIndex
+    case .snake:
+      let snakeColumn = orderRowIndex.isMultiple(of: 2)
+        ? orderColumnIndex
+        : (orderColumnCount - 1 - orderColumnIndex)
+      return orderRowIndex * orderColumnCount + snakeColumn
+    case .shuffle:
+      return shuffledSymbolIndices?[assignmentIndex] ?? assignmentIndex
+    case .randomWeightedPerCell:
+      var randomGenerator = SeededGenerator(
+        seed: GridSymbolAssignment.symbolSeed(
+          baseSeed: randomSeedBase,
+          rowIndex: randomSeedRowIndex,
+          columnIndex: randomSeedColumnIndex,
+          cellIndex: randomSeedCellIndex,
+        ),
+      )
+      return GridSymbolAssignment.randomWeightedSymbolIndex(
+        symbolCount: symbolCount,
+        cumulativeWeights: cumulativeWeights,
+        totalWeight: totalWeight,
+        randomGenerator: &randomGenerator,
+      )
+    }
+  }
+
   private static func derivedSubgridSeed(
     baseSeed: UInt64,
     acceptedSubgridIndex: Int,
@@ -800,16 +1079,33 @@ enum GridShapePlacementEngine {
     configuration: PlacementModel.Grid,
     edgeBehavior: TesseraEdgeBehavior,
   ) -> ResolvedGrid {
-    switch configuration.sizing {
+    resolveGrid(
+      for: size,
+      sizing: configuration.sizing,
+      offsetStrategy: configuration.offsetStrategy,
+      edgeBehavior: edgeBehavior,
+      adjustsCountSizingForSeamlessOffsets: true,
+    )
+  }
+
+  private static func resolveGrid(
+    for size: CGSize,
+    sizing: PlacementModel.Grid.Sizing,
+    offsetStrategy: PlacementModel.GridOffsetStrategy,
+    edgeBehavior: TesseraEdgeBehavior,
+    adjustsCountSizingForSeamlessOffsets: Bool,
+  ) -> ResolvedGrid {
+    switch sizing {
     case let .count(columns, rows):
-      let normalizedOffset = normalizedOffsetAmount(from: configuration.offsetStrategy)
-      let rowNeedsEven = edgeBehavior == .seamlessWrapping && normalizedOffset > 0 && rowShiftRequiresEvenRowCount(
-        for: configuration.offsetStrategy,
-      )
-      let columnNeedsEven = edgeBehavior == .seamlessWrapping && normalizedOffset > 0 &&
-        columnShiftRequiresEvenColumnCount(
-          for: configuration.offsetStrategy,
-        )
+      let normalizedOffset = normalizedOffsetAmount(from: offsetStrategy)
+      let rowNeedsEven = adjustsCountSizingForSeamlessOffsets &&
+        edgeBehavior == .seamlessWrapping &&
+        normalizedOffset > 0 &&
+        rowShiftRequiresEvenRowCount(for: offsetStrategy)
+      let columnNeedsEven = adjustsCountSizingForSeamlessOffsets &&
+        edgeBehavior == .seamlessWrapping &&
+        normalizedOffset > 0 &&
+        columnShiftRequiresEvenColumnCount(for: offsetStrategy)
       let columnCount = adjustedCountForOffsetRequirement(
         baseCount: columns,
         requiresEven: columnNeedsEven,
@@ -847,6 +1143,18 @@ enum GridShapePlacementEngine {
         origin: origin,
       )
     }
+  }
+
+  static func resolvedSubgridRect(
+    for area: ResolvedSubgridArea,
+    in grid: ResolvedGrid,
+  ) -> CGRect {
+    CGRect(
+      x: grid.x(forLatticeColumn: area.originColumnIndex),
+      y: grid.y(forLatticeRow: area.originRowIndex),
+      width: CGFloat(area.columnCount) * grid.cellSize.width,
+      height: CGFloat(area.rowCount) * grid.cellSize.height,
+    )
   }
 
   private static func resolvedPlacementRect(
@@ -997,6 +1305,39 @@ enum GridShapePlacementEngine {
     )
   }
 
+  static func resolvedLocalSubgridGrid(
+    for localGrid: PlacementModel.Grid.Subgrid.LocalGrid,
+    area: ResolvedSubgridArea,
+    in parentGrid: ResolvedGrid,
+  ) -> ResolvedSubgridLocalGrid? {
+    let subgridRect = resolvedSubgridRect(
+      for: area,
+      in: parentGrid,
+    )
+    let resolvedGrid = resolveGrid(
+      for: subgridRect.size,
+      sizing: localGrid.sizing,
+      offsetStrategy: localGrid.offsetStrategy,
+      edgeBehavior: .finite,
+      adjustsCountSizingForSeamlessOffsets: false,
+    )
+    let visibleRowIndex = area.visibleRowRange.lowerBound - parentGrid.rowRange.lowerBound
+    let visibleColumnIndex = area.visibleColumnRange.lowerBound - parentGrid.columnRange.lowerBound
+    let firstVisibleReservedGridIndex = cellIndexInGrid(
+      row: visibleRowIndex,
+      column: visibleColumnIndex,
+      columnCount: parentGrid.columnCount,
+    )
+
+    return ResolvedSubgridLocalGrid(
+      resolvedGrid: resolvedGrid,
+      subgridRect: subgridRect,
+      offsetStrategy: localGrid.offsetStrategy,
+      normalizedOffset: normalizedOffsetAmount(from: localGrid.offsetStrategy),
+      firstVisibleReservedGridIndex: firstVisibleReservedGridIndex,
+    )
+  }
+
   private static func adjustedCountForOffsetRequirement(
     baseCount: Int,
     requiresEven: Bool,
@@ -1007,6 +1348,35 @@ enum GridShapePlacementEngine {
 
     // Round up to the next even count to preserve seamless offsets.
     return max(2, baseCount + 1)
+  }
+
+  private static func localSubgridGridOffset(
+    for strategy: PlacementModel.GridOffsetStrategy,
+    normalizedOffset: Double,
+    absoluteColumnIndex: Int,
+    absoluteRowIndex: Int,
+    cellSize: CGSize,
+    rowCount: Int,
+    columnCount: Int,
+  ) -> CGSize {
+    switch strategy {
+    case .none:
+      .zero
+    case .rowShift where rowCount < 2:
+      .zero
+    case .columnShift where columnCount < 2:
+      .zero
+    case .checkerShift where rowCount < 2 || columnCount < 2:
+      .zero
+    case .rowShift, .columnShift, .checkerShift:
+      gridOffset(
+        for: strategy,
+        normalizedOffset: normalizedOffset,
+        absoluteColumnIndex: absoluteColumnIndex,
+        absoluteRowIndex: absoluteRowIndex,
+        cellSize: cellSize,
+      )
+    }
   }
 
   private static func rowShiftRequiresEvenRowCount(

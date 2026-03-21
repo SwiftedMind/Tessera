@@ -168,6 +168,41 @@ import Testing
   #expect(options.subgrids == subgrids)
 }
 
+@Test func gridPlacementFactoryMapsSubgridLocalGrid() async throws {
+  let symbolID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B8")!
+  let subgrids: [TesseraPlacement.Grid.Subgrid] = [
+    .init(
+      at: .init(row: 1, column: 2),
+      spanning: .init(rows: 2, columns: 3),
+      symbols: [
+        Symbol(id: symbolID, collider: .shape(.circle(center: .zero, radius: 1))) { Circle() },
+      ],
+      grid: .init(
+        sizing: .count(columns: 10, rows: 10),
+        offsetStrategy: .checkerShift(fraction: 0.15),
+        symbolOrder: .shuffle,
+        seed: 818,
+      ),
+    ),
+  ]
+  let placement = TesseraPlacement.grid(
+    columns: 6,
+    rows: 4,
+    subgrids: subgrids,
+  )
+
+  guard case let .grid(options) = placement else {
+    Issue.record("Expected grid placement")
+    return
+  }
+
+  #expect(options.subgrids == subgrids)
+  #expect(options.subgrids[0].grid?.sizing == .count(columns: 10, rows: 10))
+  #expect(options.subgrids[0].grid?.offsetStrategy == .checkerShift(fraction: 0.15))
+  #expect(options.subgrids[0].grid?.symbolOrder == .shuffle)
+  #expect(options.subgrids[0].grid?.seed == 818)
+}
+
 @Test func patternInitializerResolvesInlineSubgridSymbols() async throws {
   let regularID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B1")!
   let subgridID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B2")!
@@ -218,6 +253,7 @@ import Testing
   #expect(legacyOptions.subgrids[0].symbolIDs == [subgridID])
   #expect(legacyOptions.subgrids[0].symbolOrder == .snake)
   #expect(legacyOptions.subgrids[0].seed == 505)
+  #expect(legacyOptions.subgrids[0].grid == nil)
 }
 
 @Test func gridOptionsCanWrapInternalBaseConfiguration() async throws {
@@ -253,6 +289,104 @@ import Testing
   #expect(options.subgrids[0].symbols.isEmpty)
   #expect(options.subgrids[0].symbolOrder == .columnMajor)
   #expect(options.subgrids[0].seed == 123)
+  #expect(options.subgrids[0].grid == nil)
+}
+
+@Test func gridOptionsImportInternalSubgridLocalGrid() async throws {
+  let subgridID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B9")!
+  let internalBase = PlacementModel.Grid(
+    sizing: .count(columns: 7, rows: 5),
+    subgrids: [
+      .init(
+        at: .init(row: 1, column: 1),
+        spanning: .init(rows: 2, columns: 2),
+        symbolIDs: [subgridID],
+        grid: .init(
+          sizing: .fixed(
+            cellSize: CGSize(width: 24, height: 18),
+            origin: CGPoint(x: -6, y: 10),
+          ),
+          offsetStrategy: .rowShift(fraction: 0.25),
+          symbolOrder: .randomWeightedPerCell,
+          seed: 321,
+        ),
+      ),
+    ],
+  )
+  let options = TesseraPlacement.Grid(base: internalBase)
+
+  #expect(options.subgrids.count == 1)
+  #expect(options.subgrids[0].grid?.sizing == .fixed(
+    cellSize: CGSize(width: 24, height: 18),
+    origin: CGPoint(x: -6, y: 10),
+  ))
+  #expect(options.subgrids[0].grid?.offsetStrategy == .rowShift(fraction: 0.25))
+  #expect(options.subgrids[0].grid?.symbolOrder == .randomWeightedPerCell)
+  #expect(options.subgrids[0].grid?.seed == 321)
+}
+
+@Test func resolvedInternalGridOptionsPreserveSubgridLocalGrid() async throws {
+  let symbolID = UUID(uuidString: "00000000-0000-0000-0000-0000000000BB")!
+  let options = TesseraPlacement.Grid(
+    sizing: .count(columns: 6, rows: 4),
+    subgrids: [
+      .init(
+        at: .init(row: 1, column: 2),
+        spanning: .init(rows: 2, columns: 2),
+        symbols: [
+          Symbol(id: symbolID, collider: .shape(.circle(center: .zero, radius: 1))) { Circle() },
+        ],
+        grid: .init(
+          sizing: .count(columns: 5, rows: 5),
+          offsetStrategy: .checkerShift(fraction: 0.1),
+          symbolOrder: .shuffle,
+          seed: 515,
+        ),
+      ),
+    ],
+  )
+
+  let resolved = options.resolvedInternalGridOptions()
+
+  #expect(resolved.subgridSymbols.map(\.id) == [symbolID])
+  #expect(resolved.options.subgrids.count == 1)
+  #expect(resolved.options.subgrids[0].grid?.sizing == .count(columns: 5, rows: 5))
+  #expect(resolved.options.subgrids[0].grid?.offsetStrategy == .checkerShift(fraction: 0.1))
+  #expect(resolved.options.subgrids[0].grid?.symbolOrder == .shuffle)
+  #expect(resolved.options.subgrids[0].grid?.seed == 515)
+}
+
+@Test func subgridEqualityIgnoresLegacySeedAndOrderWhenLocalGridExists() async throws {
+  let symbolID = UUID(uuidString: "00000000-0000-0000-0000-0000000000C0")!
+  let first = TesseraPlacement.Grid.Subgrid(
+    at: .init(row: 1, column: 2),
+    spanning: .init(rows: 2, columns: 2),
+    symbols: [
+      Symbol(id: symbolID, collider: .shape(.circle(center: .zero, radius: 1))) { Circle() },
+    ],
+    symbolOrder: .rowMajor,
+    seed: 111,
+    grid: .init(
+      sizing: .count(columns: 4, rows: 4),
+      symbolOrder: .shuffle,
+    ),
+  )
+  let second = TesseraPlacement.Grid.Subgrid(
+    at: .init(row: 1, column: 2),
+    spanning: .init(rows: 2, columns: 2),
+    symbols: [
+      Symbol(id: symbolID, collider: .shape(.circle(center: .zero, radius: 1))) { Circle() },
+    ],
+    symbolOrder: .snake,
+    seed: 999,
+    grid: .init(
+      sizing: .count(columns: 4, rows: 4),
+      symbolOrder: .shuffle,
+    ),
+  )
+
+  #expect(first == second)
+  #expect(Set([first, second]).count == 1)
 }
 
 @Test func gridOptionsPreserveImportedSubgridIDsWhenAppendingInlineSymbols() async throws {

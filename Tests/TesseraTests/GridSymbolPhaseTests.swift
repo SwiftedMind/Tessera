@@ -205,6 +205,45 @@ import Testing
   #expect(placed.contains { $0.position == CGPoint(x: 250, y: 50) } == false)
 }
 
+@Test func symbolPhaseWithLocalSubgridGridUsesLocalCellUnits() async throws {
+  let regularID = UUID()
+  let subgridID = UUID()
+  let size = CGSize(width: 400, height: 200)
+  let configuration = PlacementModel.Grid(
+    sizing: .count(columns: 4, rows: 2),
+    offsetStrategy: .none,
+    symbolOrder: .rowMajor,
+    seed: 32,
+    symbolPhases: [subgridID: .init(x: 0.25, y: 0)],
+    subgrids: [
+      .init(
+        origin: .init(row: 0, column: 0),
+        span: .init(rows: 1, columns: 2),
+        symbolIDs: [subgridID],
+        grid: .init(
+          sizing: .count(columns: 4, rows: 1),
+        ),
+      ),
+    ],
+  )
+
+  let placed = GridShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: [
+      makeSymbolDescriptor(id: regularID),
+      makeSymbolDescriptor(id: subgridID),
+    ],
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .finite,
+    configuration: configuration,
+  )
+
+  #expect(placed.count == 10)
+  #expect(placed.contains { $0.symbolId == subgridID && $0.position == CGPoint(x: 37.5, y: 50) })
+  #expect(placed.contains { $0.symbolId == subgridID && $0.position == CGPoint(x: 87.5, y: 50) })
+  #expect(placed.contains { $0.position == CGPoint(x: 75, y: 50) } == false)
+}
+
 private func makeSymbolDescriptor(id: UUID) -> ShapePlacementEngine.PlacementSymbolDescriptor {
   ShapePlacementEngine.PlacementSymbolDescriptor(
     id: id,

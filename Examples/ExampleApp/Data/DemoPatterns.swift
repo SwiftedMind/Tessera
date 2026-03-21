@@ -1,6 +1,7 @@
 // By Dennis Müller
 
 import CoreGraphics
+import SwiftUI
 import Tessera
 
 enum DemoConfigurations {
@@ -58,8 +59,14 @@ enum DemoConfigurations {
             .init(
               at: .init(row: 2, column: 2),
               spanning: .init(rows: 2, columns: 2),
-              symbols: [.subgridDiamond],
+              symbols: [.subgridMiniDot],
               symbolOrder: .columnMajor,
+              grid: .init(
+                sizing: .count(columns: 10, rows: 10),
+                offsetStrategy: .rowShift(fraction: 0.5),
+                symbolOrder: .shuffle,
+                seed: 1202,
+              ),
             ),
             .init(
               at: .init(row: 2, column: 4),
@@ -78,6 +85,9 @@ enum DemoConfigurations {
               spanning: .init(rows: 3, columns: 3),
               symbols: [.subgridDiamond],
               symbolOrder: .shuffle,
+              grid: .init(
+                sizing: .count(columns: 1, rows: 1),
+              ),
             ),
           ],
         ),
