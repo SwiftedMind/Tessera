@@ -41,12 +41,14 @@ enum GridShapePlacementEngine {
 
   private struct ResolvedSubgridPlacementContext: Sendable {
     var area: ResolvedSubgridArea
+    var subgridRect: CGRect
     var symbolOrder: PlacementModel.GridSymbolOrder
     var seed: UInt64
     var symbolDescriptors: [PlacementSymbolDescriptor]
     var shuffledSymbolIndices: [Int]?
     var cumulativeWeights: [Double]
     var totalWeight: Double
+    var clipsToBounds: Bool
     var localGrid: ResolvedSubgridLocalGrid?
   }
 
@@ -228,9 +230,13 @@ enum GridShapePlacementEngine {
         let symbolSeedRowIndex: Int
         let symbolSeedColumnIndex: Int
         let symbolSeedCellIndex: Int
+        let clipRect: CGRect?
 
         if let subgridAssignment = subgridCellAssignments[gridIndex] {
           let subgridContext = subgridContexts[subgridAssignment.acceptedSubgridIndex]
+          clipRect = subgridContext.clipsToBounds
+            ? subgridContext.subgridRect.offsetBy(dx: placementRect.minX, dy: placementRect.minY)
+            : nil
           if let localGrid = subgridContext.localGrid {
             guard localGrid.firstVisibleReservedGridIndex == gridIndex else {
               continue
@@ -252,6 +258,7 @@ enum GridShapePlacementEngine {
               pinnedIndices: pinnedIndices,
               wrapOffsets: wrapOffsets,
               polygonCache: polygonCache,
+              clipRect: clipRect,
               choiceSequenceState: &choiceSequenceState,
             ))
             continue
@@ -321,6 +328,7 @@ enum GridShapePlacementEngine {
           symbolSeedRowIndex = absoluteRowIndex
           symbolSeedColumnIndex = absoluteColumnIndex
           symbolSeedCellIndex = regularSeedCellIndex
+          clipRect = nil
         }
 
         let basePosition = gridCellCenter(
@@ -359,6 +367,7 @@ enum GridShapePlacementEngine {
           pinnedIndices: pinnedIndices,
           wrapOffsets: wrapOffsets,
           polygonCache: polygonCache,
+          clipRect: clipRect,
           choiceSequenceState: &choiceSequenceState,
         ) else {
           continue
@@ -387,6 +396,7 @@ enum GridShapePlacementEngine {
     pinnedIndices: [Int],
     wrapOffsets: [CGPoint],
     polygonCache: [UUID: [CollisionPolygon]],
+    clipRect: CGRect?,
     choiceSequenceState: inout ShapePlacementEngine.ChoiceSequenceState,
   ) -> [PlacedSymbolDescriptor] {
     guard let localGrid = context.localGrid else { return [] }
@@ -486,6 +496,7 @@ enum GridShapePlacementEngine {
           pinnedIndices: pinnedIndices,
           wrapOffsets: wrapOffsets,
           polygonCache: polygonCache,
+          clipRect: clipRect,
           choiceSequenceState: &choiceSequenceState,
         ) else {
           continue
@@ -522,6 +533,7 @@ enum GridShapePlacementEngine {
     pinnedIndices: [Int],
     wrapOffsets: [CGPoint],
     polygonCache: [UUID: [CollisionPolygon]],
+    clipRect: CGRect?,
     choiceSequenceState: inout ShapePlacementEngine.ChoiceSequenceState,
   ) -> PlacedSymbolDescriptor? {
     let choiceSeed = GridSymbolAssignment.choiceSeed(
@@ -673,6 +685,7 @@ enum GridShapePlacementEngine {
       position: position,
       rotationRadians: rotationRadians,
       scale: CGFloat(scale),
+      clipRect: clipRect,
       collisionShape: candidateCollisionShape,
     )
   }
@@ -776,6 +789,10 @@ enum GridShapePlacementEngine {
         acceptedSubgridIndex: acceptedSubgridIndex,
       )
       let resolvedSubgridSeed = subgrid.seed ?? derivedSeed
+      let subgridRect = resolvedSubgridRect(
+        for: resolvedArea,
+        in: grid,
+      )
       let localGrid = subgrid.grid.flatMap {
         resolvedLocalSubgridGrid(
           for: $0,
@@ -817,12 +834,14 @@ enum GridShapePlacementEngine {
       contexts.append(
         ResolvedSubgridPlacementContext(
           area: resolvedArea,
+          subgridRect: subgridRect,
           symbolOrder: resolvedSymbolOrder,
           seed: resolvedSeed,
           symbolDescriptors: resolvedSymbolDescriptors,
           shuffledSymbolIndices: shuffledSymbolIndices,
           cumulativeWeights: cumulativeWeights,
           totalWeight: totalWeight,
+          clipsToBounds: subgrid.clipsToBounds,
           localGrid: localGrid,
         ),
       )

@@ -465,6 +465,7 @@ private extension MosaicPlacementPlanner {
         position: $0.position,
         rotationRadians: $0.rotationRadians,
         scale: $0.scale,
+        clipRect: $0.clipRect,
       )
     }
     let normalizedPlacements = ShapePlacementOrdering.normalized(
@@ -528,6 +529,7 @@ private extension MosaicPlacementPlanner {
         position: $0.position,
         rotationRadians: $0.rotationRadians,
         scale: $0.scale,
+        clipRect: $0.clipRect,
       )
     }
     let normalizedPlacements = ShapePlacementOrdering.normalized(
@@ -840,6 +842,7 @@ enum TesseraFingerprintBuilder {
         hasher.combine(subgrid.origin.column)
         hasher.combine(subgrid.span.rows)
         hasher.combine(subgrid.span.columns)
+        hasher.combine(subgrid.clipsToBounds)
         hasher.combineSequence(subgrid.resolvedSymbolIDs) { hasher, symbolID in
           hasher.combine(symbolID)
         }

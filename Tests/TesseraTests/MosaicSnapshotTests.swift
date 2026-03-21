@@ -398,6 +398,62 @@ import Testing
   #expect(fingerprintA != fingerprintB)
 }
 
+@Test func subgridClipsToBoundsChangesSnapshotFingerprint() {
+  let symbol = Symbol(
+    id: UUID(uuidString: "00000000-0000-0000-0000-0000000000C7")!,
+    collider: .shape(.circle(center: .zero, radius: 1)),
+  ) {
+    Circle()
+  }
+  let requestKey = SnapshotRequestKey.make(
+    mode: .canvas(size: CGSize(width: 100, height: 100), edgeBehavior: .finite),
+    resolvedSeed: 42,
+    region: .rectangle,
+    regionRendering: .clipped,
+    pinnedSymbols: [],
+  )
+  let unclippedPattern = Pattern(
+    symbols: [],
+    placement: .grid(
+      columns: 2,
+      rows: 2,
+      subgrids: [
+        .init(
+          at: .init(row: 0, column: 0),
+          spanning: .init(rows: 2, columns: 2),
+          symbols: [symbol],
+          grid: .init(
+            sizing: .fixed(cellSize: CGSize(width: 70, height: 70)),
+          ),
+        ),
+      ],
+    ),
+  )
+  let clippedPattern = Pattern(
+    symbols: [],
+    placement: .grid(
+      columns: 2,
+      rows: 2,
+      subgrids: [
+        .init(
+          at: .init(row: 0, column: 0),
+          spanning: .init(rows: 2, columns: 2),
+          symbols: [symbol],
+          clipsToBounds: true,
+          grid: .init(
+            sizing: .fixed(cellSize: CGSize(width: 70, height: 70)),
+          ),
+        ),
+      ],
+    ),
+  )
+
+  let fingerprintA = TesseraFingerprintBuilder.fingerprint(pattern: unclippedPattern, requestKey: requestKey)
+  let fingerprintB = TesseraFingerprintBuilder.fingerprint(pattern: clippedPattern, requestKey: requestKey)
+
+  #expect(fingerprintA != fingerprintB)
+}
+
 @Test func localSubgridIgnoresLegacySeedAndOrderInSnapshotFingerprint() {
   let symbol = Symbol(
     id: UUID(uuidString: "00000000-0000-0000-0000-0000000000C1")!,

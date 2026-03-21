@@ -116,6 +116,8 @@ public enum TesseraPlacement: Sendable {
       public var symbolOrder: GridSymbolOrder
       /// Optional seed used when `grid` is `nil`.
       public var seed: UInt64?
+      /// Whether rendered subgrid content is clipped to the subgrid rectangle.
+      public var clipsToBounds: Bool
       /// Optional local lattice definition used to subdivide this subgrid rectangle.
       public var grid: LocalGrid?
 
@@ -135,6 +137,7 @@ public enum TesseraPlacement: Sendable {
       ///   - symbols: Symbols dedicated to this subgrid.
       ///   - symbolOrder: Symbol assignment order used within this subgrid when `grid` is `nil`.
       ///   - seed: Optional subgrid seed used when `grid` is `nil`.
+      ///   - clipsToBounds: Whether rendered subgrid content is clipped to the subgrid rectangle.
       ///   - grid: Optional local lattice definition used to subdivide the subgrid rectangle.
       ///     When present, `grid.symbolOrder` and `grid.seed` are used within the local lattice.
       public init(
@@ -143,6 +146,7 @@ public enum TesseraPlacement: Sendable {
         symbols: [Symbol],
         symbolOrder: GridSymbolOrder = .rowMajor,
         seed: UInt64? = nil,
+        clipsToBounds: Bool = false,
         grid: LocalGrid? = nil,
       ) {
         self.origin = origin
@@ -150,6 +154,7 @@ public enum TesseraPlacement: Sendable {
         self.symbols = symbols
         self.symbolOrder = symbolOrder
         self.seed = seed
+        self.clipsToBounds = clipsToBounds
         self.grid = grid
         importedSymbolIDs = []
       }
@@ -164,6 +169,7 @@ public enum TesseraPlacement: Sendable {
       ///   - symbols: Symbols dedicated to this subgrid.
       ///   - symbolOrder: Symbol assignment order used within this subgrid when `grid` is `nil`.
       ///   - seed: Optional subgrid seed used when `grid` is `nil`.
+      ///   - clipsToBounds: Whether rendered subgrid content is clipped to the subgrid rectangle.
       ///   - grid: Optional local lattice definition used to subdivide the subgrid rectangle.
       ///     When present, `grid.symbolOrder` and `grid.seed` are used within the local lattice.
       public init(
@@ -172,6 +178,7 @@ public enum TesseraPlacement: Sendable {
         symbols: [Symbol],
         symbolOrder: GridSymbolOrder = .rowMajor,
         seed: UInt64? = nil,
+        clipsToBounds: Bool = false,
         grid: LocalGrid? = nil,
       ) {
         self.init(
@@ -180,6 +187,7 @@ public enum TesseraPlacement: Sendable {
           symbols: symbols,
           symbolOrder: symbolOrder,
           seed: seed,
+          clipsToBounds: clipsToBounds,
           grid: grid,
         )
       }
@@ -193,6 +201,7 @@ public enum TesseraPlacement: Sendable {
         symbols: [Symbol],
         symbolOrder: GridSymbolOrder = .rowMajor,
         seed: UInt64? = nil,
+        clipsToBounds: Bool = false,
         grid: LocalGrid? = nil,
       ) {
         self.init(
@@ -201,6 +210,7 @@ public enum TesseraPlacement: Sendable {
           symbols: symbols,
           symbolOrder: symbolOrder,
           seed: seed,
+          clipsToBounds: clipsToBounds,
           grid: grid,
         )
       }
@@ -211,6 +221,7 @@ public enum TesseraPlacement: Sendable {
         symbols = []
         symbolOrder = internalSubgrid.symbolOrder
         seed = internalSubgrid.seed
+        clipsToBounds = internalSubgrid.clipsToBounds
         grid = internalSubgrid.grid.map(LocalGrid.init(internalLocalGrid:))
         importedSymbolIDs = Self.uniqueSymbolIDs(from: internalSubgrid.symbolIDs)
       }
@@ -220,6 +231,7 @@ public enum TesseraPlacement: Sendable {
         let rhsIdentity = rhs.identityConfiguration
         return lhs.origin == rhs.origin &&
           lhs.span == rhs.span &&
+          lhs.clipsToBounds == rhs.clipsToBounds &&
           lhsIdentity.symbolOrder == rhsIdentity.symbolOrder &&
           lhsIdentity.seed == rhsIdentity.seed &&
           lhs.grid == rhs.grid &&
@@ -230,6 +242,7 @@ public enum TesseraPlacement: Sendable {
         let identity = identityConfiguration
         hasher.combine(origin)
         hasher.combine(span)
+        hasher.combine(clipsToBounds)
         hasher.combine(identity.symbolOrder)
         hasher.combine(identity.seed)
         hasher.combine(grid)
@@ -503,6 +516,7 @@ extension TesseraPlacement.Grid {
         symbolIDs: subgrid.resolvedSymbolIDs,
         symbolOrder: subgrid.symbolOrder,
         seed: subgrid.seed,
+        clipsToBounds: subgrid.clipsToBounds,
         grid: subgrid.grid?.internalLocalGrid,
       )
     }

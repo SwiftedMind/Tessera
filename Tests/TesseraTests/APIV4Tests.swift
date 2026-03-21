@@ -152,6 +152,7 @@ import Testing
       ],
       symbolOrder: .columnMajor,
       seed: 777,
+      clipsToBounds: true,
     ),
   ]
   let placement = TesseraPlacement.grid(
@@ -166,6 +167,7 @@ import Testing
   }
 
   #expect(options.subgrids == subgrids)
+  #expect(options.subgrids[0].clipsToBounds)
 }
 
 @Test func gridPlacementFactoryMapsSubgridLocalGrid() async throws {
@@ -273,6 +275,7 @@ import Testing
         symbolIDs: [subgridID],
         symbolOrder: .columnMajor,
         seed: 123,
+        clipsToBounds: true,
       ),
     ],
   )
@@ -289,6 +292,7 @@ import Testing
   #expect(options.subgrids[0].symbols.isEmpty)
   #expect(options.subgrids[0].symbolOrder == .columnMajor)
   #expect(options.subgrids[0].seed == 123)
+  #expect(options.subgrids[0].clipsToBounds)
   #expect(options.subgrids[0].grid == nil)
 }
 
@@ -336,6 +340,7 @@ import Testing
         symbols: [
           Symbol(id: symbolID, collider: .shape(.circle(center: .zero, radius: 1))) { Circle() },
         ],
+        clipsToBounds: true,
         grid: .init(
           sizing: .count(columns: 5, rows: 5),
           offsetStrategy: .checkerShift(fraction: 0.1),
@@ -350,6 +355,7 @@ import Testing
 
   #expect(resolved.subgridSymbols.map(\.id) == [symbolID])
   #expect(resolved.options.subgrids.count == 1)
+  #expect(resolved.options.subgrids[0].clipsToBounds)
   #expect(resolved.options.subgrids[0].grid?.sizing == .count(columns: 5, rows: 5))
   #expect(resolved.options.subgrids[0].grid?.offsetStrategy == .checkerShift(fraction: 0.1))
   #expect(resolved.options.subgrids[0].grid?.symbolOrder == .shuffle)

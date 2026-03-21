@@ -82,6 +82,8 @@ public extension PlacementModel {
       public var symbolOrder: GridSymbolOrder
       /// Optional subgrid-local seed used when `grid` is `nil`.
       public var seed: UInt64?
+      /// Whether rendered subgrid content is clipped to the subgrid rectangle.
+      public var clipsToBounds: Bool
       /// Optional local lattice definition.
       ///
       /// When present, Tessera subdivides this subgrid rectangle into its own local grid
@@ -97,6 +99,7 @@ public extension PlacementModel {
       ///   - symbolIDs: Symbol identifiers dedicated to this subgrid.
       ///   - symbolOrder: Symbol assignment order used within this subgrid when `grid` is `nil`.
       ///   - seed: Optional subgrid-local seed used when `grid` is `nil`.
+      ///   - clipsToBounds: Whether rendered subgrid content is clipped to the subgrid rectangle.
       ///   - grid: Optional local lattice definition used to subdivide the subgrid rectangle.
       ///     When present, `grid.symbolOrder` and `grid.seed` are used within the local lattice.
       public init(
@@ -105,6 +108,7 @@ public extension PlacementModel {
         symbolIDs: [UUID],
         symbolOrder: GridSymbolOrder = .rowMajor,
         seed: UInt64? = nil,
+        clipsToBounds: Bool = false,
         grid: LocalGrid? = nil,
       ) {
         self.origin = origin
@@ -112,6 +116,7 @@ public extension PlacementModel {
         self.symbolIDs = symbolIDs
         self.symbolOrder = symbolOrder
         self.seed = seed
+        self.clipsToBounds = clipsToBounds
         self.grid = grid
       }
 
@@ -124,6 +129,7 @@ public extension PlacementModel {
       ///   - symbolIDs: Symbol identifiers dedicated to this subgrid.
       ///   - symbolOrder: Symbol assignment order used within this subgrid when `grid` is `nil`.
       ///   - seed: Optional subgrid-local seed used when `grid` is `nil`.
+      ///   - clipsToBounds: Whether rendered subgrid content is clipped to the subgrid rectangle.
       ///   - grid: Optional local lattice definition used to subdivide the subgrid rectangle.
       ///     When present, `grid.symbolOrder` and `grid.seed` are used within the local lattice.
       public init(
@@ -132,6 +138,7 @@ public extension PlacementModel {
         symbolIDs: [UUID],
         symbolOrder: GridSymbolOrder = .rowMajor,
         seed: UInt64? = nil,
+        clipsToBounds: Bool = false,
         grid: LocalGrid? = nil,
       ) {
         self.init(
@@ -140,6 +147,7 @@ public extension PlacementModel {
           symbolIDs: symbolIDs,
           symbolOrder: symbolOrder,
           seed: seed,
+          clipsToBounds: clipsToBounds,
           grid: grid,
         )
       }
@@ -150,6 +158,7 @@ public extension PlacementModel {
         return lhs.origin == rhs.origin &&
           lhs.span == rhs.span &&
           lhs.symbolIDs == rhs.symbolIDs &&
+          lhs.clipsToBounds == rhs.clipsToBounds &&
           lhsIdentity.symbolOrder == rhsIdentity.symbolOrder &&
           lhsIdentity.seed == rhsIdentity.seed &&
           lhs.grid == rhs.grid
@@ -160,6 +169,7 @@ public extension PlacementModel {
         hasher.combine(origin)
         hasher.combine(span)
         hasher.combine(symbolIDs)
+        hasher.combine(clipsToBounds)
         hasher.combine(identity.symbolOrder)
         hasher.combine(identity.seed)
         hasher.combine(grid)

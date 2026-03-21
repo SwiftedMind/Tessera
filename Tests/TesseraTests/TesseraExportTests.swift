@@ -184,6 +184,64 @@ import Testing
   #expect(Int(centerPixel.red) - Int(centerPixel.blue) > 100)
 }
 
+@Test @MainActor func canvasPNGExportClipsSubgridContentWhenRequested() async throws {
+  let canvasSize = CGSize(width: 160, height: 160)
+  let subgridSymbol = Symbol(
+    rotation: .degrees(0)...(.degrees(0)),
+    scale: 1...1,
+    collider: .shape(.rectangle(center: .zero, size: CGSize(width: 120, height: 120))),
+  ) {
+    Rectangle()
+      .fill(Color.red)
+      .frame(width: 120, height: 120)
+  }
+  let tessera = Tessera(
+    Pattern(
+      symbols: [],
+      placement: .grid(
+        TesseraPlacement.Grid(
+          sizing: .count(columns: 2, rows: 2),
+          seed: 1,
+          subgrids: [
+            .init(
+              at: .init(row: 0, column: 0),
+              spanning: .init(rows: 1, columns: 1),
+              symbols: [subgridSymbol],
+              clipsToBounds: true,
+              grid: .init(
+                sizing: .fixed(cellSize: CGSize(width: 100, height: 100)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  )
+  .mode(.canvas(edgeBehavior: .finite))
+  .seed(.fixed(1))
+
+  let cgImage = try await exportedCGImage(
+    from: tessera,
+    format: .png,
+    canvasSize: canvasSize,
+  )
+  let exportScale = CGFloat(cgImage.width) / canvasSize.width
+  let insidePixel = try pixelComponents(
+    in: cgImage,
+    x: Int((40 * exportScale).rounded(.down)),
+    y: Int((40 * exportScale).rounded(.down)),
+  )
+  let outsidePixel = try pixelComponents(
+    in: cgImage,
+    x: Int((90 * exportScale).rounded(.down)),
+    y: Int((40 * exportScale).rounded(.down)),
+  )
+
+  #expect(insidePixel.alpha > 200)
+  #expect(insidePixel.red > 200)
+  #expect(outsidePixel.alpha == 0)
+}
+
 @Test @MainActor func snapshotPNGExportRendersCollisionOverlayForGeneratedSymbols() async throws {
   let canvasSize = CGSize(width: 128, height: 128)
   let renderer = makeGeneratedCollisionOverlayRenderer()

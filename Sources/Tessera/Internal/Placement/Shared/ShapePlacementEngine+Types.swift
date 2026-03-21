@@ -74,6 +74,8 @@ extension ShapePlacementEngine {
     var rotationRadians: Double
     /// The final scale of the symbol.
     var scale: CGFloat
+    /// Optional render-time clip rectangle in tile coordinates.
+    var clipRect: CGRect?
     /// The collision shape used for overlap testing.
     var collisionShape: CollisionShape
 
@@ -216,6 +218,7 @@ extension ShapePlacementEngine.PlacedSymbolDescriptor {
     position: CGPoint,
     rotationRadians: Double,
     scale: CGFloat,
+    clipRect: CGRect? = nil,
     collisionShape: CollisionShape,
   ) {
     self.init(
@@ -226,6 +229,7 @@ extension ShapePlacementEngine.PlacedSymbolDescriptor {
       position: position,
       rotationRadians: rotationRadians,
       scale: scale,
+      clipRect: clipRect,
       collisionShape: collisionShape,
     )
   }

@@ -179,6 +179,7 @@ private func makePlacedDescriptor(
     position: position,
     rotationRadians: 0,
     scale: 1,
+    clipRect: nil,
     collisionShape: .circle(center: .zero, radius: 1),
   )
 }

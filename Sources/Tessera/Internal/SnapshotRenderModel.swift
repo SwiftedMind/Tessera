@@ -43,6 +43,7 @@ struct SnapshotPlacementDescriptor: Sendable, Hashable {
   var position: CGPoint
   var rotationRadians: Double
   var scale: CGFloat
+  var clipRect: CGRect?
 }
 
 /// One resolved mosaic render layer inside a snapshot.

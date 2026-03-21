@@ -406,19 +406,27 @@ private struct SnapshotPlacementCanvasView: View {
           guard let symbol = context.resolveSymbol(id: entry.symbolKey) else { continue }
 
           for wrapOffset in offsets {
-            var symbolContext = context
-            symbolContext.translateBy(
-              x: wrapOffset.x + wrappedOffset.width,
-              y: wrapOffset.y + wrappedOffset.height,
-            )
-            symbolContext.translateBy(x: placedSymbol.position.x, y: placedSymbol.position.y)
-            symbolContext.rotate(by: .radians(placedSymbol.rotationRadians))
-            symbolContext.scaleBy(x: placedSymbol.scale, y: placedSymbol.scale)
-            symbolContext.draw(symbol, at: .zero, anchor: .center)
+            context.drawLayer { layerContext in
+              if let clipRect = placedSymbol.clipRect {
+                let translatedClipRect = clipRect.offsetBy(
+                  dx: wrapOffset.x + wrappedOffset.width,
+                  dy: wrapOffset.y + wrappedOffset.height,
+                )
+                layerContext.clip(to: Path(translatedClipRect))
+              }
+              layerContext.translateBy(
+                x: wrapOffset.x + wrappedOffset.width,
+                y: wrapOffset.y + wrappedOffset.height,
+              )
+              layerContext.translateBy(x: placedSymbol.position.x, y: placedSymbol.position.y)
+              layerContext.rotate(by: .radians(placedSymbol.rotationRadians))
+              layerContext.scaleBy(x: placedSymbol.scale, y: placedSymbol.scale)
+              layerContext.draw(symbol, at: .zero, anchor: .center)
 
-            if showsCollisionShapes,
-               let overlayShape = overlayShapesBySymbolID[placedSymbol.renderSymbolId] {
-              CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
+              if showsCollisionShapes,
+                 let overlayShape = overlayShapesBySymbolID[placedSymbol.renderSymbolId] {
+                CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &layerContext)
+              }
             }
           }
         case let .pinned(pinnedSymbol, _):

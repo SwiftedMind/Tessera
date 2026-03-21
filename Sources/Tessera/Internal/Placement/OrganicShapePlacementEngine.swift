@@ -299,6 +299,7 @@ enum OrganicShapePlacementEngine {
             position: position,
             rotationRadians: rotationRadians,
             scale: CGFloat(scale),
+            clipRect: nil,
             collisionShape: candidateCollisionShape,
           )
           placedDescriptors.append(candidate)

@@ -752,6 +752,63 @@ import Testing
   #expect(placed.contains { $0.position == CGPoint(x: 300, y: 300) })
 }
 
+@Test func subgridClipsToBoundsAnnotatesLegacySubgridPlacements() async throws {
+  let regular = UUID(uuidString: "00000000-0000-0000-0000-0000000000D1")!
+  let subgridSymbol = UUID(uuidString: "00000000-0000-0000-0000-0000000000D2")!
+  let placed = placeGrid(
+    size: CGSize(width: 400, height: 400),
+    symbolDescriptors: [
+      makeGridSymbolDescriptor(id: regular, allowedRotationRangeDegrees: 0...0),
+      makeGridSymbolDescriptor(id: subgridSymbol, allowedRotationRangeDegrees: 0...0),
+    ],
+    seed: 27,
+    columnCount: 4,
+    rowCount: 4,
+    subgrids: [
+      .init(
+        origin: .init(row: 1, column: 1),
+        span: .init(rows: 2, columns: 2),
+        symbolIDs: [subgridSymbol],
+        clipsToBounds: true,
+      ),
+    ],
+  )
+
+  let expectedClipRect = CGRect(x: 100, y: 100, width: 200, height: 200)
+  #expect(placed.count(where: { $0.symbolId == subgridSymbol && $0.clipRect == expectedClipRect }) == 4)
+  #expect(placed.count(where: { $0.symbolId == regular && $0.clipRect == nil }) == 12)
+}
+
+@Test func localSubgridClipsToBoundsAnnotatesLocalGridPlacements() async throws {
+  let regular = UUID(uuidString: "00000000-0000-0000-0000-0000000000D3")!
+  let subgridSymbol = UUID(uuidString: "00000000-0000-0000-0000-0000000000D4")!
+  let placed = placeGrid(
+    size: CGSize(width: 400, height: 400),
+    symbolDescriptors: [
+      makeGridSymbolDescriptor(id: regular, allowedRotationRangeDegrees: 0...0),
+      makeGridSymbolDescriptor(id: subgridSymbol, allowedRotationRangeDegrees: 0...0),
+    ],
+    seed: 28,
+    columnCount: 4,
+    rowCount: 4,
+    subgrids: [
+      .init(
+        origin: .init(row: 1, column: 1),
+        span: .init(rows: 2, columns: 2),
+        symbolIDs: [subgridSymbol],
+        clipsToBounds: true,
+        grid: .init(
+          sizing: .count(columns: 2, rows: 2),
+        ),
+      ),
+    ],
+  )
+
+  let expectedClipRect = CGRect(x: 100, y: 100, width: 200, height: 200)
+  #expect(placed.count(where: { $0.symbolId == subgridSymbol && $0.clipRect == expectedClipRect }) == 4)
+  #expect(placed.count(where: { $0.symbolId == regular && $0.clipRect == nil }) == 12)
+}
+
 @Test func localSubgridOffsetUsesLocalParityInsteadOfParentParity() async throws {
   let subgridSymbol = UUID(uuidString: "00000000-0000-0000-0000-000000000098")!
   let placed = placeGrid(
