@@ -12,5 +12,5 @@ xcode-build-server config \
 
 [[actions]]
 name = "Run: iPhone Simulator"
-icon = "tool"
+icon = "run"
 command = "flowdeck build -w 'Tessera.xcworkspace' -s 'ExampleApp' -S 'iPhone 17 Pro' -d '.xcode-deriveddata/ios'"
