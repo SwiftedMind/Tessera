@@ -43,6 +43,7 @@ struct SnapshotStaticCanvasView: View {
     let renderModel = snapshot.renderModel
     let snapshotFingerprint = snapshot.fingerprint.rawValue
     let showsCollisionShapes = debugOverlay.showsCollisionShapes
+    let highlightedSymbolIDs = debugOverlay.highlightedSymbolIDs
     let shouldClipPolygon = renderModel.region.isPolygon && renderModel.regionRendering == .clipped
     let shouldClipAlphaMask = renderModel.region.isAlphaMask && renderModel.regionRendering == .clipped
     let clipPath = shouldClipPolygon ? renderModel.region.clipPath(in: snapshot.size) : nil
@@ -69,6 +70,7 @@ struct SnapshotStaticCanvasView: View {
       clipPath: clipPath,
       rendersAsynchronously: rendersAsynchronously,
       showsCollisionShapes: showsCollisionShapes,
+      highlightedSymbolIDs: highlightedSymbolIDs,
     )
 
     let layered = baseLayer
@@ -93,6 +95,7 @@ struct SnapshotStaticCanvasView: View {
                 clipPath: clipPath,
                 rendersAsynchronously: rendersAsynchronously,
                 showsCollisionShapes: showsCollisionShapes,
+                highlightedSymbolIDs: highlightedSymbolIDs,
               )
 
               if mosaic.rendering.clipsToMask {
@@ -118,6 +121,7 @@ struct SnapshotStaticCanvasView: View {
             clipPath: clipPath,
             rendersAsynchronously: rendersAsynchronously,
             showsCollisionShapes: showsCollisionShapes,
+            highlightedSymbolIDs: highlightedSymbolIDs,
           )
         }
       }
@@ -144,6 +148,7 @@ private struct SnapshotPinnedCanvasView: View {
   var clipPath: Path?
   var rendersAsynchronously: Bool
   var showsCollisionShapes: Bool
+  var highlightedSymbolIDs: Set<UUID>
 
   var body: some View {
     SnapshotPlacementCanvasView(
@@ -156,6 +161,7 @@ private struct SnapshotPinnedCanvasView: View {
       clipPath: clipPath,
       rendersAsynchronously: rendersAsynchronously,
       showsCollisionShapes: showsCollisionShapes,
+      highlightedSymbolIDs: highlightedSymbolIDs,
     )
   }
 }
@@ -366,6 +372,7 @@ private struct SnapshotPlacementCanvasView: View {
   var clipPath: Path?
   var rendersAsynchronously: Bool
   var showsCollisionShapes: Bool
+  var highlightedSymbolIDs: Set<UUID>
 
   var body: some View {
     let orderedRenderEntries = makeOrderedSnapshotRenderEntries(
@@ -382,6 +389,19 @@ private struct SnapshotPlacementCanvasView: View {
         cache[pinnedSymbol.id] = CollisionOverlayShape(collisionShape: pinnedSymbol.collisionShape)
       }
       : [:]
+    let highlightedRenderSymbolIDs: Set<UUID> = highlightedSymbolIDs.isEmpty
+      ? Set()
+      : Set(
+        placements.compactMap { placement in
+          guard highlightedSymbolIDs.contains(placement.symbolId) || highlightedSymbolIDs
+            .contains(placement.renderSymbolId)
+          else {
+            return nil
+          }
+
+          return placement.renderSymbolId
+        },
+      )
 
     Canvas(
       opaque: false,
@@ -451,14 +471,53 @@ private struct SnapshotPlacementCanvasView: View {
       }
     } symbols: {
       ForEach(symbols) { symbol in
-        symbol.makeView().tag(SnapshotRenderSymbolKey.generated(symbol.id))
+        renderableSymbolView(
+          for: symbol,
+          isHighlighted: highlightedRenderSymbolIDs.contains(symbol.id),
+        )
+        .tag(SnapshotRenderSymbolKey.generated(symbol.id))
       }
       ForEach(pinnedSymbols) { pinnedSymbol in
-        pinnedSymbol.makeView().tag(SnapshotRenderSymbolKey.pinned(pinnedSymbol.id))
+        renderablePinnedSymbolView(
+          for: pinnedSymbol,
+          isHighlighted: highlightedSymbolIDs.contains(pinnedSymbol.id),
+        )
+        .tag(SnapshotRenderSymbolKey.pinned(pinnedSymbol.id))
       }
     }
     .frame(width: size.width, height: size.height)
     .clipped()
+  }
+
+  @ViewBuilder
+  private func renderableSymbolView(for symbol: Symbol, isHighlighted: Bool) -> some View {
+    if isHighlighted {
+      symbol.makeView()
+        .overlay {
+          RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .stroke(Color.accentColor.opacity(0.9), lineWidth: 2)
+            .padding(1)
+        }
+    } else {
+      symbol.makeView()
+    }
+  }
+
+  @ViewBuilder
+  private func renderablePinnedSymbolView(
+    for pinnedSymbol: PinnedSymbol,
+    isHighlighted: Bool,
+  ) -> some View {
+    if isHighlighted {
+      pinnedSymbol.makeView()
+        .overlay {
+          RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .stroke(Color.accentColor.opacity(0.9), lineWidth: 2)
+            .padding(1)
+        }
+    } else {
+      pinnedSymbol.makeView()
+    }
   }
 }
 

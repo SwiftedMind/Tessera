@@ -4,15 +4,42 @@ import CoreGraphics
 import SwiftUI
 
 /// Optional debug overlays for snapshot-backed rendering.
-public enum TesseraDebugOverlay: Hashable, Sendable {
+public struct TesseraDebugOverlay: Hashable, Sendable {
+  /// Whether collision-shape overlays should be drawn.
+  public var showsCollisionShapes: Bool
+  /// Effective opacity for mosaic-mask overlays, or `nil` when disabled.
+  public var mosaicMaskOpacity: Double?
+  /// Symbol identifiers whose rendered occurrences should be highlighted.
+  public var highlightedSymbolIDs: Set<UUID>
+
+  /// Creates a debug overlay configuration.
+  public init(
+    showsCollisionShapes: Bool = false,
+    mosaicMaskOpacity: Double? = nil,
+    highlightedSymbolIDs: Set<UUID> = [],
+  ) {
+    self.showsCollisionShapes = showsCollisionShapes
+    self.mosaicMaskOpacity = mosaicMaskOpacity.flatMap { opacity in
+      guard opacity.isFinite else { return nil }
+
+      return max(0, min(opacity, 1))
+    }
+    self.highlightedSymbolIDs = highlightedSymbolIDs
+  }
+
   /// No debug overlay.
-  case none
+  public static let none = Self()
   /// Renders collision-shape overlays for symbols and pinned symbols.
-  case collisionShapes
+  public static let collisionShapes = Self(showsCollisionShapes: true)
   /// Renders translucent fills for each effective mosaic mask.
-  case mosaicMasks(opacity: Double = 0.18)
+  public static func mosaicMasks(opacity: Double = 0.18) -> Self {
+    Self(mosaicMaskOpacity: opacity)
+  }
+
   /// Renders collision shapes and translucent mosaic masks together.
-  case collisionShapesAndMosaicMasks(opacity: Double = 0.18)
+  public static func collisionShapesAndMosaicMasks(opacity: Double = 0.18) -> Self {
+    Self(showsCollisionShapes: true, mosaicMaskOpacity: opacity)
+  }
 }
 
 /// Deterministic identity for a computed Tessera snapshot.
@@ -120,41 +147,27 @@ public struct TesseraSnapshotView: View {
   }
 }
 
-extension TesseraDebugOverlay {
-  /// Returns whether collision-shape overlays should be drawn.
-  var showsCollisionShapes: Bool {
-    switch self {
-    case .none, .mosaicMasks:
-      false
-    case .collisionShapes, .collisionShapesAndMosaicMasks:
-      true
-    }
-  }
-
+public extension TesseraDebugOverlay {
   /// Returns the effective opacity for mosaic-mask overlays, or `nil` when disabled.
   var resolvedMosaicMaskOpacity: Double? {
-    switch self {
-    case .none, .collisionShapes:
-      nil
-    case let .mosaicMasks(opacity):
-      max(0, min(opacity, 1))
-    case let .collisionShapesAndMosaicMasks(opacity):
-      max(0, min(opacity, 1))
-    }
+    mosaicMaskOpacity
   }
 
+  /// Returns a copy that adds collision overlays when requested.
   func addingCollisionShapesIfNeeded(_ isEnabled: Bool) -> TesseraDebugOverlay {
     guard isEnabled else { return self }
 
-    switch self {
-    case .none:
-      return .collisionShapes
-    case .collisionShapes:
-      return .collisionShapes
-    case let .mosaicMasks(opacity):
-      return .collisionShapesAndMosaicMasks(opacity: opacity)
-    case let .collisionShapesAndMosaicMasks(opacity):
-      return .collisionShapesAndMosaicMasks(opacity: opacity)
-    }
+    var overlay = self
+    overlay.showsCollisionShapes = true
+    return overlay
+  }
+
+  /// Returns a copy that highlights the provided symbol identifiers.
+  func addingHighlightedSymbolIDs(_ symbolIDs: Set<UUID>) -> TesseraDebugOverlay {
+    guard symbolIDs.isEmpty == false else { return self }
+
+    var overlay = self
+    overlay.highlightedSymbolIDs.formUnion(symbolIDs)
+    return overlay
   }
 }
