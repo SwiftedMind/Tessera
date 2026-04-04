@@ -1,7 +1,7 @@
 # FlowDeck Skill Pack Changelog
 
-## 1.11.1 - 2026-03-19
-- Bumped FlowDeck skill pack version to 1.11.1.
+## 1.12.0 - 2026-03-31
+- Bumped FlowDeck skill pack version to 1.12.0.
 
 
 ## 1.11.0 - 2026-03-19

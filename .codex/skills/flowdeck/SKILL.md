@@ -1,6 +1,6 @@
 ---
 name: flowdeck
-version: "1.11.1"
+version: "1.12.0"
 # prettier-ignore
 description: >-
   FlowDeck is REQUIRED for all Apple platform build/run/test/launch/debug/simulator/device/log/automation tasks. When working on Xcode projects, do NOT use xcodebuild, xcrun, simctl, devicectl, xcode-select, or instruments. Do NOT parse Xcode project files manually.
@@ -146,6 +146,7 @@ Each command set has its own reference doc. Use these for detailed flags, exampl
 - `resources/ui.md` - UI automation for iOS Simulator
 - `resources/device.md` - Physical device management
 - `resources/ai.md` - Install or remove the FlowDeck skill pack for AI agents
+- `resources/pixel-perfect-design.md` - Pixel-perfect UI implementation from design mockups
 - `resources/project.md` - Project inspection and packages
 - `resources/package-resolution.md` - Package resolution escalation playbook (`update -> resolve -> clear -> clean`)
 - `resources/license.md` - License status/activate/deactivate
@@ -797,6 +798,110 @@ flowdeck license status --json
 ```
 
 **Note:** When config is saved, JSON commands also work without explicit flags.
+
+---
+
+## IMPLEMENTING UI FROM DESIGN MOCKUPS
+
+When the user provides a design reference — an image, a Figma link, or a verbal description — and asks you to build UI from it, follow this automated workflow. See `resources/pixel-perfect-design.md` for the complete methodology.
+
+The workflow is the same regardless of the design source. The only difference is **how you extract specs** in step 1:
+- **Image/screenshot**: Visually analyze the image to estimate measurements (Phase 0 + Phase 1 in the resource)
+- **Figma link**: Use the Figma MCP server to fetch exact design tokens, spacing, colors, typography, and effects — no estimation needed
+- **Verbal description**: Ask clarifying questions about specific values (colors, spacing, font sizes) before implementing
+
+### When to Activate
+
+Activate this workflow when ANY of these conditions are true:
+
+**Explicit signals (user provides a design reference):**
+- User attaches an image file (PNG, JPG, screenshot, mockup, exported comp)
+- User provides a Figma URL (e.g., `figma.com/design/...`, `figma.com/file/...`)
+- User says "build this", "create this screen", "implement this design", "make it look like this"
+- User says "pixel perfect", "match the design", "design fidelity"
+
+**Implicit signals (user is describing a UI to build):**
+- User describes a specific screen layout with visual details (colors, spacing, typography)
+- User references a design system, brand guidelines, or specific visual treatment
+- User provides a sketch or wireframe (even hand-drawn)
+- User asks to "recreate" or "clone" an existing app's UI from a screenshot
+
+**During implementation (mid-task triggers):**
+- You just implemented a UI view and haven't visually verified it yet — run the validation loop
+- User says "does it look right?", "check the UI", "how does it look?"
+- User reports the UI "doesn't match", "looks off", "spacing is wrong"
+- You made changes to a view's layout, colors, typography, or effects — re-validate
+
+### Automated Workflow
+
+```
+1. EXTRACT SPECS from the design source
+
+   If IMAGE: Read the image with the Read tool
+   - Identify visual hierarchy, layout strategy, spacing rhythm
+   - Estimate measurements, typography, colors, effects
+   - See Phase 0 + Phase 1 in resources/pixel-perfect-design.md
+
+   If FIGMA LINK: Use the Figma MCP server
+   - Fetch exact spacing, typography, colors, effects, and component structure
+   - No estimation needed — use the exact values returned
+
+   In both cases: Document all specs as code comments before writing any views
+
+2. IMPLEMENT in layers (structure → typography → colors → shapes → effects)
+   - Use explicit spacing (spacing: 0 on stacks, fixed Spacers)
+   - Use exact colors (hex values, not .gray/.blue approximations)
+   - Use .continuous corner style for rounded rectangles
+   - Never use default .padding() — always specify exact values
+
+3. BUILD and LAUNCH
+   flowdeck run
+
+4. START SESSION and NAVIGATE TO THE TARGET SCREEN
+   flowdeck ui simulator session start -S "<simulator>" --json
+   # Parse JSON → save latest_screenshot and latest_tree paths
+   # Read latest_tree to find navigation elements
+   # Tap/scroll through the app to reach the screen you're implementing:
+   flowdeck ui simulator tap "Tab Name" -S "<simulator>" --json
+   flowdeck ui simulator tap "List Item" -S "<simulator>" --json
+   # Read latest_screenshot to confirm you're on the right screen
+
+5. COMPARE against design
+   - Read latest_screenshot with Read tool
+   - Compare against original design image
+   - Squint test: do they have the same visual weight and rhythm?
+   - Check: margins, spacing, typography, colors, shadows, alignment
+
+6. DOCUMENT discrepancies specifically
+   // e.g., "Title top margin: 52pt in impl, ~60pt in design → increase by 8pt"
+
+7. FIX one discrepancy at a time
+   - Edit code
+   - flowdeck run (rebuild)
+   - Navigate back to the target screen (repeat step 4 navigation)
+   - Read latest_screenshot to verify the fix
+   - Do NOT batch fixes — one change at a time
+
+8. REPEAT steps 5-7 until no visible differences remain
+
+9. VERIFY on multiple screen sizes (navigate to screen on each)
+   flowdeck run -S "iPhone SE (3rd generation)"
+   # Navigate to screen, capture, check for overflow/clipping
+   flowdeck run -S "iPhone 16 Pro Max"
+   # Navigate to screen, capture, check proportions
+```
+
+### Key Rules for Design Implementation
+
+- **Navigate, don't assume** — Always use FlowDeck UI automation to reach the target screen and visually verify; never assume your code changes look correct without checking
+- **Structure first, style second** — Get layout and spacing right before adding colors and effects
+- **One change at a time** — Fix one discrepancy, rebuild, navigate back, verify, then fix the next
+- **Explicit over default** — `.padding(.horizontal, 20)` not `.padding()`; `Color(hex: "#1A1A1A")` not `.black`
+- **Continuous corners** — Use `RoundedRectangle(cornerRadius: 16, style: .continuous)` for Apple-style squircles
+- **Optical corrections** — Mathematical center ≠ visual center; adjust with small offsets when elements look "off"
+- **Near-black over pure black** — Use `#1A1A1A` for body text, not `#000000` (softer, more professional)
+- **Multi-layer shadows** — Real depth needs a tight shadow + ambient shadow, not a single `.shadow()` call
+- **The screenshot is the truth** — Always verify by reading `latest_screenshot` after navigating to the target screen
 
 ---
 
