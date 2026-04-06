@@ -31,7 +31,7 @@ public struct TesseraRenderer: Sendable {
     let resolvedSize = try resolveSize(for: mode)
     let resolvedSeed = resolveSeed(seed)
 
-    let snapshot = try await computationActor.compute(
+    return try await computationActor.compute(
       pattern: pattern,
       mode: mode,
       resolvedSize: resolvedSize,
@@ -40,7 +40,6 @@ public struct TesseraRenderer: Sendable {
       regionRendering: regionRendering,
       pinnedSymbols: pinnedSymbols,
     ) { _ in }
-    return snapshot
   }
 
   /// Computes a reusable snapshot while emitting progress events.
@@ -155,22 +154,11 @@ private extension TesseraRenderer {
       fileExtension: "png",
     )
     let pageSize = snapshot.size
-    let content = SnapshotExportRenderView(
+    let rendererContent = makeRendererContent(
+      snapshot: snapshot,
+      options: options,
       pageSize: pageSize,
-      backgroundColor: options.backgroundColor,
-      content: TesseraSnapshotView(
-        snapshot: snapshot,
-        debugOverlay: options.render.showsCollisionOverlay ? .collisionShapes : .none,
-      ),
     )
-    // PDF vector rendering can reorder mixed Canvas symbols; flatten the composed result first.
-    let flattenedContent = content.drawingGroup()
-    let rendererContent = if let colorScheme = options.colorScheme {
-      AnyView(flattenedContent.environment(\.colorScheme, colorScheme))
-    } else {
-      AnyView(flattenedContent)
-    }
-
     let renderer = ImageRenderer(content: rendererContent)
     renderer.proposedSize = ProposedViewSize(pageSize)
     renderer.scale = options.render.resolvedScale(contentSize: pageSize)
@@ -217,19 +205,11 @@ private extension TesseraRenderer {
       throw RenderError.failedToCreateDestination
     }
 
-    let content = SnapshotExportRenderView(
+    let rendererContent = makeRendererContent(
+      snapshot: snapshot,
+      options: options,
       pageSize: pageSize,
-      backgroundColor: options.backgroundColor,
-      content: TesseraSnapshotView(
-        snapshot: snapshot,
-        debugOverlay: options.render.showsCollisionOverlay ? .collisionShapes : .none,
-      ),
     )
-    let rendererContent = if let colorScheme = options.colorScheme {
-      AnyView(content.environment(\.colorScheme, colorScheme))
-    } else {
-      AnyView(content)
-    }
     let renderer = ImageRenderer(content: rendererContent)
     renderer.proposedSize = ProposedViewSize(pageSize)
     renderer.scale = options.render.resolvedScale(contentSize: snapshot.size)
@@ -252,6 +232,27 @@ private extension TesseraRenderer {
     return directory
       .appending(path: baseName)
       .appendingPathExtension(fileExtension)
+  }
+
+  @MainActor
+  func makeRendererContent(
+    snapshot: TesseraSnapshot,
+    options: ExportOptions,
+    pageSize: CGSize,
+  ) -> AnyView {
+    let content = SnapshotExportRenderView(
+      pageSize: pageSize,
+      backgroundColor: options.backgroundColor,
+      content: TesseraSnapshotView(
+        snapshot: snapshot,
+        debugOverlay: options.render.showsCollisionOverlay ? .collisionShapes : .none,
+      ),
+    )
+    if let colorScheme = options.colorScheme {
+      return AnyView(content.environment(\.colorScheme, colorScheme))
+    } else {
+      return AnyView(content)
+    }
   }
 }
 
