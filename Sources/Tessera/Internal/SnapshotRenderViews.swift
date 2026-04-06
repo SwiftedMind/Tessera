@@ -173,7 +173,6 @@ private struct SnapshotMosaicMaskDebugOverlayView: View {
   var clipPath: Path?
   var debugOverlay: TesseraDebugOverlay
 
-  @ViewBuilder
   var body: some View {
     if let opacity = debugOverlay.resolvedMosaicMaskOpacity, mosaics.isEmpty == false {
       let overlay = ZStack {
@@ -426,27 +425,23 @@ private struct SnapshotPlacementCanvasView: View {
           guard let symbol = context.resolveSymbol(id: entry.symbolKey) else { continue }
 
           for wrapOffset in offsets {
-            context.drawLayer { layerContext in
-              if let clipRect = placedSymbol.clipRect {
-                let translatedClipRect = clipRect.offsetBy(
-                  dx: wrapOffset.x + wrappedOffset.width,
-                  dy: wrapOffset.y + wrappedOffset.height,
-                )
-                layerContext.clip(to: Path(translatedClipRect))
-              }
-              layerContext.translateBy(
-                x: wrapOffset.x + wrappedOffset.width,
-                y: wrapOffset.y + wrappedOffset.height,
-              )
-              layerContext.translateBy(x: placedSymbol.position.x, y: placedSymbol.position.y)
-              layerContext.rotate(by: .radians(placedSymbol.rotationRadians))
-              layerContext.scaleBy(x: placedSymbol.scale, y: placedSymbol.scale)
-              layerContext.draw(symbol, at: .zero, anchor: .center)
+            var symbolContext = context
+            symbolContext.translateBy(
+              x: wrapOffset.x + wrappedOffset.width,
+              y: wrapOffset.y + wrappedOffset.height,
+            )
 
-              if showsCollisionShapes,
-                 let overlayShape = overlayShapesBySymbolID[placedSymbol.renderSymbolId] {
-                CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &layerContext)
-              }
+            if let clipRect = placedSymbol.clipRect {
+              symbolContext.clip(to: Path(clipRect))
+            }
+            symbolContext.translateBy(x: placedSymbol.position.x, y: placedSymbol.position.y)
+            symbolContext.rotate(by: .radians(placedSymbol.rotationRadians))
+            symbolContext.scaleBy(x: placedSymbol.scale, y: placedSymbol.scale)
+            symbolContext.draw(symbol, at: .zero, anchor: .center)
+
+            if showsCollisionShapes,
+               let overlayShape = overlayShapesBySymbolID[placedSymbol.renderSymbolId] {
+              CollisionOverlayRenderer.draw(overlayShape: overlayShape, in: &symbolContext)
             }
           }
         case let .pinned(pinnedSymbol, _):

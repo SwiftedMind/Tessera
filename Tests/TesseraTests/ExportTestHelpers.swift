@@ -133,7 +133,16 @@ func cgImageFromPDFFile(at url: URL) throws -> CGImage {
   return rasterizedImage
 }
 
-struct PixelComponents: Sendable {
+func pdfImageObjectCount(at url: URL) throws -> Int {
+  let data = try Data(contentsOf: url)
+  guard let pdfString = String(data: data, encoding: .isoLatin1) else {
+    throw CocoaError(.coderReadCorrupt)
+  }
+
+  return pdfString.components(separatedBy: "/Subtype /Image").count - 1
+}
+
+struct PixelComponents {
   var red: UInt8
   var green: UInt8
   var blue: UInt8
