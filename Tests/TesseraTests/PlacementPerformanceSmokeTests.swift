@@ -2,10 +2,11 @@
 
 import CoreGraphics
 import Foundation
+import SwiftUI
 @testable import Tessera
 import Testing
 
-@Test func organicDenseCircleWorkloadUsesCircleFastPath() async throws {
+@Test func `organic dense circle workload uses circle fast path`() throws {
   let size = CGSize(width: 260, height: 260)
   let placement = PlacementModel.Organic(
     seed: 501,
@@ -14,8 +15,8 @@ import Testing
     baseScaleRange: 1...1,
     maximumSymbolCount: 260,
   )
-  let symbolDescriptor = makePerformanceSymbolDescriptor(
-    id: UUID(uuidString: "00000000-0000-0000-0000-000000000201")!,
+  let symbolDescriptor = try makePerformanceSymbolDescriptor(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000201")),
     collisionShape: .circle(center: .zero, radius: 2),
   )
 
@@ -37,7 +38,7 @@ import Testing
   #expect(diagnostics.polygonChecks == 0)
 }
 
-@Test func organicRectangleWorkloadUsesPolygonNarrowPhase() async throws {
+@Test func `organic rectangle workload uses polygon narrow phase`() throws {
   let size = CGSize(width: 260, height: 260)
   let placement = PlacementModel.Organic(
     seed: 777,
@@ -46,8 +47,8 @@ import Testing
     baseScaleRange: 1...1,
     maximumSymbolCount: 220,
   )
-  let symbolDescriptor = makePerformanceSymbolDescriptor(
-    id: UUID(uuidString: "00000000-0000-0000-0000-000000000202")!,
+  let symbolDescriptor = try makePerformanceSymbolDescriptor(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000202")),
     collisionShape: .rectangle(center: .zero, size: CGSize(width: 8, height: 6)),
   )
 
@@ -68,7 +69,7 @@ import Testing
   #expect(diagnostics.polygonChecks > 0)
 }
 
-@Test func organicCollisionDiagnosticsRemainDeterministicForSameSeed() async throws {
+@Test func `organic collision diagnostics remain deterministic for same seed`() throws {
   let size = CGSize(width: 220, height: 220)
   let placement = PlacementModel.Organic(
     seed: 903,
@@ -77,13 +78,13 @@ import Testing
     baseScaleRange: 1...1,
     maximumSymbolCount: 200,
   )
-  let symbols: [ShapePlacementEngine.PlacementSymbolDescriptor] = [
+  let symbols: [ShapePlacementEngine.PlacementSymbolDescriptor] = try [
     makePerformanceSymbolDescriptor(
-      id: UUID(uuidString: "00000000-0000-0000-0000-000000000203")!,
+      id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000203")),
       collisionShape: .circle(center: .zero, radius: 3),
     ),
     makePerformanceSymbolDescriptor(
-      id: UUID(uuidString: "00000000-0000-0000-0000-000000000204")!,
+      id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000204")),
       collisionShape: .rectangle(center: .zero, size: CGSize(width: 10, height: 7)),
     ),
   ]
@@ -118,7 +119,7 @@ import Testing
   #expect(diagnosticsA.polygonChecks == diagnosticsB.polygonChecks)
 }
 
-@Test func saturatedOrganicWorkloadTerminatesEarly() async throws {
+@Test func `saturated organic workload terminates early`() throws {
   let size = CGSize(width: 140, height: 140)
   let placement = PlacementModel.Organic(
     seed: 1404,
@@ -127,8 +128,8 @@ import Testing
     baseScaleRange: 1...1,
     maximumSymbolCount: 5000,
   )
-  let symbolDescriptor = makePerformanceSymbolDescriptor(
-    id: UUID(uuidString: "00000000-0000-0000-0000-000000000205")!,
+  let symbolDescriptor = try makePerformanceSymbolDescriptor(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000205")),
     collisionShape: .circle(center: .zero, radius: 10),
   )
 
@@ -151,7 +152,7 @@ import Testing
   #expect(diagnostics.placementFailures > 0)
 }
 
-@Test func nonSaturatedOrganicWorkloadDoesNotTerminateEarly() async throws {
+@Test func `non saturated organic workload does not terminate early`() throws {
   let size = CGSize(width: 80, height: 80)
   let placement = PlacementModel.Organic(
     seed: 2205,
@@ -160,8 +161,8 @@ import Testing
     baseScaleRange: 1...1,
     maximumSymbolCount: 120,
   )
-  let symbolDescriptor = makePerformanceSymbolDescriptor(
-    id: UUID(uuidString: "00000000-0000-0000-0000-000000000206")!,
+  let symbolDescriptor = try makePerformanceSymbolDescriptor(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000206")),
     collisionShape: .circle(center: .zero, radius: 0),
   )
 
@@ -184,7 +185,7 @@ import Testing
   #expect(diagnostics.placementFailures == 0)
 }
 
-@Test func saturatedTerminationDiagnosticsRemainDeterministicForSameSeed() async throws {
+@Test func `saturated termination diagnostics remain deterministic for same seed`() throws {
   let size = CGSize(width: 140, height: 140)
   let placement = PlacementModel.Organic(
     seed: 3306,
@@ -193,8 +194,8 @@ import Testing
     baseScaleRange: 1...1,
     maximumSymbolCount: 5000,
   )
-  let symbolDescriptor = makePerformanceSymbolDescriptor(
-    id: UUID(uuidString: "00000000-0000-0000-0000-000000000207")!,
+  let symbolDescriptor = try makePerformanceSymbolDescriptor(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000207")),
     collisionShape: .circle(center: .zero, radius: 10),
   )
 
@@ -229,14 +230,14 @@ import Testing
   #expect(diagnosticsA.terminatedForSaturation == diagnosticsB.terminatedForSaturation)
 }
 
-@Test func gridCenterPointMaskValidationChecksCenterOnlyOncePerCell() async throws {
+@Test func `grid center point mask validation checks center only once per cell`() throws {
   let size = CGSize(width: 120, height: 80)
   let placement = PlacementModel.Grid(
     sizing: .count(columns: 4, rows: 3),
     seed: 9,
   )
-  let symbolDescriptor = makePerformanceSymbolDescriptor(
-    id: UUID(uuidString: "00000000-0000-0000-0000-000000000208")!,
+  let symbolDescriptor = try makePerformanceSymbolDescriptor(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000208")),
     collisionShape: .rectangle(center: .zero, size: CGSize(width: 6, height: 6)),
   )
   let counter = Counter()
@@ -256,7 +257,7 @@ import Testing
   #expect(counter.value == 12)
 }
 
-@Test func sliceAlphaMaskContainsMatchesDenseMaskForSampledPoints() async throws {
+@Test func `slice alpha mask contains matches dense mask for sampled points`() {
   let rasterSize = CGSize(width: 160, height: 120)
   let rasterPixelsWide = 160
   let rasterPixelsHigh = 120
@@ -288,7 +289,7 @@ import Testing
   }
 }
 
-@Test func sliceAlphaMaskForEachRasterSampleSkipsOutOfBoundsIndices() async throws {
+@Test func `slice alpha mask for each raster sample skips out of bounds indices`() {
   let rasterPixelsWide = 12
   let rasterPixelsHigh = 10
   let slice = SliceAlphaMask(
@@ -313,7 +314,7 @@ import Testing
   #expect(emittedOutOfBoundsIndex == false)
 }
 
-@Test func estimatedFilledFractionFindsThinCoverageWithRefinedSampling() async throws {
+@Test func `estimated filled fraction finds thin coverage with refined sampling`() {
   let canvasSize = CGSize(width: 100, height: 100)
   let thinBand = CGRect(x: 50.055, y: 50.055, width: 0.02, height: 0.02)
   let estimated = MosaicPlacementPlanner.testingEstimatedFilledFraction(
@@ -327,7 +328,7 @@ import Testing
   #expect(estimated > 0)
 }
 
-@Test func organicReadsFilledFractionOncePerRun() async throws {
+@Test func `organic reads filled fraction once per run`() throws {
   let size = CGSize(width: 120, height: 120)
   let placement = PlacementModel.Organic(
     seed: 888,
@@ -336,8 +337,8 @@ import Testing
     baseScaleRange: 1...1,
     maximumSymbolCount: 40,
   )
-  let symbolDescriptor = makePerformanceSymbolDescriptor(
-    id: UUID(uuidString: "00000000-0000-0000-0000-000000000209")!,
+  let symbolDescriptor = try makePerformanceSymbolDescriptor(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000209")),
     collisionShape: .circle(center: .zero, radius: 2),
   )
   let counter = Counter()
@@ -355,6 +356,174 @@ import Testing
   )
 
   #expect(counter.value == 1)
+}
+
+@Test func `exact shape mask validation matches generic containment checks`() {
+  let collisionShape = CollisionShape.rectangle(center: .zero, size: CGSize(width: 24, height: 18))
+  let polygons = CollisionMath.polygons(for: collisionShape)
+  let collisionTransform = CollisionTransform(
+    position: CGPoint(x: 120, y: 110),
+    rotation: .pi / 7,
+    scale: 0.9,
+  )
+  let canvasSize = CGSize(width: 280, height: 240)
+  let boundingRadius = collisionShape.boundingRadius(atScale: collisionTransform.scale)
+
+  let circleMask = makeMask(
+    collisionShape: .circle(center: .zero, radius: 90),
+    canvasSize: canvasSize,
+  )
+  let rectangleMask = makeMask(
+    collisionShape: .rectangle(center: .zero, size: CGSize(width: 190, height: 150)),
+    canvasSize: canvasSize,
+  )
+
+  let circleObjectResult = ShapePlacementMaskConstraint.validationResult(
+    circleMask,
+    collisionTransform: collisionTransform,
+    polygons: polygons,
+    mode: .sampledCollisionGeometry,
+    boundingRadius: boundingRadius,
+  )
+  let circleClosureResult = ShapePlacementMaskConstraint.validationResult(
+    contains: circleMask.contains,
+    collisionTransform: collisionTransform,
+    polygons: polygons,
+    mode: .sampledCollisionGeometry,
+  )
+  #expect(circleObjectResult == circleClosureResult)
+
+  let rectangleObjectResult = ShapePlacementMaskConstraint.validationResult(
+    rectangleMask,
+    collisionTransform: collisionTransform,
+    polygons: polygons,
+    mode: .sampledCollisionGeometry,
+    boundingRadius: boundingRadius,
+  )
+  let rectangleClosureResult = ShapePlacementMaskConstraint.validationResult(
+    contains: rectangleMask.contains,
+    collisionTransform: collisionTransform,
+    polygons: polygons,
+    mode: .sampledCollisionGeometry,
+  )
+  #expect(rectangleObjectResult == rectangleClosureResult)
+}
+
+@Test func `circle exact shape validation preserves offset geometry acceptance`() {
+  let canvasSize = CGSize(width: 120, height: 120)
+  let circleMask = makeMask(
+    collisionShape: .circle(center: .zero, radius: 30),
+    canvasSize: canvasSize,
+  )
+  let polygons = [
+    CollisionPolygon(
+      points: [
+        CGPoint(x: -20, y: -1),
+        CGPoint(x: -20, y: 1),
+        CGPoint(x: 0, y: 1),
+        CGPoint(x: 0, y: -1),
+      ],
+    ),
+  ]
+  let collisionTransform = CollisionTransform(
+    position: CGPoint(x: 79, y: 60),
+    rotation: 0,
+    scale: 1,
+  )
+  let boundingRadius = polygons[0].localBoundingRadius
+
+  let objectResult = ShapePlacementMaskConstraint.validationResult(
+    circleMask,
+    collisionTransform: collisionTransform,
+    polygons: polygons,
+    mode: .sampledCollisionGeometry,
+    boundingRadius: boundingRadius,
+  )
+  let closureResult = ShapePlacementMaskConstraint.validationResult(
+    contains: circleMask.contains,
+    collisionTransform: collisionTransform,
+    polygons: polygons,
+    mode: .sampledCollisionGeometry,
+  )
+
+  #expect(objectResult == .accepted)
+  #expect(objectResult == closureResult)
+}
+
+@Test func `organic contained heart mask reports placement diagnostics`() throws {
+  let size = CGSize(width: 500, height: 500)
+  let placement = PlacementModel.Organic(
+    seed: 4410,
+    minimumSpacing: 5,
+    density: 0.8,
+    baseScaleRange: 0.85...1.15,
+    maximumSymbolCount: 2500,
+  )
+  let symbolDescriptor = try makePerformanceSymbolDescriptor(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000210")),
+    collisionShape: .rectangle(center: .zero, size: CGSize(width: 12, height: 12)),
+  )
+  let mask = makeMask(
+    collisionShape: .centeredPolygon(points: heartLikePoints(scale: 150)),
+    canvasSize: size,
+  )
+  let diagnostics = ShapePlacementCollision.Diagnostics()
+  var generator = SeededGenerator(seed: placement.seed)
+
+  let placed = OrganicShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: [symbolDescriptor],
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .finite,
+    configuration: placement,
+    alphaMask: mask,
+    maskConstraintMode: .sampledCollisionGeometry,
+    randomGenerator: &generator,
+    diagnostics: diagnostics,
+  )
+
+  #expect(placed.isEmpty == false)
+  #expect(diagnostics.placementSuccesses == placed.count)
+  #expect(diagnostics.sampledGeometryMaskRejects > 0)
+  #expect(diagnostics.symbolCollisionRejects > 0)
+}
+
+@Test func `organic contained circle mask reports placement diagnostics`() throws {
+  let size = CGSize(width: 500, height: 500)
+  let placement = PlacementModel.Organic(
+    seed: 5520,
+    minimumSpacing: 5,
+    density: 0.8,
+    baseScaleRange: 0.85...1.15,
+    maximumSymbolCount: 2500,
+  )
+  let symbolDescriptor = try makePerformanceSymbolDescriptor(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000211")),
+    collisionShape: .rectangle(center: .zero, size: CGSize(width: 12, height: 12)),
+  )
+  let mask = makeMask(
+    collisionShape: .circle(center: .zero, radius: 170),
+    canvasSize: size,
+  )
+  let diagnostics = ShapePlacementCollision.Diagnostics()
+  var generator = SeededGenerator(seed: placement.seed)
+
+  let placed = OrganicShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: [symbolDescriptor],
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .finite,
+    configuration: placement,
+    alphaMask: mask,
+    maskConstraintMode: .sampledCollisionGeometry,
+    randomGenerator: &generator,
+    diagnostics: diagnostics,
+  )
+
+  #expect(placed.isEmpty == false)
+  #expect(diagnostics.placementSuccesses == placed.count)
+  #expect(diagnostics.sampledGeometryMaskRejects > 0)
+  #expect(diagnostics.symbolCollisionRejects > 0)
 }
 
 private func makePerformanceSymbolDescriptor(
@@ -381,7 +550,7 @@ private func placementSnapshot(_ descriptor: ShapePlacementEngine.PlacedSymbolDe
   )
 }
 
-private struct PlacementSnapshot: Hashable, Sendable {
+private struct PlacementSnapshot: Hashable {
   var symbolId: UUID
   var renderSymbolId: UUID
   var x: Double
@@ -453,4 +622,32 @@ private func makeSliceBytes(width: Int, height: Int) -> [UInt8] {
     }
   }
   return bytes
+}
+
+private func makeMask(
+  collisionShape: CollisionShape,
+  canvasSize: CGSize,
+) -> MosaicShapeMask {
+  let maskSymbol = Symbol(collider: .shape(collisionShape)) {
+    Color.clear
+  }
+  return MosaicShapeMask(
+    mosaicMask: MosaicMask(symbol: maskSymbol, position: .centered()),
+    canvasSize: canvasSize,
+  )
+}
+
+private func heartLikePoints(scale: CGFloat) -> [CGPoint] {
+  [
+    CGPoint(x: 0, y: -0.48 * scale),
+    CGPoint(x: 0.42 * scale, y: -0.9 * scale),
+    CGPoint(x: 0.95 * scale, y: -0.58 * scale),
+    CGPoint(x: 0.98 * scale, y: 0.02 * scale),
+    CGPoint(x: 0.58 * scale, y: 0.48 * scale),
+    CGPoint(x: 0, y: 1.0 * scale),
+    CGPoint(x: -0.58 * scale, y: 0.48 * scale),
+    CGPoint(x: -0.98 * scale, y: 0.02 * scale),
+    CGPoint(x: -0.95 * scale, y: -0.58 * scale),
+    CGPoint(x: -0.42 * scale, y: -0.9 * scale),
+  ]
 }

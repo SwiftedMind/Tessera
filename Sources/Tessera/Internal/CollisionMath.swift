@@ -4,17 +4,22 @@ import CoreGraphics
 import SwiftUI
 
 /// A polygon plus cached data to speed up collision checks.
-struct CollisionPolygon: Sendable {
+struct CollisionPolygon {
   var points: [CGPoint]
   var localUnitAxes: [CGVector]
   var localCenter: CGPoint
   var localBoundingRadius: CGFloat
+  var localMaskSamplePoints: [CGPoint]
 
   init(points: [CGPoint]) {
     self.points = points
     localUnitAxes = CollisionMath.separatingAxes(for: points)
     localCenter = CollisionMath.polygonCenter(for: points)
     localBoundingRadius = CollisionMath.maximumDistance(from: localCenter, in: points)
+    localMaskSamplePoints = CollisionMath.maskSamplePoints(
+      for: points,
+      localCenter: localCenter,
+    )
   }
 }
 
@@ -260,6 +265,30 @@ enum CollisionMath {
       convexPolygonPointSets(from: points)
         .map { CollisionPolygon(points: $0) }
     }
+  }
+
+  static func maskSamplePoints(
+    for points: [CGPoint],
+    localCenter: CGPoint,
+  ) -> [CGPoint] {
+    guard points.isEmpty == false else { return [localCenter] }
+
+    var sampledPoints: [CGPoint] = [localCenter]
+    sampledPoints.reserveCapacity(1 + points.count * 2)
+
+    for index in points.indices {
+      let pointA = points[index]
+      let pointB = points[(index + 1) % points.count]
+      sampledPoints.append(pointA)
+      sampledPoints.append(
+        CGPoint(
+          x: (pointA.x + pointB.x) / 2,
+          y: (pointA.y + pointB.y) / 2,
+        ),
+      )
+    }
+
+    return sampledPoints
   }
 
   fileprivate static func separatingAxes(for polygon: [CGPoint]) -> [CGVector] {

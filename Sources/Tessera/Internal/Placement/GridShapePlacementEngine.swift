@@ -13,7 +13,7 @@ enum GridShapePlacementEngine {
   static let maximumFixedVisibleCellCountPerAxis = 1024
   static let maximumFixedLatticeIndexMagnitude = 1_000_000_000
 
-  struct ResolvedSubgridArea: Sendable {
+  struct ResolvedSubgridArea {
     var sourceSubgridIndex: Int
     var acceptedSubgridIndex: Int
     var originRowIndex: Int
@@ -32,14 +32,14 @@ enum GridShapePlacementEngine {
     }
   }
 
-  private struct ResolvedSubgridCellAssignment: Sendable {
+  private struct ResolvedSubgridCellAssignment {
     var acceptedSubgridIndex: Int
     var localRowIndex: Int
     var localColumnIndex: Int
     var localAssignmentIndex: Int
   }
 
-  private struct ResolvedSubgridPlacementContext: Sendable {
+  private struct ResolvedSubgridPlacementContext {
     var area: ResolvedSubgridArea
     var subgridRect: CGRect
     var symbolOrder: PlacementModel.GridSymbolOrder
@@ -52,7 +52,7 @@ enum GridShapePlacementEngine {
     var localGrid: ResolvedSubgridLocalGrid?
   }
 
-  struct ResolvedSubgridLocalGrid: Sendable {
+  struct ResolvedSubgridLocalGrid {
     var resolvedGrid: ResolvedGrid
     var subgridRect: CGRect
     var offsetStrategy: PlacementModel.GridOffsetStrategy
@@ -83,6 +83,7 @@ enum GridShapePlacementEngine {
     alphaMask: (any PlacementMask)? = nil,
     placementBounds: CGRect? = nil,
     maskConstraintMode: ShapePlacementMaskConstraint.Mode = .sampledCollisionGeometry,
+    diagnostics: ShapePlacementCollision.Diagnostics? = nil,
   ) -> [PlacedSymbolDescriptor] {
     guard size.width > 0, size.height > 0 else { return [] }
 
@@ -103,12 +104,12 @@ enum GridShapePlacementEngine {
     let renderableLeafDescriptors = symbolDescriptors.flatMap(\.renderableLeafDescriptors)
     let topLevelSymbolDescriptorsByID: [UUID: PlacementSymbolDescriptor] = symbolDescriptors.reduce(into: [:]) {
       cache,
-        descriptor in
+      descriptor in
       cache[descriptor.id] = descriptor
     }
     let leafSymbolDescriptorsByID: [UUID: PlacementSymbolDescriptor] = renderableLeafDescriptors.reduce(into: [:]) {
       cache,
-        descriptor in
+      descriptor in
       guard cache[descriptor.id] == nil else { return }
 
       cache[descriptor.id] = PlacementSymbolDescriptor(
@@ -249,6 +250,7 @@ enum GridShapePlacementEngine {
               placementRect: placementRect,
               edgeBehavior: edgeBehavior,
               region: region,
+              alphaMask: alphaMask,
               maskContains: maskContains,
               maskConstraintMode: maskConstraintMode,
               finiteCanvasRect: finiteCanvasRect,
@@ -259,6 +261,7 @@ enum GridShapePlacementEngine {
               wrapOffsets: wrapOffsets,
               polygonCache: polygonCache,
               clipRect: clipRect,
+              diagnostics: diagnostics,
               choiceSequenceState: &choiceSequenceState,
             ))
             continue
@@ -343,6 +346,7 @@ enum GridShapePlacementEngine {
           absoluteRowIndex: absoluteRowIndex,
           cellSize: resolvedGrid.cellSize,
         )
+        diagnostics?.placementOuterAttempts += 1
         guard let candidate = resolvePlacedSymbolDescriptor(
           selectedSymbol: selectedSymbol,
           baseSeed: configuration.seed,
@@ -358,6 +362,7 @@ enum GridShapePlacementEngine {
           canvasSize: size,
           edgeBehavior: edgeBehavior,
           region: region,
+          alphaMask: alphaMask,
           maskContains: maskContains,
           maskConstraintMode: maskConstraintMode,
           finiteCanvasRect: finiteCanvasRect,
@@ -368,11 +373,14 @@ enum GridShapePlacementEngine {
           wrapOffsets: wrapOffsets,
           polygonCache: polygonCache,
           clipRect: clipRect,
+          diagnostics: diagnostics,
           choiceSequenceState: &choiceSequenceState,
         ) else {
+          diagnostics?.placementFailures += 1
           continue
         }
 
+        diagnostics?.placementSuccesses += 1
         placedDescriptors.append(candidate)
       }
     }
@@ -387,6 +395,7 @@ enum GridShapePlacementEngine {
     placementRect: CGRect,
     edgeBehavior: TesseraEdgeBehavior,
     region: TesseraResolvedPolygonRegion?,
+    alphaMask: (any PlacementMask)?,
     maskContains: ((CGPoint) -> Bool)?,
     maskConstraintMode: ShapePlacementMaskConstraint.Mode,
     finiteCanvasRect: CGRect?,
@@ -397,6 +406,7 @@ enum GridShapePlacementEngine {
     wrapOffsets: [CGPoint],
     polygonCache: [UUID: [CollisionPolygon]],
     clipRect: CGRect?,
+    diagnostics: ShapePlacementCollision.Diagnostics?,
     choiceSequenceState: inout ShapePlacementEngine.ChoiceSequenceState,
   ) -> [PlacedSymbolDescriptor] {
     guard let localGrid = context.localGrid else { return [] }
@@ -472,6 +482,7 @@ enum GridShapePlacementEngine {
           columnCount: localResolvedGrid.columnCount,
         )
 
+        diagnostics?.placementOuterAttempts += 1
         guard let candidate = resolvePlacedSymbolDescriptor(
           selectedSymbol: selectedSymbol,
           baseSeed: configuration.seed,
@@ -487,6 +498,7 @@ enum GridShapePlacementEngine {
           canvasSize: canvasSize,
           edgeBehavior: edgeBehavior,
           region: region,
+          alphaMask: alphaMask,
           maskContains: maskContains,
           maskConstraintMode: maskConstraintMode,
           finiteCanvasRect: finiteCanvasRect,
@@ -497,11 +509,14 @@ enum GridShapePlacementEngine {
           wrapOffsets: wrapOffsets,
           polygonCache: polygonCache,
           clipRect: clipRect,
+          diagnostics: diagnostics,
           choiceSequenceState: &choiceSequenceState,
         ) else {
+          diagnostics?.placementFailures += 1
           continue
         }
 
+        diagnostics?.placementSuccesses += 1
         descriptors.append(candidate)
       }
     }
@@ -524,6 +539,7 @@ enum GridShapePlacementEngine {
     canvasSize: CGSize,
     edgeBehavior: TesseraEdgeBehavior,
     region: TesseraResolvedPolygonRegion?,
+    alphaMask: (any PlacementMask)?,
     maskContains: ((CGPoint) -> Bool)?,
     maskConstraintMode: ShapePlacementMaskConstraint.Mode,
     finiteCanvasRect: CGRect?,
@@ -534,6 +550,7 @@ enum GridShapePlacementEngine {
     wrapOffsets: [CGPoint],
     polygonCache: [UUID: [CollisionPolygon]],
     clipRect: CGRect?,
+    diagnostics: ShapePlacementCollision.Diagnostics?,
     choiceSequenceState: inout ShapePlacementEngine.ChoiceSequenceState,
   ) -> PlacedSymbolDescriptor? {
     let choiceSeed = GridSymbolAssignment.choiceSeed(
@@ -591,6 +608,7 @@ enum GridShapePlacementEngine {
     }
 
     if let maskContains, maskContains(position) == false {
+      diagnostics?.centerPointMaskRejects += 1
       return nil
     }
 
@@ -644,15 +662,43 @@ enum GridShapePlacementEngine {
       return nil
     }
 
-    if let maskContains,
-       ShapePlacementMaskConstraint.isPlacementInsideMask(
-         contains: maskContains,
-         collisionTransform: candidateTransform,
-         polygons: selectedPolygons,
-         mode: maskConstraintMode,
-         centerAlreadyValidated: true,
-       ) == false {
-      return nil
+    if let alphaMask {
+      let maskValidation = ShapePlacementMaskConstraint.validationResult(
+        alphaMask,
+        collisionTransform: candidateTransform,
+        polygons: selectedPolygons,
+        mode: maskConstraintMode,
+        centerAlreadyValidated: true,
+        boundingRadius: candidateCollisionShape.boundingRadius(atScale: candidateTransform.scale),
+      )
+      switch maskValidation {
+      case .accepted:
+        break
+      case .rejectedAtCenterPoint:
+        diagnostics?.centerPointMaskRejects += 1
+        return nil
+      case .rejectedAtSampledGeometry:
+        diagnostics?.sampledGeometryMaskRejects += 1
+        return nil
+      }
+    } else if let maskContains {
+      let maskValidation = ShapePlacementMaskConstraint.validationResult(
+        contains: maskContains,
+        collisionTransform: candidateTransform,
+        polygons: selectedPolygons,
+        mode: maskConstraintMode,
+        centerAlreadyValidated: true,
+      )
+      switch maskValidation {
+      case .accepted:
+        break
+      case .rejectedAtCenterPoint:
+        diagnostics?.centerPointMaskRejects += 1
+        return nil
+      case .rejectedAtSampledGeometry:
+        diagnostics?.sampledGeometryMaskRejects += 1
+        return nil
+      }
     }
 
     let candidateCollision = ShapePlacementCollision.PlacementCandidate(
@@ -671,9 +717,13 @@ enum GridShapePlacementEngine {
         tileSize: canvasSize,
         edgeBehavior: edgeBehavior,
         wrapOffsets: wrapOffsets,
+        diagnostics: diagnostics,
       )
 
-      guard isValid else { return nil }
+      guard isValid else {
+        diagnostics?.symbolCollisionRejects += 1
+        return nil
+      }
     }
 
     choiceSequenceState = tentativeChoiceSequenceState

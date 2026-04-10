@@ -221,6 +221,7 @@ enum OrganicShapePlacementEngine {
             spatialIndex: spatialIndex,
             cellSize: cellSize,
             prefersOpenCells: saturationStopState.shouldPreferOpenCells,
+            diagnostics: diagnostics,
             using: &randomGenerator,
           ) else { continue }
 
@@ -261,15 +262,25 @@ enum OrganicShapePlacementEngine {
             minimumSpacing: candidateMinimumSpacing,
           )
 
-          if let maskContains,
-             ShapePlacementMaskConstraint.isPlacementInsideMask(
-               contains: maskContains,
-               collisionTransform: candidateTransform,
-               polygons: selectedPolygons,
-               mode: maskConstraintMode,
-               centerAlreadyValidated: true,
-             ) == false {
-            continue
+          if let alphaMask {
+            let maskValidation = ShapePlacementMaskConstraint.validationResult(
+              alphaMask,
+              collisionTransform: candidateTransform,
+              polygons: selectedPolygons,
+              mode: maskConstraintMode,
+              centerAlreadyValidated: true,
+              boundingRadius: candidateCollision.boundingRadius,
+            )
+            switch maskValidation {
+            case .accepted:
+              break
+            case .rejectedAtCenterPoint:
+              diagnostics?.centerPointMaskRejects += 1
+              continue
+            case .rejectedAtSampledGeometry:
+              diagnostics?.sampledGeometryMaskRejects += 1
+              continue
+            }
           }
 
           let candidateCellIndex = spatialIndex.cellIndex(for: position, cellSize: cellSize)
@@ -287,7 +298,10 @@ enum OrganicShapePlacementEngine {
             edgeBehavior: edgeBehavior,
             wrapOffsets: wrapOffsets,
             diagnostics: diagnostics,
-          ) else { continue }
+          ) else {
+            diagnostics?.symbolCollisionRejects += 1
+            continue
+          }
 
           choiceSequenceState = tentativeChoiceSequenceState
 
@@ -833,6 +847,7 @@ enum OrganicShapePlacementEngine {
     spatialIndex: OrganicSpatialIndex,
     cellSize: CGFloat,
     prefersOpenCells: Bool,
+    diagnostics: ShapePlacementCollision.Diagnostics?,
     using randomGenerator: inout some RandomNumberGenerator,
   ) -> CGPoint? {
     guard size.width > 0, size.height > 0 else { return nil }
@@ -846,6 +861,7 @@ enum OrganicShapePlacementEngine {
           continue
         }
         if let alphaMaskContains, alphaMaskContains(point) == false {
+          diagnostics?.centerPointMaskRejects += 1
           continue
         }
         return point
@@ -860,6 +876,7 @@ enum OrganicShapePlacementEngine {
          alphaMaskContains: alphaMaskContains,
          spatialIndex: spatialIndex,
          cellSize: cellSize,
+         diagnostics: diagnostics,
          using: &randomGenerator,
        ) {
       return point
@@ -873,6 +890,7 @@ enum OrganicShapePlacementEngine {
     ) else { return nil }
 
     if let alphaMaskContains, alphaMaskContains(point) == false {
+      diagnostics?.centerPointMaskRejects += 1
       return nil
     }
 
@@ -885,6 +903,7 @@ enum OrganicShapePlacementEngine {
     alphaMaskContains: ((CGPoint) -> Bool)?,
     spatialIndex: OrganicSpatialIndex,
     cellSize: CGFloat,
+    diagnostics: ShapePlacementCollision.Diagnostics?,
     using randomGenerator: inout some RandomNumberGenerator,
   ) -> CGPoint? {
     let candidateCellCount = min(4, spatialIndex.colliderIndicesByCellIndex.count)
@@ -919,6 +938,7 @@ enum OrganicShapePlacementEngine {
         continue
       }
       if let alphaMaskContains, alphaMaskContains(point) == false {
+        diagnostics?.centerPointMaskRejects += 1
         continue
       }
       return point

@@ -42,6 +42,7 @@ enum ShapePlacementEngine {
     gridPlacementBounds: CGRect? = nil,
     maskConstraintMode: ShapePlacementMaskConstraint.Mode = .sampledCollisionGeometry,
     randomGenerator: inout some RandomNumberGenerator,
+    diagnostics: ShapePlacementCollision.Diagnostics? = nil,
   ) -> [PlacedSymbolDescriptor] {
     guard !symbolDescriptors.isEmpty else { return [] }
 
@@ -57,6 +58,7 @@ enum ShapePlacementEngine {
         alphaMask: alphaMask,
         maskConstraintMode: maskConstraintMode,
         randomGenerator: &randomGenerator,
+        diagnostics: diagnostics,
       )
     case let .grid(gridConfiguration):
       GridShapePlacementEngine.placeSymbolDescriptors(
@@ -69,6 +71,7 @@ enum ShapePlacementEngine {
         alphaMask: alphaMask,
         placementBounds: gridPlacementBounds,
         maskConstraintMode: maskConstraintMode,
+        diagnostics: diagnostics,
       )
     }
 

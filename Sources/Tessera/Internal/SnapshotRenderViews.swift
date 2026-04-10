@@ -1,5 +1,6 @@
 // By Dennis Müller
 
+import Foundation
 import SwiftUI
 
 /// Repeats a rendered tile symbol to fill available space.
@@ -35,6 +36,12 @@ struct SnapshotTiledCanvasView<Tile: View>: View {
 
 /// Renders one fully resolved snapshot layer stack.
 struct SnapshotStaticCanvasView: View {
+  @Environment(\.colorScheme) private var colorScheme
+  @Environment(\.displayScale) private var displayScale
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+  @Environment(\.layoutDirection) private var layoutDirection
+  @Environment(\.locale) private var locale
+
   var snapshot: TesseraSnapshot
   var rendersAsynchronously: Bool
   var debugOverlay: TesseraDebugOverlay
@@ -47,6 +54,13 @@ struct SnapshotStaticCanvasView: View {
     let shouldClipPolygon = renderModel.region.isPolygon && renderModel.regionRendering == .clipped
     let shouldClipAlphaMask = renderModel.region.isAlphaMask && renderModel.regionRendering == .clipped
     let clipPath = shouldClipPolygon ? renderModel.region.clipPath(in: snapshot.size) : nil
+    let mosaicMaskRenderContext = SnapshotMaskImageCache.MosaicRenderContext(
+      displayScale: max(displayScale, 0.1),
+      colorScheme: colorScheme,
+      layoutDirection: layoutDirection,
+      dynamicTypeSize: dynamicTypeSize,
+      localeIdentifier: locale.identifier,
+    )
     let globalAlphaMaskView: AnyView? = if shouldClipAlphaMask,
                                            let globalMask = renderModel.resolvedGlobalAlphaMask {
       SnapshotMaskImageCache.maskView(
@@ -80,6 +94,8 @@ struct SnapshotStaticCanvasView: View {
           size: snapshot.size,
           clipPath: clipPath,
           debugOverlay: debugOverlay,
+          snapshotFingerprint: snapshotFingerprint,
+          renderContext: mosaicMaskRenderContext,
         )
       }
       .overlay {
@@ -100,9 +116,17 @@ struct SnapshotStaticCanvasView: View {
 
               if mosaic.rendering.clipsToMask {
                 mosaicLayer.mask {
-                  SnapshotMosaicMaskSymbolView(
-                    mask: mosaic.maskDefinition,
+                  SnapshotMaskImageCache.maskView(
+                    for: mosaic.maskDefinition,
                     size: snapshot.size,
+                    snapshotFingerprint: snapshotFingerprint,
+                    role: .mosaic(mosaic.id),
+                    renderContext: mosaicMaskRenderContext,
+                  ) ?? AnyView(
+                    SnapshotMosaicMaskSymbolView(
+                      mask: mosaic.maskDefinition,
+                      size: snapshot.size,
+                    ),
                   )
                 }
               } else {
@@ -172,14 +196,24 @@ private struct SnapshotMosaicMaskDebugOverlayView: View {
   var size: CGSize
   var clipPath: Path?
   var debugOverlay: TesseraDebugOverlay
+  var snapshotFingerprint: UInt64
+  var renderContext: SnapshotMaskImageCache.MosaicRenderContext
 
   var body: some View {
     if let opacity = debugOverlay.resolvedMosaicMaskOpacity, mosaics.isEmpty == false {
       let overlay = ZStack {
         ForEach(Array(mosaics.enumerated()), id: \.element.id) { index, mosaic in
-          let symbolMask = SnapshotMosaicMaskSymbolView(
-            mask: mosaic.maskDefinition,
+          let symbolMask = SnapshotMaskImageCache.maskView(
+            for: mosaic.maskDefinition,
             size: size,
+            snapshotFingerprint: snapshotFingerprint,
+            role: .mosaic(mosaic.id),
+            renderContext: renderContext,
+          ) ?? AnyView(
+            SnapshotMosaicMaskSymbolView(
+              mask: mosaic.maskDefinition,
+              size: size,
+            ),
           )
           let tinted = Rectangle().fill(debugColor(for: index).opacity(opacity))
           tinted.mask { symbolMask }
@@ -225,17 +259,31 @@ private struct SnapshotMosaicMaskSymbolView: View {
 
 @MainActor
 enum SnapshotMaskImageCache {
+  struct MosaicRenderContext: Hashable {
+    var displayScale: CGFloat
+    var colorScheme: ColorScheme
+    var layoutDirection: LayoutDirection
+    var dynamicTypeSize: DynamicTypeSize
+    var localeIdentifier: String
+  }
+
   enum Role: Hashable {
     case globalRegionMask
     case mosaic(UUID)
   }
 
+  private struct CacheKey: Hashable {
+    var role: Role
+    var mosaicRenderContext: MosaicRenderContext?
+  }
+
   static let maximumSnapshotCount = 4
-  static var imagesBySnapshotFingerprint: [UInt64: [Role: CGImage]] = [:]
-  static var recentSnapshotFingerprints: [UInt64] = []
+  private static var imagesBySnapshotFingerprint: [UInt64: [CacheKey: CGImage]] = [:]
+  private static var recentSnapshotFingerprints: [UInt64] = []
 
   #if DEBUG
   static var generatedImageCount = 0
+  static var cacheHitCount = 0
   #endif
 
   static func maskView(
@@ -283,13 +331,41 @@ enum SnapshotMaskImageCache {
     )
   }
 
+  static func maskView(
+    for mask: MosaicMask,
+    size: CGSize,
+    snapshotFingerprint: UInt64,
+    role: Role,
+    renderContext: MosaicRenderContext,
+  ) -> AnyView? {
+    guard let image = image(
+      for: mask,
+      size: size,
+      snapshotFingerprint: snapshotFingerprint,
+      role: role,
+      renderContext: renderContext,
+    ) else {
+      return nil
+    }
+
+    let scale = max(renderContext.displayScale, 0.1)
+    return AnyView(
+      Image(decorative: image, scale: scale, orientation: .up)
+        .frame(width: size.width, height: size.height),
+    )
+  }
+
   private static func image(
     for mask: TesseraAlphaMask,
     snapshotFingerprint: UInt64,
     role: Role,
   ) -> CGImage? {
-    if let cachedImage = imagesBySnapshotFingerprint[snapshotFingerprint]?[role] {
+    let key = CacheKey(role: role, mosaicRenderContext: nil)
+    if let cachedImage = imagesBySnapshotFingerprint[snapshotFingerprint]?[key] {
       markSnapshotAsRecentlyUsed(snapshotFingerprint)
+      #if DEBUG
+      cacheHitCount += 1
+      #endif
       return cachedImage
     }
 
@@ -300,7 +376,7 @@ enum SnapshotMaskImageCache {
     #endif
 
     var snapshotImages = imagesBySnapshotFingerprint[snapshotFingerprint] ?? [:]
-    snapshotImages[role] = generatedImage
+    snapshotImages[key] = generatedImage
     imagesBySnapshotFingerprint[snapshotFingerprint] = snapshotImages
     markSnapshotAsRecentlyUsed(snapshotFingerprint)
     pruneIfNeeded()
@@ -312,8 +388,12 @@ enum SnapshotMaskImageCache {
     snapshotFingerprint: UInt64,
     role: Role,
   ) -> CGImage? {
-    if let cachedImage = imagesBySnapshotFingerprint[snapshotFingerprint]?[role] {
+    let key = CacheKey(role: role, mosaicRenderContext: nil)
+    if let cachedImage = imagesBySnapshotFingerprint[snapshotFingerprint]?[key] {
       markSnapshotAsRecentlyUsed(snapshotFingerprint)
+      #if DEBUG
+      cacheHitCount += 1
+      #endif
       return cachedImage
     }
 
@@ -324,7 +404,48 @@ enum SnapshotMaskImageCache {
     #endif
 
     var snapshotImages = imagesBySnapshotFingerprint[snapshotFingerprint] ?? [:]
-    snapshotImages[role] = generatedImage
+    snapshotImages[key] = generatedImage
+    imagesBySnapshotFingerprint[snapshotFingerprint] = snapshotImages
+    markSnapshotAsRecentlyUsed(snapshotFingerprint)
+    pruneIfNeeded()
+    return generatedImage
+  }
+
+  private static func image(
+    for mask: MosaicMask,
+    size: CGSize,
+    snapshotFingerprint: UInt64,
+    role: Role,
+    renderContext: MosaicRenderContext,
+  ) -> CGImage? {
+    let key = CacheKey(role: role, mosaicRenderContext: renderContext)
+    if let cachedImage = imagesBySnapshotFingerprint[snapshotFingerprint]?[key] {
+      markSnapshotAsRecentlyUsed(snapshotFingerprint)
+      #if DEBUG
+      cacheHitCount += 1
+      #endif
+      return cachedImage
+    }
+
+    let renderer = ImageRenderer(
+      content: SnapshotMosaicMaskSymbolView(mask: mask, size: size)
+        .environment(\.displayScale, renderContext.displayScale)
+        .environment(\.colorScheme, renderContext.colorScheme)
+        .environment(\.layoutDirection, renderContext.layoutDirection)
+        .environment(\.dynamicTypeSize, renderContext.dynamicTypeSize)
+        .environment(\.locale, Locale(identifier: renderContext.localeIdentifier))
+        .frame(width: size.width, height: size.height),
+    )
+    renderer.proposedSize = ProposedViewSize(size)
+    renderer.scale = max(renderContext.displayScale, 0.1)
+    guard let generatedImage = renderer.cgImage else { return nil }
+
+    #if DEBUG
+    generatedImageCount += 1
+    #endif
+
+    var snapshotImages = imagesBySnapshotFingerprint[snapshotFingerprint] ?? [:]
+    snapshotImages[key] = generatedImage
     imagesBySnapshotFingerprint[snapshotFingerprint] = snapshotImages
     markSnapshotAsRecentlyUsed(snapshotFingerprint)
     pruneIfNeeded()
@@ -348,14 +469,27 @@ enum SnapshotMaskImageCache {
   }
 
   #if DEBUG
+  static let testingMosaicRenderContext = MosaicRenderContext(
+    displayScale: 1,
+    colorScheme: .light,
+    layoutDirection: .leftToRight,
+    dynamicTypeSize: .medium,
+    localeIdentifier: "en_US_POSIX",
+  )
+
   static func testingReset() {
     imagesBySnapshotFingerprint.removeAll()
     recentSnapshotFingerprints.removeAll()
     generatedImageCount = 0
+    cacheHitCount = 0
   }
 
   static func testingGeneratedImageCount() -> Int {
     generatedImageCount
+  }
+
+  static func testingCacheHitCount() -> Int {
+    cacheHitCount
   }
   #endif
 }

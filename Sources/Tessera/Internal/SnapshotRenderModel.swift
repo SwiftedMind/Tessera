@@ -4,11 +4,11 @@ import CoreGraphics
 import Foundation
 
 /// Stable request identity used for snapshot fingerprinting and compatibility checks.
-struct SnapshotRequestKey: Hashable, Sendable {
+struct SnapshotRequestKey: Hashable {
   /// Hashable representation of a pinned symbol used in request identity.
-  struct PinnedSymbolKey: Hashable, Sendable {
+  struct PinnedSymbolKey: Hashable {
     /// Position encoding used in request keys.
-    enum PositionKind: Hashable, Sendable {
+    enum PositionKind: Hashable {
       case absolute
       case relative
     }
@@ -35,7 +35,7 @@ struct SnapshotRequestKey: Hashable, Sendable {
 }
 
 /// Render-ready placement entry used by snapshot views.
-struct SnapshotPlacementDescriptor: Sendable, Hashable {
+struct SnapshotPlacementDescriptor: Hashable {
   var symbolId: UUID
   var renderSymbolId: UUID
   var zIndex: Double
@@ -57,6 +57,17 @@ struct SnapshotMosaicLayer: Identifiable, @unchecked Sendable {
   var offset: CGSize
 }
 
+struct SnapshotPerformanceDiagnostics {
+  struct Layer {
+    var id: UUID?
+    var maskPreparationDurationSeconds: Double?
+    var placement: ShapePlacementCollision.Diagnostics.Summary
+  }
+
+  var baseLayer: Layer
+  var mosaicLayers: [Layer]
+}
+
 /// Fully resolved render model backing `TesseraSnapshotView`.
 struct SnapshotRenderModel {
   var edgeBehavior: TesseraEdgeBehavior
@@ -69,6 +80,7 @@ struct SnapshotRenderModel {
   var pinnedSymbols: [PinnedSymbol]
   var resolvedRegion: TesseraResolvedPolygonRegion?
   var resolvedGlobalAlphaMask: TesseraAlphaMask?
+  var performanceDiagnostics: SnapshotPerformanceDiagnostics
 }
 
 extension SnapshotRequestKey {

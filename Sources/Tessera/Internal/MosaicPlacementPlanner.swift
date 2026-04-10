@@ -4,9 +4,9 @@ import CoreGraphics
 import Foundation
 
 /// Plans all placement layers (base + mosaics) and assembles a render-ready snapshot.
-struct MosaicPlacementPlanner: Sendable {
+struct MosaicPlacementPlanner {
   /// Immutable request inputs for one snapshot computation.
-  struct Inputs: Sendable {
+  struct Inputs {
     var pattern: Pattern
     var mode: Mode
     var resolvedSize: CGSize
@@ -42,6 +42,7 @@ struct MosaicPlacementPlanner: Sendable {
     let mosaicPlacements = try await placeMosaicLayers(
       placementMasks: maskPreparation.mosaicPlacementMasks,
       mosaicMasks: maskPreparation.mosaicMasks,
+      maskPreparationDurations: maskPreparation.mosaicMaskPreparationDurations,
       edgeBehavior: edgeBehavior,
       resolvedRegion: resolvedRegion,
       onEvent: onEvent,
@@ -61,7 +62,7 @@ struct MosaicPlacementPlanner: Sendable {
         requestKey: requestKey,
       ),
     )
-    let snapshot = TesseraSnapshot(
+    return TesseraSnapshot(
       mode: inputs.mode,
       size: inputs.resolvedSize,
       fingerprint: fingerprint,
@@ -73,13 +74,16 @@ struct MosaicPlacementPlanner: Sendable {
         baseSymbols: basePlacement.symbols,
         basePlacements: basePlacement.placements,
         baseOffset: inputs.pattern.offset,
-        mosaics: mosaicPlacements,
+        mosaics: mosaicPlacements.layers,
         pinnedSymbols: inputs.pinnedSymbols,
         resolvedRegion: resolvedRegion,
         resolvedGlobalAlphaMask: resolvedGlobalAlphaMask,
+        performanceDiagnostics: SnapshotPerformanceDiagnostics(
+          baseLayer: basePlacement.diagnostics,
+          mosaicLayers: mosaicPlacements.diagnostics,
+        ),
       ),
     )
-    return snapshot
   }
 }
 
@@ -157,7 +161,7 @@ private extension MosaicPlacementPlanner {
 
   /// Placement mask for the base layer (global region minus all mosaic areas).
   struct BaseAllowedPlacementMask: PlacementMask {
-    struct ExcludedMosaic: Sendable {
+    struct ExcludedMosaic {
       var bounds: CGRect
       var mask: MosaicShapeMask
     }
@@ -237,6 +241,7 @@ private extension MosaicPlacementPlanner {
     onEvent: @Sendable (TesseraComputationEvent) -> Void,
   ) async throws -> (
     mosaicMasks: [MosaicShapeMask],
+    mosaicMaskPreparationDurations: [Double],
     mosaicPlacementMasks: [MosaicPlacementMask],
     baseAllowedMask: (any PlacementMask)?,
   ) {
@@ -244,16 +249,18 @@ private extension MosaicPlacementPlanner {
     guard mosaics.isEmpty == false else {
       return (
         mosaicMasks: [],
+        mosaicMaskPreparationDurations: [],
         mosaicPlacementMasks: [],
         baseAllowedMask: globalMask,
       )
     }
 
     onEvent(.preparingMasks(completed: 0, total: mosaics.count))
-    let mosaicMasks = try await buildRawMosaicShapeMasks(
+    let rawMasks = try await buildRawMosaicShapeMasks(
       mosaics: mosaics,
       onEvent: onEvent,
     )
+    let mosaicMasks = rawMasks.map(\.mask)
     let mosaicPlacementMasks = mosaicMasks.map { mosaicMask in
       MosaicPlacementMask(
         shapeMask: mosaicMask,
@@ -267,6 +274,7 @@ private extension MosaicPlacementPlanner {
     )
     return (
       mosaicMasks: mosaicMasks,
+      mosaicMaskPreparationDurations: rawMasks.map(\.durationSeconds),
       mosaicPlacementMasks: mosaicPlacementMasks,
       baseAllowedMask: baseAllowedMask,
     )
@@ -277,26 +285,29 @@ private extension MosaicPlacementPlanner {
   func buildRawMosaicShapeMasks(
     mosaics: [Mosaic],
     onEvent: @Sendable (TesseraComputationEvent) -> Void,
-  ) async throws -> [MosaicShapeMask] {
-    var rawMasks = [MosaicShapeMask?](repeating: nil, count: mosaics.count)
+  ) async throws -> [(mask: MosaicShapeMask, durationSeconds: Double)] {
+    var rawMasks = [(mask: MosaicShapeMask, durationSeconds: Double)?](repeating: nil, count: mosaics.count)
     var completed = 0
 
-    try await withThrowingTaskGroup(of: (Int, MosaicShapeMask).self) { group in
+    try await withThrowingTaskGroup(of: (Int, MosaicShapeMask, Double).self) { group in
       for (index, mosaic) in mosaics.enumerated() {
         group.addTask {
           try Task.checkCancellation()
+          let startedAt = Date().timeIntervalSinceReferenceDate
+          let mask = MosaicShapeMask(
+            mosaicMask: mosaic.mask,
+            canvasSize: inputs.resolvedSize,
+          )
           return (
             index,
-            MosaicShapeMask(
-              mosaicMask: mosaic.mask,
-              canvasSize: inputs.resolvedSize,
-            ),
+            mask,
+            Date().timeIntervalSinceReferenceDate - startedAt,
           )
         }
       }
 
-      for try await (index, rawMask) in group {
-        rawMasks[index] = rawMask
+      for try await (index, rawMask, durationSeconds) in group {
+        rawMasks[index] = (mask: rawMask, durationSeconds: durationSeconds)
         completed += 1
         onEvent(.preparingMasks(completed: completed, total: mosaics.count))
       }
@@ -363,88 +374,116 @@ private extension MosaicPlacementPlanner {
   func placeMosaicLayers(
     placementMasks: [MosaicPlacementMask],
     mosaicMasks: [MosaicShapeMask],
+    maskPreparationDurations: [Double],
     edgeBehavior: TesseraEdgeBehavior,
     resolvedRegion: TesseraResolvedPolygonRegion?,
     onEvent: @Sendable (TesseraComputationEvent) -> Void,
-  ) async throws -> [SnapshotMosaicLayer] {
+  ) async throws -> (
+    layers: [SnapshotMosaicLayer],
+    diagnostics: [SnapshotPerformanceDiagnostics.Layer],
+  ) {
     let mosaics = inputs.pattern.mosaics
     var layers = [SnapshotMosaicLayer?](repeating: nil, count: mosaics.count)
+    var diagnosticsByIndex = [SnapshotPerformanceDiagnostics.Layer?](repeating: nil, count: mosaics.count)
 
-    try await withThrowingTaskGroup(of: (Int, SnapshotMosaicLayer).self) { group in
-      for (index, mosaic) in mosaics.enumerated() {
-        group.addTask {
-          try Task.checkCancellation()
+    try await withThrowingTaskGroup(of: (Int, SnapshotMosaicLayer, SnapshotPerformanceDiagnostics.Layer)
+      .self) { group in
+        for (index, mosaic) in mosaics.enumerated() {
+          group.addTask {
+            try Task.checkCancellation()
 
-          let derivedSeed = derivedMosaicSeed(baseSeed: inputs.resolvedSeed, index: index)
-          let seededPlacement = apply(seed: derivedSeed, to: mosaic.placement)
-          let resolved = TesseraPlacementResolver.resolve(
-            symbols: mosaic.symbols,
-            placement: seededPlacement,
-          )
-          guard resolved.symbols.isEmpty == false else {
-            throw RenderError.invalidMosaicConfiguration
-          }
+            let derivedSeed = derivedMosaicSeed(baseSeed: inputs.resolvedSeed, index: index)
+            let seededPlacement = apply(seed: derivedSeed, to: mosaic.placement)
+            let resolved = TesseraPlacementResolver.resolve(
+              symbols: mosaic.symbols,
+              placement: seededPlacement,
+            )
+            guard resolved.symbols.isEmpty == false else {
+              throw RenderError.invalidMosaicConfiguration
+            }
 
-          let symbolDescriptors = ShapePlacementEngine.makeSymbolDescriptors(
-            from: resolved.symbols,
-            placement: resolved.placement,
-          )
-          let maskConstraintMode = maskConstraintMode(for: mosaic.rendering)
-          let placementMask = placementMasks[index]
-          let gridPlacementBounds = gridPlacementBounds(
-            for: resolved.placement,
-            alphaMask: placementMask,
-          )
-          if case .grid = resolved.placement, gridPlacementBounds == nil {
+            let symbolDescriptors = ShapePlacementEngine.makeSymbolDescriptors(
+              from: resolved.symbols,
+              placement: resolved.placement,
+            )
+            let maskConstraintMode = maskConstraintMode(for: mosaic.rendering)
+            let placementMask = placementMasks[index]
+            let gridPlacementBounds = gridPlacementBounds(
+              for: resolved.placement,
+              alphaMask: placementMask,
+            )
+            let placementDiagnostics = ShapePlacementCollision.Diagnostics()
+            if case .grid = resolved.placement, gridPlacementBounds == nil {
+              let snapshotLayer = makeSnapshotMosaicLayer(
+                mosaic: mosaic,
+                symbols: resolved.symbols,
+                placements: [],
+                mask: mosaicMasks[index],
+              )
+              return (
+                index,
+                snapshotLayer,
+                SnapshotPerformanceDiagnostics.Layer(
+                  id: mosaic.id,
+                  maskPreparationDurationSeconds: maskPreparationDurations[index],
+                  placement: placementDiagnostics.summary(),
+                ),
+              )
+            }
+            let pinnedSymbolDescriptors = makePinnedSymbolDescriptors(
+              for: inputs.resolvedSize,
+              pinnedSymbols: inputs.pinnedSymbols,
+              region: resolvedRegion,
+              alphaMask: placementMask,
+              maskConstraintMode: maskConstraintMode,
+            )
+            var generator = SeededGenerator(seed: seed(for: resolved.placement))
+            let placed = ShapePlacementEngine.placeSymbolDescriptors(
+              in: inputs.resolvedSize,
+              symbolDescriptors: symbolDescriptors,
+              pinnedSymbolDescriptors: pinnedSymbolDescriptors,
+              edgeBehavior: edgeBehavior,
+              placement: resolved.placement,
+              region: resolvedRegion,
+              alphaMask: placementMask,
+              gridPlacementBounds: gridPlacementBounds,
+              maskConstraintMode: maskConstraintMode,
+              randomGenerator: &generator,
+              diagnostics: placementDiagnostics,
+            )
+
             let snapshotLayer = makeSnapshotMosaicLayer(
               mosaic: mosaic,
               symbols: resolved.symbols,
-              placements: [],
+              placements: placed,
               mask: mosaicMasks[index],
             )
-            return (index, snapshotLayer)
+            return (
+              index,
+              snapshotLayer,
+              SnapshotPerformanceDiagnostics.Layer(
+                id: mosaic.id,
+                maskPreparationDurationSeconds: maskPreparationDurations[index],
+                placement: placementDiagnostics.summary(),
+              ),
+            )
           }
-          let pinnedSymbolDescriptors = makePinnedSymbolDescriptors(
-            for: inputs.resolvedSize,
-            pinnedSymbols: inputs.pinnedSymbols,
-            region: resolvedRegion,
-            alphaMask: placementMask,
-            maskConstraintMode: maskConstraintMode,
-          )
-          var generator = SeededGenerator(seed: seed(for: resolved.placement))
-          let placed = ShapePlacementEngine.placeSymbolDescriptors(
-            in: inputs.resolvedSize,
-            symbolDescriptors: symbolDescriptors,
-            pinnedSymbolDescriptors: pinnedSymbolDescriptors,
-            edgeBehavior: edgeBehavior,
-            placement: resolved.placement,
-            region: resolvedRegion,
-            alphaMask: placementMask,
-            gridPlacementBounds: gridPlacementBounds,
-            maskConstraintMode: maskConstraintMode,
-            randomGenerator: &generator,
-          )
+        }
 
-          let snapshotLayer = makeSnapshotMosaicLayer(
-            mosaic: mosaic,
-            symbols: resolved.symbols,
-            placements: placed,
-            mask: mosaicMasks[index],
-          )
-          return (index, snapshotLayer)
+        var completed = 0
+        for try await (index, layer, diagnostics) in group {
+          try Task.checkCancellation()
+          layers[index] = layer
+          diagnosticsByIndex[index] = diagnostics
+          completed += 1
+          onEvent(.placingMosaics(completed: completed, total: mosaics.count))
         }
       }
 
-      var completed = 0
-      for try await (index, layer) in group {
-        try Task.checkCancellation()
-        layers[index] = layer
-        completed += 1
-        onEvent(.placingMosaics(completed: completed, total: mosaics.count))
-      }
-    }
-
-    return layers.compactMap(\.self)
+    return (
+      layers: layers.compactMap(\.self),
+      diagnostics: diagnosticsByIndex.compactMap(\.self),
+    )
   }
 
   /// Creates a snapshot mosaic layer from resolved symbols and placed descriptors.
@@ -489,7 +528,11 @@ private extension MosaicPlacementPlanner {
     edgeBehavior: TesseraEdgeBehavior,
     resolvedRegion: TesseraResolvedPolygonRegion?,
     baseAllowedMask: (any PlacementMask)?,
-  ) -> (symbols: [Symbol], placements: [SnapshotPlacementDescriptor]) {
+  ) -> (
+    symbols: [Symbol],
+    placements: [SnapshotPlacementDescriptor],
+    diagnostics: SnapshotPerformanceDiagnostics.Layer,
+  ) {
     let seededPlacement = apply(seed: inputs.resolvedSeed, to: inputs.pattern.placement)
     let resolved = TesseraPlacementResolver.resolve(
       symbols: inputs.pattern.symbols,
@@ -506,6 +549,7 @@ private extension MosaicPlacementPlanner {
       alphaMask: baseAllowedMask,
     )
 
+    let placementDiagnostics = ShapePlacementCollision.Diagnostics()
     var generator = SeededGenerator(seed: seed(for: resolved.placement))
     let placed = ShapePlacementEngine.placeSymbolDescriptors(
       in: inputs.resolvedSize,
@@ -516,6 +560,7 @@ private extension MosaicPlacementPlanner {
       region: resolvedRegion,
       alphaMask: baseAllowedMask,
       randomGenerator: &generator,
+      diagnostics: placementDiagnostics,
     )
 
     let metadataBySymbolID = resolved.symbols.renderOrderMetadataBySymbolID
@@ -540,6 +585,11 @@ private extension MosaicPlacementPlanner {
     return (
       symbols: resolved.symbols,
       placements: normalizedPlacements,
+      diagnostics: SnapshotPerformanceDiagnostics.Layer(
+        id: nil,
+        maskPreparationDurationSeconds: nil,
+        placement: placementDiagnostics.summary(),
+      ),
     )
   }
 
@@ -668,6 +718,37 @@ private extension MosaicPlacementPlanner {
     return seed
   }
 }
+
+private extension MosaicPlacementPlanner.MosaicPlacementMask {
+  func shapePlacementMaskValidationResult(
+    collisionTransform: CollisionTransform,
+    polygons: [CollisionPolygon],
+    mode: ShapePlacementMaskConstraint.Mode,
+    centerAlreadyValidated: Bool,
+    boundingRadius: CGFloat,
+  ) -> ShapePlacementMaskConstraint.ValidationResult {
+    let shapeValidation = shapeMask.shapePlacementMaskValidationResult(
+      collisionTransform: collisionTransform,
+      polygons: polygons,
+      mode: mode,
+      centerAlreadyValidated: centerAlreadyValidated,
+      boundingRadius: boundingRadius,
+    )
+    guard shapeValidation == .accepted else { return shapeValidation }
+    guard let globalMask else { return .accepted }
+
+    return ShapePlacementMaskConstraint.validationResult(
+      globalMask,
+      collisionTransform: collisionTransform,
+      polygons: polygons,
+      mode: mode,
+      centerAlreadyValidated: centerAlreadyValidated,
+      boundingRadius: boundingRadius,
+    )
+  }
+}
+
+extension MosaicPlacementPlanner.MosaicPlacementMask: ShapePlacementMaskOptimizing {}
 
 /// Builds deterministic fingerprints for strict snapshot compatibility checks.
 enum TesseraFingerprintBuilder {

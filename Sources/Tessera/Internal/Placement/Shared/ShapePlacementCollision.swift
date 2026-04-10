@@ -21,6 +21,21 @@ enum ShapePlacementCollision {
 
   /// Lightweight counters for profiling collision behavior in tests/benchmarks.
   final class Diagnostics {
+    struct Summary: Equatable {
+      var pairChecks = 0
+      var broadPhaseRejects = 0
+      var circleFastPathChecks = 0
+      var polygonChecks = 0
+      var placementOuterAttempts = 0
+      var placementSuccesses = 0
+      var placementSuccessesUsingRescue = 0
+      var placementFailures = 0
+      var terminatedForSaturation = false
+      var centerPointMaskRejects = 0
+      var sampledGeometryMaskRejects = 0
+      var symbolCollisionRejects = 0
+    }
+
     var pairChecks = 0
     var broadPhaseRejects = 0
     var circleFastPathChecks = 0
@@ -30,6 +45,26 @@ enum ShapePlacementCollision {
     var placementSuccessesUsingRescue = 0
     var placementFailures = 0
     var terminatedForSaturation = false
+    var centerPointMaskRejects = 0
+    var sampledGeometryMaskRejects = 0
+    var symbolCollisionRejects = 0
+
+    func summary() -> Summary {
+      Summary(
+        pairChecks: pairChecks,
+        broadPhaseRejects: broadPhaseRejects,
+        circleFastPathChecks: circleFastPathChecks,
+        polygonChecks: polygonChecks,
+        placementOuterAttempts: placementOuterAttempts,
+        placementSuccesses: placementSuccesses,
+        placementSuccessesUsingRescue: placementSuccessesUsingRescue,
+        placementFailures: placementFailures,
+        terminatedForSaturation: terminatedForSaturation,
+        centerPointMaskRejects: centerPointMaskRejects,
+        sampledGeometryMaskRejects: sampledGeometryMaskRejects,
+        symbolCollisionRejects: symbolCollisionRejects,
+      )
+    }
   }
 
   /// Returns whether a candidate placement clears all existing colliders.

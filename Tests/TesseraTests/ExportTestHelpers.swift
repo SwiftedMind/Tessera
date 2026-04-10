@@ -250,6 +250,49 @@ func imagesArePixelEqual(_ lhs: CGImage, _ rhs: CGImage) -> Bool {
   return lhsPixels == rhsPixels
 }
 
+struct ImageDifferenceStats {
+  var differingPixelCount: Int
+  var maximumChannelDifference: UInt8
+  var totalPixelCount: Int
+
+  var differingPixelFraction: Double {
+    guard totalPixelCount > 0 else { return 0 }
+
+    return Double(differingPixelCount) / Double(totalPixelCount)
+  }
+}
+
+func imageDifferenceStats(_ lhs: CGImage, _ rhs: CGImage) -> ImageDifferenceStats? {
+  guard lhs.width == rhs.width, lhs.height == rhs.height else {
+    return nil
+  }
+  guard let lhsPixels = imagePixelData(lhs), let rhsPixels = imagePixelData(rhs) else {
+    return nil
+  }
+
+  var differingPixelCount = 0
+  var maximumChannelDifference: UInt8 = 0
+
+  for index in stride(from: 0, to: lhsPixels.count, by: 4) {
+    let redDifference = abs(Int(lhsPixels[index]) - Int(rhsPixels[index]))
+    let greenDifference = abs(Int(lhsPixels[index + 1]) - Int(rhsPixels[index + 1]))
+    let blueDifference = abs(Int(lhsPixels[index + 2]) - Int(rhsPixels[index + 2]))
+    let alphaDifference = abs(Int(lhsPixels[index + 3]) - Int(rhsPixels[index + 3]))
+    let pixelMaximumDifference = UInt8(max(redDifference, greenDifference, blueDifference, alphaDifference))
+
+    if pixelMaximumDifference > 0 {
+      differingPixelCount += 1
+      maximumChannelDifference = max(maximumChannelDifference, pixelMaximumDifference)
+    }
+  }
+
+  return ImageDifferenceStats(
+    differingPixelCount: differingPixelCount,
+    maximumChannelDifference: maximumChannelDifference,
+    totalPixelCount: lhs.width * lhs.height,
+  )
+}
+
 private func imagePixelData(_ cgImage: CGImage) -> [UInt8]? {
   let width = max(cgImage.width, 1)
   let height = max(cgImage.height, 1)
