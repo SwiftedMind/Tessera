@@ -296,7 +296,6 @@ import Testing
     id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000001")),
     collisionShape: .circle(center: .zero, radius: 10),
   )
-  let polygons = CollisionMath.polygons(for: symbolDescriptor.collisionShape)
 
   var generator = SeededGenerator(seed: placement.seed)
   let placed = OrganicShapePlacementEngine.placeSymbolDescriptors(
@@ -309,20 +308,7 @@ import Testing
   )
 
   #expect(placed.count > 5)
-
-  let buffer = CGFloat(placement.minimumSpacing)
-  for aIndex in placed.indices {
-    for bIndex in placed.indices where bIndex > aIndex {
-      let isIntersecting = CollisionMath.polygonsIntersect(
-        polygons,
-        transformA: placed[aIndex].collisionTransform,
-        polygons,
-        transformB: placed[bIndex].collisionTransform,
-        buffer: buffer,
-      )
-      #expect(isIntersecting == false)
-    }
-  }
+  expectNoOverlaps(in: placed, minimumSpacing: placement.minimumSpacing)
 }
 
 @Test func `dense organic placement is deterministic and does not reduce accepted count`() throws {
@@ -385,6 +371,7 @@ import Testing
 
   #expect(snapshot(densePlacedA) == snapshot(densePlacedB))
   #expect(densePlacedA.count >= rejectionPlaced.count)
+  expectNoOverlaps(in: densePlacedA, minimumSpacing: densePlacement.minimumSpacing)
 }
 
 @Test func `organic placement rescues tight gap by retrying smaller scales`() throws {
@@ -588,6 +575,27 @@ private func snapshot(_ placed: [ShapePlacementEngine.PlacedSymbolDescriptor]) -
       rotationRadians: descriptor.rotationRadians,
       scale: Double(descriptor.scale),
     )
+  }
+}
+
+private func expectNoOverlaps(
+  in placed: [ShapePlacementEngine.PlacedSymbolDescriptor],
+  minimumSpacing: Double,
+) {
+  let polygonsByIndex = placed.map { CollisionMath.polygons(for: $0.collisionShape) }
+  let buffer = CGFloat(minimumSpacing)
+
+  for aIndex in placed.indices {
+    for bIndex in placed.indices where bIndex > aIndex {
+      let isIntersecting = CollisionMath.polygonsIntersect(
+        polygonsByIndex[aIndex],
+        transformA: placed[aIndex].collisionTransform,
+        polygonsByIndex[bIndex],
+        transformB: placed[bIndex].collisionTransform,
+        buffer: buffer,
+      )
+      #expect(isIntersecting == false)
+    }
   }
 }
 

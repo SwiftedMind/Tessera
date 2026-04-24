@@ -381,7 +381,7 @@ public extension TesseraPlacement {
     scale: ClosedRange<Double> = 0.9...1.1,
     maximumCount: Int = 512,
     steering: OrganicSteering = .none,
-    fillStrategy: PlacementModel.OrganicFillStrategy = .rejection,
+    fillStrategy: OrganicFillStrategy = .rejection,
     showsCollisionOverlay: Bool = false,
   ) -> TesseraPlacement {
     .organic(

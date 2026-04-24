@@ -396,7 +396,7 @@ import Testing
   #expect(Set([first, second]).count == 1)
 }
 
-@Test func `grid options preserve imported subgrid I ds when appending inline symbols`() throws {
+@Test func `grid options preserve imported subgrid identifiers when appending inline symbols`() throws {
   let importedID = try #require(UUID(uuidString: "00000000-0000-0000-0000-0000000000B6"))
   let inlineID = try #require(UUID(uuidString: "00000000-0000-0000-0000-0000000000B7"))
   let internalBase = PlacementModel.Grid(
@@ -419,7 +419,7 @@ import Testing
   #expect(resolved.subgrids[0].symbolIDs == [importedID, inlineID])
 }
 
-@Test func `grid options preserve imported subgrid I ds when inline symbols are cleared`() throws {
+@Test func `grid options preserve imported subgrid identifiers when inline symbols are cleared`() throws {
   let importedID = try #require(UUID(uuidString: "00000000-0000-0000-0000-0000000000B8"))
   let internalBase = PlacementModel.Grid(
     sizing: .count(columns: 4, rows: 4),

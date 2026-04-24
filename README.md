@@ -284,8 +284,9 @@ let pattern = Pattern(
 ### Dense organic placement
 
 Organic placement defaults to the original rejection sampler. For more filled decorative patterns, opt into the dense
-strategy. It keeps the same collision rules, but samples and scores more valid candidates before accepting each symbol.
-This works best with a mixed symbol set, for example large motifs plus smaller filler shapes.
+strategy. It keeps the same collision rules, but samples and scores more valid candidates before accepting each symbol,
+uses a short large-to-small placement bias, and gives missed slots a final small-filler recovery pass. This works best
+with a mixed symbol set, for example large motifs plus smaller filler shapes.
 
 ```swift
 let pattern = Pattern(
