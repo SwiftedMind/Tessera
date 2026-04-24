@@ -18,6 +18,8 @@ public enum TesseraPlacement: Sendable {
   public typealias GridSteering = PlacementModel.GridSteering
   /// Organic steering controls.
   public typealias OrganicSteering = PlacementModel.OrganicSteering
+  /// Organic fill algorithm.
+  public typealias OrganicFillStrategy = PlacementModel.OrganicFillStrategy
   /// Shared steering field type.
   public typealias SteeringField = PlacementModel.SteeringField
 
@@ -379,6 +381,7 @@ public extension TesseraPlacement {
     scale: ClosedRange<Double> = 0.9...1.1,
     maximumCount: Int = 512,
     steering: OrganicSteering = .none,
+    fillStrategy: OrganicFillStrategy = .rejection,
     showsCollisionOverlay: Bool = false,
   ) -> TesseraPlacement {
     .organic(
@@ -388,6 +391,7 @@ public extension TesseraPlacement {
         baseScaleRange: scale,
         maximumSymbolCount: maximumCount,
         steering: steering,
+        fillStrategy: fillStrategy,
         showsCollisionOverlay: showsCollisionOverlay,
       ),
     )

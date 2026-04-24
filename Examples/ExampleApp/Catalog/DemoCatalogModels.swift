@@ -21,7 +21,9 @@ struct DemoCatalogExample: Identifiable {
   let summary: String
   let systemImage: String
 
-  var id: DemoDestination { destination }
+  var id: DemoDestination {
+    destination
+  }
 
   func matches(query: String) -> Bool {
     title.localizedCaseInsensitiveContains(query)
@@ -40,6 +42,8 @@ enum DemoDestination: String, Hashable, Identifiable {
   case fixedCellGrid
   case gridColumnMajor
   case gridSubgrids
+  case denseOrganic
+  case denseOrganicRegion
   case choiceSymbols
   case choiceIndexSequence
   case polygonRegion
@@ -53,5 +57,7 @@ enum DemoDestination: String, Hashable, Identifiable {
   case gridRotationGradient
   case collisionShapeEditor
 
-  var id: String { rawValue }
+  var id: String {
+    rawValue
+  }
 }

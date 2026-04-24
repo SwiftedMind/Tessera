@@ -22,6 +22,10 @@ extension DemoDestination {
       gridColumnMajorView()
     case .gridSubgrids:
       gridSubgridsView()
+    case .denseOrganic:
+      denseOrganicView()
+    case .denseOrganicRegion:
+      denseOrganicRegionView()
     case .choiceSymbols:
       choiceSymbolsView()
     case .choiceIndexSequence:

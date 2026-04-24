@@ -902,6 +902,7 @@ enum TesseraFingerprintBuilder {
       hasher.combine(organic.baseScaleRange.lowerBound)
       hasher.combine(organic.baseScaleRange.upperBound)
       hasher.combine(organic.maximumSymbolCount)
+      combine(organicFillStrategy: organic.fillStrategy, into: &hasher)
       hasher.combine(organic.showsCollisionOverlay)
     case let .grid(grid):
       hasher.combine(1)
@@ -949,6 +950,18 @@ enum TesseraFingerprintBuilder {
           }
         }
       }
+    }
+  }
+
+  private static func combine(
+    organicFillStrategy: PlacementModel.OrganicFillStrategy,
+    into hasher: inout DeterministicHasher,
+  ) {
+    switch organicFillStrategy {
+    case .rejection:
+      hasher.combine(0)
+    case .dense:
+      hasher.combine(1)
     }
   }
 

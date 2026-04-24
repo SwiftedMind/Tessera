@@ -1,6 +1,10 @@
 ## [Unreleased]
 
 ### Added
+- **Dense Organic Placement**: Added `TesseraPlacement.OrganicFillStrategy.dense` for richer organic fills that score
+  multiple candidates, bias from larger motifs toward smaller fillers, and recover missed spots with compact symbols.
+- **Dense Fill Examples**: ExampleApp now includes dense organic demos, including a side-by-side comparison with the
+  original rejection strategy.
 - **Per-Symbol Draw Order**: `TesseraSymbol` / `Symbol` now include `zIndex`, so lower values render behind higher values for deterministic generated-symbol overlap behavior.
 - **Pinned Symbol Draw Order**: `TesseraPinnedSymbol` / `PinnedSymbol` now include `zIndex`, so pinned symbols can be ordered against other pinned symbols and generated symbols.
 

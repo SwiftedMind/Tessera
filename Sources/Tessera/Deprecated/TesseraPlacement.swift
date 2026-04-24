@@ -228,6 +228,14 @@ public enum PlacementModel: Hashable, Sendable {
     }
   }
 
+  /// Organic placement algorithm.
+  public enum OrganicFillStrategy: Hashable, Sendable {
+    /// Places each accepted symbol with the existing wrap-aware rejection sampler.
+    case rejection
+    /// Scores a batch of valid candidates before accepting each symbol, favoring tighter dense fills.
+    case dense
+  }
+
   /// Configuration for organic placement.
   public struct Organic: Hashable, Sendable {
     /// Seed for deterministic randomness. Defaults to a random seed.
@@ -242,6 +250,8 @@ public enum PlacementModel: Hashable, Sendable {
     public var maximumSymbolCount: Int
     /// Position-based steering controls.
     public var steering: OrganicSteering
+    /// The organic placement algorithm used to choose accepted symbols.
+    public var fillStrategy: OrganicFillStrategy
     /// Whether to render a debug overlay for collision shapes in on-screen canvases.
     ///
     /// Exported renders ignore this setting unless `RenderOptions.showsCollisionOverlay` is enabled.
@@ -255,6 +265,7 @@ public enum PlacementModel: Hashable, Sendable {
     ///   - baseScaleRange: Default scale range applied when a symbol does not provide its own scale range.
     ///   - maximumSymbolCount: Upper bound on how many generated symbols may be placed.
     ///   - steering: Position-based steering controls for organic placement.
+    ///   - fillStrategy: The organic placement algorithm used to choose accepted symbols.
     ///   - showsCollisionOverlay: Whether to render a debug overlay for collision shapes in on-screen canvases.
     public init(
       seed: UInt64 = TesseraConfiguration.randomSeed(),
@@ -263,6 +274,7 @@ public enum PlacementModel: Hashable, Sendable {
       baseScaleRange: ClosedRange<Double> = 0.9...1.1,
       maximumSymbolCount: Int = 512,
       steering: OrganicSteering = .none,
+      fillStrategy: OrganicFillStrategy = .rejection,
       showsCollisionOverlay: Bool = false,
     ) {
       self.seed = seed
@@ -271,6 +283,7 @@ public enum PlacementModel: Hashable, Sendable {
       self.baseScaleRange = baseScaleRange
       self.maximumSymbolCount = maximumSymbolCount
       self.steering = steering
+      self.fillStrategy = fillStrategy
       self.showsCollisionOverlay = showsCollisionOverlay
     }
   }

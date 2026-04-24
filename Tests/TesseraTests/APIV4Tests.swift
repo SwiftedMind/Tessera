@@ -6,7 +6,7 @@ import SwiftUI
 @testable import Tessera
 import Testing
 
-@Test func placementFactoryProvidesExpectedDefaults() async throws {
+@Test func `placement factory provides expected defaults`() {
   let placement = TesseraPlacement.organic()
 
   guard case let .organic(options) = placement else {
@@ -20,16 +20,17 @@ import Testing
   #expect(options.baseScaleRange.upperBound == 1.1)
   #expect(options.maximumSymbolCount == 512)
   #expect(options.steering == .none)
+  #expect(options.fillStrategy == .rejection)
   #expect(options.showsCollisionOverlay == false)
 }
 
-@Test func renderableSymbolInitializerDefaultsZIndexToZero() async throws {
+@Test func `renderable symbol initializer defaults Z index to zero`() {
   let symbol = Symbol(collider: .shape(.circle(center: .zero, radius: 1))) { Circle() }
 
   #expect(symbol.zIndex == 0)
 }
 
-@Test func choiceSymbolInitializerMapsZIndex() async throws {
+@Test func `choice symbol initializer maps Z index`() {
   let symbol = TesseraSymbol(
     zIndex: 7,
     choiceStrategy: .sequence,
@@ -41,7 +42,7 @@ import Testing
   #expect(symbol.zIndex == 7)
 }
 
-@Test func pinnedSymbolInitializerDefaultsZIndexToZero() async throws {
+@Test func `pinned symbol initializer defaults Z index to zero`() {
   let pinnedSymbol = PinnedSymbol(position: .centered(), collider: .shape(.circle(center: .zero, radius: 1))) {
     Circle()
   }
@@ -49,7 +50,7 @@ import Testing
   #expect(pinnedSymbol.zIndex == 0)
 }
 
-@Test func pinnedSymbolInitializerMapsZIndex() async throws {
+@Test func `pinned symbol initializer maps Z index`() {
   let pinnedSymbol = PinnedSymbol(
     position: .centered(),
     zIndex: 7,
@@ -61,7 +62,7 @@ import Testing
   #expect(pinnedSymbol.zIndex == 7)
 }
 
-@Test func gridPlacementFactoryProvidesExpectedDefaults() async throws {
+@Test func `grid placement factory provides expected defaults`() {
   let placement = TesseraPlacement.grid(columns: 3, rows: 2)
 
   guard case let .grid(options) = placement else {
@@ -78,7 +79,7 @@ import Testing
   #expect(options.steering == .none)
 }
 
-@Test func fixedGridPlacementFactoryMapsSizing() async throws {
+@Test func `fixed grid placement factory maps sizing`() {
   let placement = TesseraPlacement.grid(
     cellSize: CGSize(width: 24, height: 18),
     origin: CGPoint(x: -6, y: 12),
@@ -95,7 +96,7 @@ import Testing
   ))
 }
 
-@Test func gridSizingSquareCreatesFixedSquareCells() async throws {
+@Test func `grid sizing square creates fixed square cells`() {
   #expect(
     TesseraPlacement.Grid.Sizing.square(20, origin: CGPoint(x: 3, y: -4)) ==
       .fixed(
@@ -105,7 +106,7 @@ import Testing
   )
 }
 
-@Test func gridPlacementFactoryMapsSymbolPhases() async throws {
+@Test func `grid placement factory maps symbol phases`() {
   let symbolID = UUID()
   let phases: [UUID: TesseraPlacement.Grid.SymbolPhase] = [
     symbolID: .init(x: 0.5, y: 0.25),
@@ -124,7 +125,7 @@ import Testing
   #expect(options.symbolPhases == phases)
 }
 
-@Test func gridPlacementFactoryMapsShowsGridOverlay() async throws {
+@Test func `grid placement factory maps shows grid overlay`() {
   let placement = TesseraPlacement.grid(
     columns: 4,
     rows: 3,
@@ -139,14 +140,14 @@ import Testing
   #expect(options.showsGridOverlay)
 }
 
-@Test func gridPlacementFactoryMapsSubgrids() async throws {
-  let subgrids: [TesseraPlacement.Grid.Subgrid] = [
+@Test func `grid placement factory maps subgrids`() throws {
+  let subgrids: [TesseraPlacement.Grid.Subgrid] = try [
     .init(
       at: .init(row: 1, column: 2),
       spanning: .init(rows: 2, columns: 3),
       symbols: [
         Symbol(
-          id: UUID(uuidString: "00000000-0000-0000-0000-0000000000B0")!,
+          id: #require(UUID(uuidString: "00000000-0000-0000-0000-0000000000B0")),
           collider: .shape(.circle(center: .zero, radius: 1)),
         ) { Circle() },
       ],
@@ -170,8 +171,8 @@ import Testing
   #expect(options.subgrids[0].clipsToBounds)
 }
 
-@Test func gridPlacementFactoryMapsSubgridLocalGrid() async throws {
-  let symbolID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B8")!
+@Test func `grid placement factory maps subgrid local grid`() throws {
+  let symbolID = try #require(UUID(uuidString: "00000000-0000-0000-0000-0000000000B8"))
   let subgrids: [TesseraPlacement.Grid.Subgrid] = [
     .init(
       at: .init(row: 1, column: 2),
@@ -205,9 +206,9 @@ import Testing
   #expect(options.subgrids[0].grid?.seed == 818)
 }
 
-@Test func patternInitializerResolvesInlineSubgridSymbols() async throws {
-  let regularID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B1")!
-  let subgridID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B2")!
+@Test func `pattern initializer resolves inline subgrid symbols`() throws {
+  let regularID = try #require(UUID(uuidString: "00000000-0000-0000-0000-0000000000B1"))
+  let subgridID = try #require(UUID(uuidString: "00000000-0000-0000-0000-0000000000B2"))
   let regularSymbol = Symbol(id: regularID, collider: .shape(.circle(center: .zero, radius: 1))) { Circle() }
   let subgridSymbol = Symbol(id: subgridID, collider: .shape(.circle(center: .zero, radius: 2))) { Circle() }
 
@@ -258,8 +259,8 @@ import Testing
   #expect(legacyOptions.subgrids[0].grid == nil)
 }
 
-@Test func gridOptionsCanWrapInternalBaseConfiguration() async throws {
-  let subgridID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B5")!
+@Test func `grid options can wrap internal base configuration`() throws {
+  let subgridID = try #require(UUID(uuidString: "00000000-0000-0000-0000-0000000000B5"))
   let internalBase = PlacementModel.Grid(
     sizing: .count(columns: 7, rows: 5),
     offsetStrategy: .checkerShift(fraction: 0.5),
@@ -296,8 +297,8 @@ import Testing
   #expect(options.subgrids[0].grid == nil)
 }
 
-@Test func gridOptionsImportInternalSubgridLocalGrid() async throws {
-  let subgridID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B9")!
+@Test func `grid options import internal subgrid local grid`() throws {
+  let subgridID = try #require(UUID(uuidString: "00000000-0000-0000-0000-0000000000B9"))
   let internalBase = PlacementModel.Grid(
     sizing: .count(columns: 7, rows: 5),
     subgrids: [
@@ -329,8 +330,8 @@ import Testing
   #expect(options.subgrids[0].grid?.seed == 321)
 }
 
-@Test func resolvedInternalGridOptionsPreserveSubgridLocalGrid() async throws {
-  let symbolID = UUID(uuidString: "00000000-0000-0000-0000-0000000000BB")!
+@Test func `resolved internal grid options preserve subgrid local grid`() throws {
+  let symbolID = try #require(UUID(uuidString: "00000000-0000-0000-0000-0000000000BB"))
   let options = TesseraPlacement.Grid(
     sizing: .count(columns: 6, rows: 4),
     subgrids: [
@@ -362,8 +363,8 @@ import Testing
   #expect(resolved.options.subgrids[0].grid?.seed == 515)
 }
 
-@Test func subgridEqualityIgnoresLegacySeedAndOrderWhenLocalGridExists() async throws {
-  let symbolID = UUID(uuidString: "00000000-0000-0000-0000-0000000000C0")!
+@Test func `subgrid equality ignores legacy seed and order when local grid exists`() throws {
+  let symbolID = try #require(UUID(uuidString: "00000000-0000-0000-0000-0000000000C0"))
   let first = TesseraPlacement.Grid.Subgrid(
     at: .init(row: 1, column: 2),
     spanning: .init(rows: 2, columns: 2),
@@ -395,9 +396,9 @@ import Testing
   #expect(Set([first, second]).count == 1)
 }
 
-@Test func gridOptionsPreserveImportedSubgridIDsWhenAppendingInlineSymbols() async throws {
-  let importedID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B6")!
-  let inlineID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B7")!
+@Test func `grid options preserve imported subgrid identifiers when appending inline symbols`() throws {
+  let importedID = try #require(UUID(uuidString: "00000000-0000-0000-0000-0000000000B6"))
+  let inlineID = try #require(UUID(uuidString: "00000000-0000-0000-0000-0000000000B7"))
   let internalBase = PlacementModel.Grid(
     sizing: .count(columns: 4, rows: 4),
     subgrids: [
@@ -418,8 +419,8 @@ import Testing
   #expect(resolved.subgrids[0].symbolIDs == [importedID, inlineID])
 }
 
-@Test func gridOptionsPreserveImportedSubgridIDsWhenInlineSymbolsAreCleared() async throws {
-  let importedID = UUID(uuidString: "00000000-0000-0000-0000-0000000000B8")!
+@Test func `grid options preserve imported subgrid identifiers when inline symbols are cleared`() throws {
+  let importedID = try #require(UUID(uuidString: "00000000-0000-0000-0000-0000000000B8"))
   let internalBase = PlacementModel.Grid(
     sizing: .count(columns: 4, rows: 4),
     subgrids: [
@@ -438,7 +439,7 @@ import Testing
   #expect(resolved.subgrids[0].symbolIDs == [importedID])
 }
 
-@Test func patternOffsetMapsToLegacyPatternOffset() async throws {
+@Test func `pattern offset maps to legacy pattern offset`() {
   let symbol = Symbol(collider: .automatic(size: CGSize(width: 10, height: 10))) {
     Circle().frame(width: 10, height: 10)
   }
@@ -456,7 +457,7 @@ import Testing
   #expect(legacy.patternOffset.height == 8)
 }
 
-@Test func automaticColliderBuildsCircleCollisionShape() async throws {
+@Test func `automatic collider builds circle collision shape`() {
   let approximateSize = CGSize(width: 30, height: 40)
   let symbol = Symbol(collider: .automatic(size: approximateSize)) {
     Rectangle().frame(width: approximateSize.width, height: approximateSize.height)
@@ -472,15 +473,15 @@ import Testing
   }
 }
 
-@Test func symbolChoiceInitializerStoresStrategyAndChildren() async throws {
+@Test func `symbol choice initializer stores strategy and children`() throws {
   let first = Symbol(collider: .automatic(size: CGSize(width: 8, height: 8))) {
     Circle().frame(width: 8, height: 8)
   }
   let second = Symbol(collider: .automatic(size: CGSize(width: 10, height: 10))) {
     Rectangle().frame(width: 10, height: 10)
   }
-  let choice = Symbol(
-    id: UUID(uuidString: "00000000-0000-0000-0000-0000000000AA")!,
+  let choice = try Symbol(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-0000000000AA")),
     weight: 2,
     choiceStrategy: .sequence,
     choiceSeed: 77,
@@ -494,7 +495,7 @@ import Testing
   #expect(choice.renderableLeafSymbols.map(\.id) == [first.id, second.id])
 }
 
-@Test func symbolChoiceInitializerStoresIndexSequenceStrategy() async throws {
+@Test func `symbol choice initializer stores index sequence strategy`() throws {
   let first = Symbol(collider: .automatic(size: CGSize(width: 8, height: 8))) {
     Circle().frame(width: 8, height: 8)
   }
@@ -502,8 +503,8 @@ import Testing
     Rectangle().frame(width: 10, height: 10)
   }
   let strategy: TesseraSymbolChoiceStrategy = .indexSequence([2, -1, 0])
-  let choice = Symbol(
-    id: UUID(uuidString: "00000000-0000-0000-0000-0000000000AB")!,
+  let choice = try Symbol(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-0000000000AB")),
     choiceStrategy: strategy,
     choices: [first, second],
   )
@@ -512,7 +513,7 @@ import Testing
   #expect(choice.choices.map(\.id) == [first.id, second.id])
 }
 
-@Test @MainActor func canvasModeExportRequiresCanvasSize() async throws {
+@Test @MainActor func `canvas mode export requires canvas size`() async throws {
   let symbol = Symbol(collider: .automatic(size: CGSize(width: 12, height: 12))) {
     Circle().frame(width: 12, height: 12)
   }

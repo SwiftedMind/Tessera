@@ -44,6 +44,18 @@ enum DemoSymbols {
   static var rotationBars: [Symbol] {
     [.rotationBarBold, .rotationBarLight]
   }
+
+  static var denseOrnamental: [Symbol] {
+    [
+      .denseLargeLeaf,
+      .denseSmallLeaf,
+      .denseTeardrop,
+      .denseCurl,
+      .denseLargeDot,
+      .denseSmallDot,
+      .denseSpark,
+    ]
+  }
 }
 
 extension Symbol {
@@ -301,6 +313,114 @@ extension Symbol {
         .frame(width: 18, height: 17)
     }
   }
+
+  static var denseLargeLeaf: Symbol {
+    Symbol(
+      weight: 0.7,
+      rotation: .degrees(-65)...(.degrees(65)),
+      scale: 0.8...1.25,
+      collider: .shape(.centeredPolygon(points: [
+        CGPoint(x: 0, y: -24),
+        CGPoint(x: 12, y: -14),
+        CGPoint(x: 16, y: 4),
+        CGPoint(x: 0, y: 25),
+        CGPoint(x: -16, y: 4),
+        CGPoint(x: -12, y: -14),
+      ])),
+    ) {
+      LeafShape()
+        .fill(DemoPalette.amber.opacity(0.9))
+        .frame(width: 34, height: 52)
+    }
+  }
+
+  static var denseSmallLeaf: Symbol {
+    Symbol(
+      weight: 1.25,
+      rotation: .degrees(-80)...(.degrees(80)),
+      scale: 0.75...1.15,
+      collider: .shape(.centeredPolygon(points: [
+        CGPoint(x: 0, y: -15),
+        CGPoint(x: 8, y: -8),
+        CGPoint(x: 10, y: 2),
+        CGPoint(x: 0, y: 16),
+        CGPoint(x: -10, y: 2),
+        CGPoint(x: -8, y: -8),
+      ])),
+    ) {
+      LeafShape()
+        .fill(DemoPalette.teal.opacity(0.86))
+        .frame(width: 22, height: 32)
+    }
+  }
+
+  static var denseTeardrop: Symbol {
+    Symbol(
+      weight: 1,
+      rotation: .degrees(-90)...(.degrees(90)),
+      scale: 0.75...1.2,
+      collider: .shape(.centeredPolygon(points: [
+        CGPoint(x: 0, y: -17),
+        CGPoint(x: 12, y: -4),
+        CGPoint(x: 9, y: 12),
+        CGPoint(x: 0, y: 18),
+        CGPoint(x: -9, y: 12),
+        CGPoint(x: -12, y: -4),
+      ])),
+    ) {
+      TeardropShape()
+        .fill(DemoPalette.coral.opacity(0.84))
+        .frame(width: 26, height: 38)
+    }
+  }
+
+  static var denseCurl: Symbol {
+    Symbol(
+      weight: 0.75,
+      rotation: .degrees(-45)...(.degrees(45)),
+      scale: 0.8...1.1,
+      collider: .shape(.circle(center: .zero, radius: 18)),
+    ) {
+      CurlShape()
+        .stroke(DemoPalette.strokePrimary.opacity(0.82), style: StrokeStyle(lineWidth: 4, lineCap: .round))
+        .frame(width: 36, height: 36)
+    }
+  }
+
+  static var denseLargeDot: Symbol {
+    Symbol(
+      weight: 1.15,
+      scale: 0.75...1.25,
+      collider: .shape(.circle(center: .zero, radius: 10)),
+    ) {
+      Circle()
+        .fill(DemoPalette.blue.opacity(0.85))
+        .frame(width: 19, height: 19)
+    }
+  }
+
+  static var denseSmallDot: Symbol {
+    Symbol(
+      weight: 2.8,
+      scale: 0.7...1.15,
+      collider: .shape(.circle(center: .zero, radius: 4.5)),
+    ) {
+      Circle()
+        .fill(DemoPalette.amber.opacity(0.92))
+        .frame(width: 8, height: 8)
+    }
+  }
+
+  static var denseSpark: Symbol {
+    Symbol(
+      weight: 1.45,
+      rotation: .degrees(-35)...(.degrees(35)),
+      scale: 0.7...1.15,
+      collider: .shape(.circle(center: .zero, radius: 7)),
+    ) {
+      CrossGlyph(color: DemoPalette.strokePrimary.opacity(0.7), size: 13, lineWidth: 3)
+    }
+  }
 }
 
 private struct CornerGlyph: View {
@@ -345,6 +465,72 @@ private struct TriangleShape: Shape {
     path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
     path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
     path.closeSubpath()
+    return path
+  }
+}
+
+private struct LeafShape: Shape {
+  func path(in rect: CGRect) -> Path {
+    var path = Path()
+    path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+    path.addCurve(
+      to: CGPoint(x: rect.midX, y: rect.maxY),
+      control1: CGPoint(x: rect.maxX, y: rect.minY + rect.height * 0.16),
+      control2: CGPoint(x: rect.maxX, y: rect.minY + rect.height * 0.68),
+    )
+    path.addCurve(
+      to: CGPoint(x: rect.midX, y: rect.minY),
+      control1: CGPoint(x: rect.minX, y: rect.minY + rect.height * 0.68),
+      control2: CGPoint(x: rect.minX, y: rect.minY + rect.height * 0.16),
+    )
+    path.closeSubpath()
+    return path
+  }
+}
+
+private struct TeardropShape: Shape {
+  func path(in rect: CGRect) -> Path {
+    var path = Path()
+    path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+    path.addCurve(
+      to: CGPoint(x: rect.midX, y: rect.maxY),
+      control1: CGPoint(x: rect.maxX, y: rect.minY + rect.height * 0.2),
+      control2: CGPoint(x: rect.maxX, y: rect.minY + rect.height * 0.82),
+    )
+    path.addCurve(
+      to: CGPoint(x: rect.midX, y: rect.minY),
+      control1: CGPoint(x: rect.minX, y: rect.minY + rect.height * 0.82),
+      control2: CGPoint(x: rect.minX, y: rect.minY + rect.height * 0.2),
+    )
+    path.closeSubpath()
+    return path
+  }
+}
+
+private struct CurlShape: Shape {
+  func path(in rect: CGRect) -> Path {
+    var path = Path()
+    path.move(to: CGPoint(x: rect.maxX * 0.82, y: rect.midY))
+    path.addCurve(
+      to: CGPoint(x: rect.midX, y: rect.maxY * 0.82),
+      control1: CGPoint(x: rect.maxX * 0.84, y: rect.maxY * 0.74),
+      control2: CGPoint(x: rect.maxX * 0.68, y: rect.maxY * 0.88),
+    )
+    path.addCurve(
+      to: CGPoint(x: rect.minX + rect.width * 0.22, y: rect.midY),
+      control1: CGPoint(x: rect.minX + rect.width * 0.28, y: rect.maxY * 0.76),
+      control2: CGPoint(x: rect.minX + rect.width * 0.16, y: rect.maxY * 0.56),
+    )
+    path.addCurve(
+      to: CGPoint(x: rect.midX, y: rect.minY + rect.height * 0.22),
+      control1: CGPoint(x: rect.minX + rect.width * 0.28, y: rect.minY + rect.height * 0.22),
+      control2: CGPoint(x: rect.midX, y: rect.minY + rect.height * 0.12),
+    )
+    path.addCurve(
+      to: CGPoint(x: rect.maxX * 0.64, y: rect.midY),
+      control1: CGPoint(x: rect.maxX * 0.76, y: rect.minY + rect.height * 0.34),
+      control2: CGPoint(x: rect.maxX * 0.72, y: rect.midY),
+    )
     return path
   }
 }
