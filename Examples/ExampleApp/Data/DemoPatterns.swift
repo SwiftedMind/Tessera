@@ -95,6 +95,67 @@ enum DemoConfigurations {
     )
   }
 
+  static var denseOrganicRejection: Pattern {
+    Pattern(
+      symbols: DemoSymbols.denseOrnamental,
+      placement: .organic(
+        TesseraPlacement.Organic(
+          seed: 404,
+          minimumSpacing: 2,
+          density: 1,
+          baseScaleRange: 0.85...1.1,
+          maximumSymbolCount: 280,
+        ),
+      ),
+    )
+  }
+
+  static var denseOrganic: Pattern {
+    Pattern(
+      symbols: DemoSymbols.denseOrnamental,
+      placement: .organic(
+        TesseraPlacement.Organic(
+          seed: 404,
+          minimumSpacing: 2,
+          density: 1,
+          baseScaleRange: 0.85...1.1,
+          maximumSymbolCount: 280,
+          fillStrategy: .dense,
+        ),
+      ),
+    )
+  }
+
+  static var denseOrganicRegion: Pattern {
+    Pattern(
+      symbols: DemoSymbols.denseOrnamental,
+      placement: .organic(
+        TesseraPlacement.Organic(
+          seed: 405,
+          minimumSpacing: 1.5,
+          density: 1,
+          baseScaleRange: 0.78...1.08,
+          maximumSymbolCount: 360,
+          steering: .init(
+            scaleMultiplier: .init(
+              values: 0.7...1.28,
+              center: .center,
+              radius: .autoFarthestCorner,
+              easing: .smoothStep,
+            ),
+            rotationOffsetDegrees: .init(
+              values: -35...55,
+              from: .topLeading,
+              to: .bottomTrailing,
+              easing: .easeInOut,
+            ),
+          ),
+          fillStrategy: .dense,
+        ),
+      ),
+    )
+  }
+
   static var polygon: Pattern {
     Pattern(
       symbols: DemoSymbols.mosaic,

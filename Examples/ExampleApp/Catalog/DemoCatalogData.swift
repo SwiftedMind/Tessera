@@ -57,6 +57,18 @@ enum DemoCatalog {
           systemImage: "square.grid.3x3",
         ),
         DemoCatalogExample(
+          destination: .denseOrganic,
+          title: "Dense Organic",
+          summary: "Candidate-scored organic fill",
+          systemImage: "circle.grid.cross",
+        ),
+        DemoCatalogExample(
+          destination: .denseOrganicRegion,
+          title: "Dense Organic Region",
+          summary: "Dense fill clipped to an outline",
+          systemImage: "seal.fill",
+        ),
+        DemoCatalogExample(
           destination: .choiceSymbols,
           title: "Choice Symbols",
           summary: "One symbol resolves weighted variants",

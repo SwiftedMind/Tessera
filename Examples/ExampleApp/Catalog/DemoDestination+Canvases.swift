@@ -4,7 +4,6 @@ import SwiftUI
 import Tessera
 
 extension DemoDestination {
-  @ViewBuilder
   func tiledCanvasView() -> some View {
     DemoExampleScreen(title: "Tiled Canvas") {
       Tessera(DemoConfigurations.organic)
@@ -14,7 +13,6 @@ extension DemoDestination {
     }
   }
 
-  @ViewBuilder
   func finiteCanvasView() -> some View {
     DemoExampleScreen(title: "Finite Canvas") {
       Tessera(DemoConfigurations.organic)
@@ -26,7 +24,6 @@ extension DemoDestination {
   }
 
   /// Live canvas example using mosaics without explicit snapshot APIs.
-  @ViewBuilder
   func mosaicCanvasView() -> some View {
     DemoExampleScreen(title: "Mosaic Canvas (Live)") {
       Tessera(DemoConfigurations.mosaicSnapshot)
@@ -37,21 +34,18 @@ extension DemoDestination {
     }
   }
 
-  @ViewBuilder
   func mosaicSnapshotView() -> some View {
     DemoExampleScreen(title: "Mosaic Snapshot") {
       MosaicSnapshotCanvasExample()
     }
   }
 
-  @ViewBuilder
   func gridPlacementView() -> some View {
     DemoExampleScreen(title: "Grid Placement") {
       InterleavedGridCanvas()
     }
   }
 
-  @ViewBuilder
   func fixedCellGridView() -> some View {
     DemoExampleScreen(title: "Fixed Cell Grid", ignoresSafeArea: false) {
       VStack(spacing: 20) {
@@ -85,7 +79,6 @@ extension DemoDestination {
     }
   }
 
-  @ViewBuilder
   func gridColumnMajorView() -> some View {
     DemoExampleScreen(title: "Grid Column Major") {
       Tessera(DemoConfigurations.gridColumnMajor)
@@ -95,7 +88,6 @@ extension DemoDestination {
     }
   }
 
-  @ViewBuilder
   func gridSubgridsView() -> some View {
     DemoExampleScreen(title: "Grid Subgrids") {
       Tessera(DemoConfigurations.gridSubgrids)
@@ -105,17 +97,45 @@ extension DemoDestination {
     }
   }
 
-  @ViewBuilder
+  func denseOrganicView() -> some View {
+    DemoExampleScreen(title: "Dense Organic", ignoresSafeArea: false) {
+      ViewThatFits {
+        HStack(spacing: 14) {
+          DenseOrganicPanel(title: "Rejection", pattern: DemoConfigurations.denseOrganicRejection)
+          DenseOrganicPanel(title: "Dense", pattern: DemoConfigurations.denseOrganic)
+        }
+        .padding(18)
+
+        VStack(spacing: 14) {
+          DenseOrganicPanel(title: "Rejection", pattern: DemoConfigurations.denseOrganicRejection)
+          DenseOrganicPanel(title: "Dense", pattern: DemoConfigurations.denseOrganic)
+        }
+        .padding(18)
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .background(DemoPalette.canvasBackground.ignoresSafeArea())
+    }
+  }
+
+  func denseOrganicRegionView() -> some View {
+    DemoExampleScreen(title: "Dense Organic Region") {
+      Tessera(DemoConfigurations.denseOrganicRegion)
+        .mode(.canvas(edgeBehavior: .finite))
+        .seed(.fixed(405))
+        .region(DemoRegions.mosaic)
+        .regionRendering(.clipped)
+        .background(DemoPalette.canvasBackground)
+    }
+  }
+
   func choiceSymbolsView() -> some View {
     ChoiceSymbolsExampleView()
   }
 
-  @ViewBuilder
   func choiceIndexSequenceView() -> some View {
     ChoiceIndexSequenceExampleView()
   }
 
-  @ViewBuilder
   func polygonRegionView() -> some View {
     DemoExampleScreen(title: "Polygon Region") {
       Tessera(DemoConfigurations.polygon)
@@ -127,7 +147,6 @@ extension DemoDestination {
     }
   }
 
-  @ViewBuilder
   func alphaMaskRegionView() -> some View {
     DemoExampleScreen(title: "Alpha Mask Region") {
       Tessera(DemoConfigurations.alphaMask)
@@ -137,6 +156,31 @@ extension DemoDestination {
         .regionRendering(.clipped)
         .background(DemoPalette.canvasBackground)
     }
+  }
+}
+
+private struct DenseOrganicPanel: View {
+  let title: String
+  let pattern: Pattern
+
+  var body: some View {
+    VStack(spacing: 10) {
+      Text(title)
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(DemoPalette.strokePrimary.opacity(0.82))
+        .frame(maxWidth: .infinity, alignment: .leading)
+
+      Tessera(pattern)
+        .mode(.canvas(edgeBehavior: .finite))
+        .seed(.fixed(404))
+        .background(DemoPalette.canvasBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay {
+          RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .stroke(DemoPalette.strokePrimary.opacity(0.16), lineWidth: 1)
+        }
+    }
+    .frame(maxWidth: 360, maxHeight: 520)
   }
 }
 

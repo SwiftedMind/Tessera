@@ -281,6 +281,24 @@ let pattern = Pattern(
 )
 ```
 
+### Dense organic placement
+
+Organic placement defaults to the original rejection sampler. For more filled decorative patterns, opt into the dense
+strategy. It keeps the same collision rules, but samples and scores more valid candidates before accepting each symbol.
+This works best with a mixed symbol set, for example large motifs plus smaller filler shapes.
+
+```swift
+let pattern = Pattern(
+  symbols: ornamentalSymbols,
+  placement: .organic(
+    minimumSpacing: 4,
+    density: 1,
+    maximumCount: 900,
+    fillStrategy: .dense
+  )
+)
+```
+
 ### Grid placement
 
 Use grid placement when you want regular, repeatable patterns with optional row/column offsets. `symbolOrder` controls

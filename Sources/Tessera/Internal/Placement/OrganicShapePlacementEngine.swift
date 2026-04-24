@@ -10,6 +10,13 @@ enum OrganicShapePlacementEngine {
   typealias PlacedSymbolDescriptor = ShapePlacementEngine.PlacedSymbolDescriptor
   typealias PlacedCollider = ShapePlacementEngine.PlacedCollider
 
+  private struct DensePlacementCandidate {
+    var descriptor: PlacedSymbolDescriptor
+    var collider: PlacedCollider
+    var choiceSequenceState: ShapePlacementEngine.ChoiceSequenceState
+    var score: Double
+  }
+
   /// Generates placed symbol descriptors using the organic placement configuration.
   ///
   /// - Parameters:
@@ -137,6 +144,15 @@ enum OrganicShapePlacementEngine {
     let polygonCache: [UUID: [CollisionPolygon]] = renderableLeafDescriptors.reduce(into: [:]) { cache, symbol in
       cache[symbol.id] = CollisionMath.polygons(for: symbol.collisionShape)
     }
+    let collisionAreaByID: [UUID: CGFloat] = renderableLeafDescriptors.reduce(into: [:]) { cache, symbol in
+      guard let polygons = polygonCache[symbol.id] else { return }
+
+      cache[symbol.id] = collisionAreaEstimate(
+        for: symbol.collisionShape,
+        polygons: polygons,
+        scale: 1,
+      )
+    }
 
     var colliders: [PlacedCollider] = fixedColliders
     colliders.reserveCapacity(fixedColliders.count + remainingTargetCount)
@@ -171,13 +187,16 @@ enum OrganicShapePlacementEngine {
     for placementAttemptIndex in 0..<remainingTargetCount {
       if Task.isCancelled { return placedDescriptors }
 
-      let symbolSelectionMode: SymbolSelectionMode = if saturationStopState.shouldUseCandidateRescue {
-        .stronglyPrefersSmallerSymbols
-      } else if saturationStopState.shouldPreferOpenCells {
-        .prefersSmallerSymbols
-      } else {
-        .defaultWeights
-      }
+      let symbolSelectionMode = symbolSelectionMode(
+        fillStrategy: configuration.fillStrategy,
+        placedCount: placedDescriptors.count,
+        targetCount: remainingTargetCount,
+        saturationStopState: saturationStopState,
+      )
+      let placedProgress = placementProgress(
+        placedCount: placedDescriptors.count,
+        targetCount: remainingTargetCount,
+      )
 
       guard let selectedSymbol = pickSymbol(
         from: symbolDescriptors,
@@ -205,9 +224,17 @@ enum OrganicShapePlacementEngine {
         didUseRescueSearch = shouldUseRescueSearch
         let attemptPolicy = CandidateAttemptPolicy.make(
           for: selectedRenderSymbol,
+          fillStrategy: configuration.fillStrategy,
           usesRescueSearch: shouldUseRescueSearch,
+          placedProgress: placedProgress,
           using: &randomGenerator,
         )
+        let selectedCollisionArea = collisionAreaByID[selectedRenderSymbol.id] ?? collisionAreaEstimate(
+          for: selectedRenderSymbol.collisionShape,
+          polygons: selectedPolygons,
+          scale: 1,
+        )
+        var bestDenseCandidate: DensePlacementCandidate?
 
         for attemptIndex in 0..<attemptPolicy.maximumAttempts {
           if Task.isCancelled { return placedDescriptors }
@@ -221,6 +248,8 @@ enum OrganicShapePlacementEngine {
             spatialIndex: spatialIndex,
             cellSize: cellSize,
             prefersOpenCells: saturationStopState.shouldPreferOpenCells,
+            fillStrategy: configuration.fillStrategy,
+            placedProgress: placedProgress,
             diagnostics: diagnostics,
             using: &randomGenerator,
           ) else { continue }
@@ -303,8 +332,6 @@ enum OrganicShapePlacementEngine {
             continue
           }
 
-          choiceSequenceState = tentativeChoiceSequenceState
-
           let candidate = PlacedSymbolDescriptor(
             symbolId: selectedSymbol.id,
             renderSymbolId: selectedRenderSymbol.id,
@@ -316,22 +343,65 @@ enum OrganicShapePlacementEngine {
             clipRect: nil,
             collisionShape: candidateCollisionShape,
           )
+          let collider = PlacedCollider(
+            collisionShape: candidateCollisionShape,
+            collisionTransform: candidateTransform,
+            polygons: selectedPolygons,
+            boundingRadius: candidateCollision.boundingRadius,
+            minimumSpacing: candidateMinimumSpacing,
+          )
+
+          if configuration.fillStrategy == .dense {
+            let score = denseCandidateScore(
+              candidate: candidateCollision,
+              unscaledCollisionArea: selectedCollisionArea,
+              symbolWeight: selectedSymbol.weight,
+              neighboringColliderIndices: neighboringColliderIndices,
+              allColliders: colliders,
+              tileSize: size,
+              edgeBehavior: edgeBehavior,
+              maximumInteractionDistance: maximumInteractionDistance,
+              placedProgress: placedProgress,
+              selectionMode: symbolSelectionMode,
+            )
+            if let currentBestDenseCandidate = bestDenseCandidate,
+               score <= currentBestDenseCandidate.score {
+              continue
+            } else {
+              bestDenseCandidate = DensePlacementCandidate(
+                descriptor: candidate,
+                collider: collider,
+                choiceSequenceState: tentativeChoiceSequenceState,
+                score: score,
+              )
+            }
+            continue
+          }
+
+          choiceSequenceState = tentativeChoiceSequenceState
           placedDescriptors.append(candidate)
 
-          colliders.append(
-            PlacedCollider(
-              collisionShape: candidateCollisionShape,
-              collisionTransform: candidateTransform,
-              polygons: selectedPolygons,
-              boundingRadius: candidateCollision.boundingRadius,
-              minimumSpacing: candidateMinimumSpacing,
-            ),
-          )
+          colliders.append(collider)
           let newColliderIndex = colliders.count - 1
           spatialIndex.append(colliderIndex: newColliderIndex, at: position, cellSize: cellSize)
 
           didPlaceSymbol = true
           break
+        }
+
+        if let bestDenseCandidate {
+          choiceSequenceState = bestDenseCandidate.choiceSequenceState
+          placedDescriptors.append(bestDenseCandidate.descriptor)
+
+          colliders.append(bestDenseCandidate.collider)
+          let newColliderIndex = colliders.count - 1
+          spatialIndex.append(
+            colliderIndex: newColliderIndex,
+            at: bestDenseCandidate.descriptor.position,
+            cellSize: cellSize,
+          )
+
+          didPlaceSymbol = true
         }
       }
 
@@ -397,6 +467,17 @@ enum OrganicShapePlacementEngine {
       for neighboringCellIndex in neighboringCellIndices {
         output.append(contentsOf: colliderIndicesByCellIndex[neighboringCellIndex])
       }
+    }
+
+    func neighboringOccupancy(around cellIndex: Int) -> Int {
+      guard cellIndex >= 0, cellIndex < neighboringCellIndicesByCellIndex.count else { return 0 }
+
+      let neighboringCellIndices = neighboringCellIndicesByCellIndex[cellIndex]
+      var occupancy = 0
+      for neighboringCellIndex in neighboringCellIndices where neighboringCellIndex != cellIndex {
+        occupancy += colliderIndicesByCellIndex[neighboringCellIndex].count
+      }
+      return occupancy
     }
 
     func randomPoint(
@@ -556,6 +637,133 @@ enum OrganicShapePlacementEngine {
     return seed
   }
 
+  private static func denseCandidateScore(
+    candidate: ShapePlacementCollision.PlacementCandidate,
+    unscaledCollisionArea: CGFloat,
+    symbolWeight: Double,
+    neighboringColliderIndices: [Int],
+    allColliders: [PlacedCollider],
+    tileSize: CGSize,
+    edgeBehavior: TesseraEdgeBehavior,
+    maximumInteractionDistance: CGFloat,
+    placedProgress: Double,
+    selectionMode: SymbolSelectionMode,
+  ) -> Double {
+    let area = unscaledCollisionArea * candidate.collisionTransform.scale * candidate.collisionTransform.scale
+    let contact = denseContactScore(
+      candidate: candidate,
+      neighboringColliderIndices: neighboringColliderIndices,
+      allColliders: allColliders,
+      tileSize: tileSize,
+      edgeBehavior: edgeBehavior,
+      maximumInteractionDistance: maximumInteractionDistance,
+    )
+    let resolvedWeight = symbolWeight.isFinite ? max(0.1, symbolWeight) : 0.1
+    let normalizedProgress = min(1, max(0, placedProgress))
+    let areaExponent: Double = switch selectionMode {
+    case .stronglyPrefersSmallerSymbols:
+      0.35
+    case .prefersSmallerSymbols:
+      0.5
+    case .defaultWeights:
+      0.7
+    case .prefersLargerSymbols:
+      0.9
+    case .stronglyPrefersLargerSymbols:
+      1
+    }
+    let areaScore = pow(max(Double(area), 1), areaExponent)
+    let contactMultiplier = 0.25 + normalizedProgress * 0.9
+    return areaScore * resolvedWeight * (1 + contact * contactMultiplier)
+  }
+
+  private static func denseContactScore(
+    candidate: ShapePlacementCollision.PlacementCandidate,
+    neighboringColliderIndices: [Int],
+    allColliders: [PlacedCollider],
+    tileSize: CGSize,
+    edgeBehavior: TesseraEdgeBehavior,
+    maximumInteractionDistance: CGFloat,
+  ) -> Double {
+    guard neighboringColliderIndices.isEmpty == false else { return 0 }
+
+    var minimumSurfaceGap = CGFloat.greatestFiniteMagnitude
+    for colliderIndex in neighboringColliderIndices {
+      let collider = allColliders[colliderIndex]
+      let distance = centerDistance(
+        from: candidate.collisionTransform.position,
+        to: collider.collisionTransform.position,
+        tileSize: tileSize,
+        edgeBehavior: edgeBehavior,
+      )
+      let surfaceGap = max(0, distance - abs(candidate.boundingRadius) - abs(collider.boundingRadius))
+      minimumSurfaceGap = min(minimumSurfaceGap, surfaceGap)
+    }
+
+    guard minimumSurfaceGap.isFinite else { return 0 }
+
+    let normalizedGap = Double(minimumSurfaceGap / max(maximumInteractionDistance, 1))
+    return 1 / (1 + normalizedGap)
+  }
+
+  private static func centerDistance(
+    from first: CGPoint,
+    to second: CGPoint,
+    tileSize: CGSize,
+    edgeBehavior: TesseraEdgeBehavior,
+  ) -> CGFloat {
+    var deltaX = first.x - second.x
+    var deltaY = first.y - second.y
+
+    if edgeBehavior == .seamlessWrapping {
+      if tileSize.width > 0 {
+        deltaX -= (deltaX / tileSize.width).rounded() * tileSize.width
+      }
+      if tileSize.height > 0 {
+        deltaY -= (deltaY / tileSize.height).rounded() * tileSize.height
+      }
+    }
+
+    return hypot(deltaX, deltaY)
+  }
+
+  private static func collisionAreaEstimate(
+    for collisionShape: CollisionShape,
+    polygons: [CollisionPolygon],
+    scale: CGFloat,
+  ) -> CGFloat {
+    let scaleArea = scale * scale
+    switch collisionShape {
+    case let .circle(_, radius):
+      return .pi * radius * radius * scaleArea
+    case let .rectangle(_, size):
+      return abs(size.width * size.height) * scaleArea
+    default:
+      let polygonArea = polygons.reduce(CGFloat(0)) { total, polygon in
+        total + abs(signedArea(of: polygon.points))
+      }
+      if polygonArea > 0 {
+        return polygonArea * scaleArea
+      }
+
+      let radius = collisionShape.boundingRadius(atScale: scale)
+      return .pi * radius * radius
+    }
+  }
+
+  private static func signedArea(of points: [CGPoint]) -> CGFloat {
+    guard points.count >= 3 else { return 0 }
+
+    var area: CGFloat = 0
+    for index in points.indices {
+      let pointA = points[index]
+      let pointB = points[(index + 1) % points.count]
+      area += pointA.x * pointB.y - pointB.x * pointA.y
+    }
+
+    return area / 2
+  }
+
   private struct SaturationStopState {
     private let windowSize = 128
     private let minimumAttemptsBeforeEarlyStop = 128
@@ -646,15 +854,23 @@ enum OrganicShapePlacementEngine {
 
     static func make(
       for renderSymbol: PlacementSymbolDescriptor.RenderDescriptor,
+      fillStrategy: PlacementModel.OrganicFillStrategy,
       usesRescueSearch: Bool,
+      placedProgress: Double,
       using randomGenerator: inout some RandomNumberGenerator,
     ) -> Self {
       let canRescueRotation = renderSymbol.allowedRotationRangeDegrees.lowerBound !=
         renderSymbol.allowedRotationRangeDegrees.upperBound
       let canRescueScale = renderSymbol.resolvedScaleRange.lowerBound != renderSymbol.resolvedScaleRange.upperBound
       let usesRescueSearch = usesRescueSearch && (canRescueRotation || canRescueScale)
+      let maximumAttempts = switch fillStrategy {
+      case .rejection:
+        usesRescueSearch ? 32 : 20
+      case .dense:
+        denseAttemptCount(placedProgress: placedProgress, usesRescueSearch: usesRescueSearch)
+      }
       return Self(
-        maximumAttempts: usesRescueSearch ? 32 : 20,
+        maximumAttempts: maximumAttempts,
         baseScale: Double.random(in: renderSymbol.resolvedScaleRange, using: &randomGenerator),
         baseRotationRadians: randomAngleRadians(
           in: renderSymbol.allowedRotationRangeDegrees,
@@ -663,6 +879,33 @@ enum OrganicShapePlacementEngine {
         scaleRange: renderSymbol.resolvedScaleRange,
         rotationRangeDegrees: renderSymbol.allowedRotationRangeDegrees,
       )
+    }
+
+    private static func denseAttemptCount(
+      placedProgress: Double,
+      usesRescueSearch: Bool,
+    ) -> Int {
+      let progress = min(1, max(0, placedProgress))
+      if usesRescueSearch {
+        if progress < 0.42 {
+          return 96
+        }
+        if progress < 0.65 {
+          return 112
+        }
+        return 128
+      }
+
+      if progress < 0.18 {
+        return 64
+      }
+      if progress < 0.42 {
+        return 72
+      }
+      if progress < 0.65 {
+        return 80
+      }
+      return 96
     }
 
     func baseParameters(
@@ -752,6 +995,8 @@ enum OrganicShapePlacementEngine {
 
   private enum SymbolSelectionMode {
     case defaultWeights
+    case prefersLargerSymbols
+    case stronglyPrefersLargerSymbols
     case prefersSmallerSymbols
     case stronglyPrefersSmallerSymbols
 
@@ -759,12 +1004,57 @@ enum OrganicShapePlacementEngine {
       switch self {
       case .defaultWeights:
         1...1
+      case .prefersLargerSymbols:
+        1...2
+      case .stronglyPrefersLargerSymbols:
+        1...3
       case .prefersSmallerSymbols:
         1...2
       case .stronglyPrefersSmallerSymbols:
         1...3
       }
     }
+  }
+
+  private static func symbolSelectionMode(
+    fillStrategy: PlacementModel.OrganicFillStrategy,
+    placedCount: Int,
+    targetCount: Int,
+    saturationStopState: SaturationStopState,
+  ) -> SymbolSelectionMode {
+    if saturationStopState.shouldUseCandidateRescue {
+      return .stronglyPrefersSmallerSymbols
+    }
+    if saturationStopState.shouldPreferOpenCells {
+      return .prefersSmallerSymbols
+    }
+
+    guard fillStrategy == .dense, targetCount > 0 else { return .defaultWeights }
+
+    let progress = Double(placedCount) / Double(targetCount)
+    if progress >= 0.65 {
+      return .stronglyPrefersSmallerSymbols
+    }
+    if progress >= 0.42 {
+      return .prefersSmallerSymbols
+    }
+    if progress < 0.08 {
+      return .stronglyPrefersLargerSymbols
+    }
+    if progress < 0.18 {
+      return .prefersLargerSymbols
+    }
+
+    return .defaultWeights
+  }
+
+  private static func placementProgress(
+    placedCount: Int,
+    targetCount: Int,
+  ) -> Double {
+    guard targetCount > 0 else { return 1 }
+
+    return min(1, max(0, Double(placedCount) / Double(targetCount)))
   }
 
   private static func pickSymbol(
@@ -832,9 +1122,16 @@ enum OrganicShapePlacementEngine {
     let radius = symbolBoundingRadiusByID[symbol.id] ?? maximumRadius
     let radiusSpan = maximumRadius - minimumRadius
     let normalizedRadius = radiusSpan > 0 ? (radius - minimumRadius) / radiusSpan : 1
-    let smallerSymbolScore = 1 - min(1, max(0, normalizedRadius))
+    let sizeScore = switch selectionMode {
+    case .defaultWeights:
+      CGFloat(0)
+    case .prefersLargerSymbols, .stronglyPrefersLargerSymbols:
+      min(1, max(0, normalizedRadius))
+    case .prefersSmallerSymbols, .stronglyPrefersSmallerSymbols:
+      1 - min(1, max(0, normalizedRadius))
+    }
     let biasRange = selectionMode.biasRange
-    let biasFactor = biasRange.lowerBound + (biasRange.upperBound - biasRange.lowerBound) * Double(smallerSymbolScore)
+    let biasFactor = biasRange.lowerBound + (biasRange.upperBound - biasRange.lowerBound) * Double(sizeScore)
     return baseWeight * biasFactor
   }
 
@@ -847,6 +1144,8 @@ enum OrganicShapePlacementEngine {
     spatialIndex: OrganicSpatialIndex,
     cellSize: CGFloat,
     prefersOpenCells: Bool,
+    fillStrategy: PlacementModel.OrganicFillStrategy,
+    placedProgress: Double,
     diagnostics: ShapePlacementCollision.Diagnostics?,
     using randomGenerator: inout some RandomNumberGenerator,
   ) -> CGPoint? {
@@ -867,6 +1166,21 @@ enum OrganicShapePlacementEngine {
         return point
       }
       return nil
+    }
+
+    if fillStrategy == .dense,
+       placedProgress >= 0.35,
+       let point = gapBiasedPoint(
+         in: size,
+         region: region,
+         alphaMaskContains: alphaMaskContains,
+         spatialIndex: spatialIndex,
+         cellSize: cellSize,
+         placedProgress: placedProgress,
+         diagnostics: diagnostics,
+         using: &randomGenerator,
+       ) {
+      return point
     }
 
     if prefersOpenCells,
@@ -895,6 +1209,67 @@ enum OrganicShapePlacementEngine {
     }
 
     return point
+  }
+
+  private static func gapBiasedPoint(
+    in size: CGSize,
+    region: TesseraResolvedPolygonRegion?,
+    alphaMaskContains: ((CGPoint) -> Bool)?,
+    spatialIndex: OrganicSpatialIndex,
+    cellSize: CGFloat,
+    placedProgress: Double,
+    diagnostics: ShapePlacementCollision.Diagnostics?,
+    using randomGenerator: inout some RandomNumberGenerator,
+  ) -> CGPoint? {
+    let totalCellCount = spatialIndex.colliderIndicesByCellIndex.count
+    guard totalCellCount > 0 else { return nil }
+
+    let candidateCellCount = min(12, totalCellCount)
+    let maximumPointAttempts = placedProgress >= 0.55 ? 8 : 5
+
+    for _ in 0..<maximumPointAttempts {
+      var preferredCellIndex: Int?
+      var preferredCellScore = -Double.greatestFiniteMagnitude
+
+      for _ in 0..<candidateCellCount {
+        let candidateCellIndex = Int.random(in: 0..<totalCellCount, using: &randomGenerator)
+        let occupancy = spatialIndex.colliderIndicesByCellIndex[candidateCellIndex].count
+        let neighboringOccupancy = spatialIndex.neighboringOccupancy(around: candidateCellIndex)
+
+        guard neighboringOccupancy > 0 else { continue }
+
+        let openScore = 1 / Double(occupancy + 1)
+        let pocketScore = min(Double(neighboringOccupancy), 8) / 8
+        let lateOpenPocketWeight = 0.45 + min(1, max(0, placedProgress)) * 0.55
+        let jitter = Double.random(in: 0..<0.08, using: &randomGenerator)
+        let score = openScore * lateOpenPocketWeight + pocketScore * (1 - lateOpenPocketWeight) + jitter
+
+        if score > preferredCellScore {
+          preferredCellIndex = candidateCellIndex
+          preferredCellScore = score
+        }
+      }
+
+      guard let preferredCellIndex,
+            let point = spatialIndex.randomPoint(
+              inCellAt: preferredCellIndex,
+              cellSize: cellSize,
+              tileSize: size,
+              using: &randomGenerator,
+            )
+      else { continue }
+
+      if let region, region.contains(point) == false {
+        continue
+      }
+      if let alphaMaskContains, alphaMaskContains(point) == false {
+        diagnostics?.centerPointMaskRejects += 1
+        continue
+      }
+      return point
+    }
+
+    return nil
   }
 
   private static func occupancyBiasedPoint(

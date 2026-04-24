@@ -5,7 +5,7 @@ import Foundation
 @testable import Tessera
 import Testing
 
-@Test func organicPlacementIsDeterministicForSameSeed() async throws {
+@Test func `organic placement is deterministic for same seed`() throws {
   let size = CGSize(width: 100, height: 100)
   let placement = PlacementModel.Organic(
     seed: 1,
@@ -14,8 +14,8 @@ import Testing
     baseScaleRange: 1...1,
     maximumSymbolCount: 16,
   )
-  let symbolDescriptor = makeSymbolDescriptor(
-    id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+  let symbolDescriptor = try makeSymbolDescriptor(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000001")),
     collisionShape: .circle(center: .zero, radius: 0),
   )
 
@@ -42,7 +42,7 @@ import Testing
   #expect(snapshot(placedA) == snapshot(placedB))
 }
 
-@Test func organicPlacementDiffersForDifferentSeeds() async throws {
+@Test func `organic placement differs for different seeds`() throws {
   let size = CGSize(width: 100, height: 100)
   let placement = PlacementModel.Organic(
     seed: 1,
@@ -51,8 +51,8 @@ import Testing
     baseScaleRange: 1...1,
     maximumSymbolCount: 16,
   )
-  let symbolDescriptor = makeSymbolDescriptor(
-    id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+  let symbolDescriptor = try makeSymbolDescriptor(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000001")),
     collisionShape: .circle(center: .zero, radius: 0),
   )
 
@@ -79,7 +79,7 @@ import Testing
   #expect(snapshot(placedA) != snapshot(placedB))
 }
 
-@Test func organicSequenceChoiceCyclesAcrossAcceptedPlacements() async throws {
+@Test func `organic sequence choice cycles across accepted placements`() throws {
   let size = CGSize(width: 100, height: 100)
   let placement = PlacementModel.Organic(
     seed: 5,
@@ -88,9 +88,9 @@ import Testing
     baseScaleRange: 1...1,
     maximumSymbolCount: 16,
   )
-  let rootID = UUID(uuidString: "00000000-0000-0000-0000-000000000011")!
-  let firstID = UUID(uuidString: "00000000-0000-0000-0000-000000000012")!
-  let secondID = UUID(uuidString: "00000000-0000-0000-0000-000000000013")!
+  let rootID = try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000011"))
+  let firstID = try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000012"))
+  let secondID = try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000013"))
   let choiceSymbol = makeChoiceSymbolDescriptor(
     id: rootID,
     strategy: .sequence,
@@ -124,7 +124,7 @@ import Testing
   }
 }
 
-@Test func organicIndexSequenceChoiceCyclesAcrossAcceptedPlacements() async throws {
+@Test func `organic index sequence choice cycles across accepted placements`() throws {
   let size = CGSize(width: 100, height: 100)
   let placement = PlacementModel.Organic(
     seed: 6,
@@ -133,10 +133,10 @@ import Testing
     baseScaleRange: 1...1,
     maximumSymbolCount: 12,
   )
-  let rootID = UUID(uuidString: "00000000-0000-0000-0000-000000000018")!
-  let firstID = UUID(uuidString: "00000000-0000-0000-0000-000000000019")!
-  let secondID = UUID(uuidString: "00000000-0000-0000-0000-00000000001A")!
-  let thirdID = UUID(uuidString: "00000000-0000-0000-0000-00000000001B")!
+  let rootID = try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000018"))
+  let firstID = try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000019"))
+  let secondID = try #require(UUID(uuidString: "00000000-0000-0000-0000-00000000001A"))
+  let thirdID = try #require(UUID(uuidString: "00000000-0000-0000-0000-00000000001B"))
   let choiceSymbol = makeChoiceSymbolDescriptor(
     id: rootID,
     strategy: .indexSequence([2, 0, 1]),
@@ -167,7 +167,7 @@ import Testing
   ])
 }
 
-@Test func organicIndexSequenceChoiceNormalizesOutOfRangeAndNegativeIndices() async throws {
+@Test func `organic index sequence choice normalizes out of range and negative indices`() throws {
   let size = CGSize(width: 100, height: 100)
   let placement = PlacementModel.Organic(
     seed: 7,
@@ -176,10 +176,10 @@ import Testing
     baseScaleRange: 1...1,
     maximumSymbolCount: 9,
   )
-  let rootID = UUID(uuidString: "00000000-0000-0000-0000-00000000001C")!
-  let firstID = UUID(uuidString: "00000000-0000-0000-0000-00000000001D")!
-  let secondID = UUID(uuidString: "00000000-0000-0000-0000-00000000001E")!
-  let thirdID = UUID(uuidString: "00000000-0000-0000-0000-00000000001F")!
+  let rootID = try #require(UUID(uuidString: "00000000-0000-0000-0000-00000000001C"))
+  let firstID = try #require(UUID(uuidString: "00000000-0000-0000-0000-00000000001D"))
+  let secondID = try #require(UUID(uuidString: "00000000-0000-0000-0000-00000000001E"))
+  let thirdID = try #require(UUID(uuidString: "00000000-0000-0000-0000-00000000001F"))
   let choiceSymbol = makeChoiceSymbolDescriptor(
     id: rootID,
     strategy: .indexSequence([7, -1, 1]),
@@ -209,7 +209,7 @@ import Testing
   ])
 }
 
-@Test func organicChoiceSeedChangesChoiceResolutionForSamePlacementSeed() async throws {
+@Test func `organic choice seed changes choice resolution for same placement seed`() throws {
   let size = CGSize(width: 100, height: 100)
   let placement = PlacementModel.Organic(
     seed: 5,
@@ -218,10 +218,10 @@ import Testing
     baseScaleRange: 1...1,
     maximumSymbolCount: 20,
   )
-  let firstID = UUID(uuidString: "00000000-0000-0000-0000-000000000014")!
-  let secondID = UUID(uuidString: "00000000-0000-0000-0000-000000000015")!
-  let choiceWithSeedA = makeChoiceSymbolDescriptor(
-    id: UUID(uuidString: "00000000-0000-0000-0000-000000000016")!,
+  let firstID = try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000014"))
+  let secondID = try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000015"))
+  let choiceWithSeedA = try makeChoiceSymbolDescriptor(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000016")),
     strategy: .weightedRandom,
     choiceSeed: 3,
     choices: [
@@ -235,8 +235,8 @@ import Testing
       ),
     ],
   )
-  let choiceWithSeedB = makeChoiceSymbolDescriptor(
-    id: UUID(uuidString: "00000000-0000-0000-0000-000000000017")!,
+  let choiceWithSeedB = try makeChoiceSymbolDescriptor(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000017")),
     strategy: .weightedRandom,
     choiceSeed: 9,
     choices: [
@@ -283,7 +283,7 @@ import Testing
   #expect(withSeedAFirst.map(\.renderSymbolId) != withSeedB.map(\.renderSymbolId))
 }
 
-@Test func organicPlacementDoesNotOverlapSymbols() async throws {
+@Test func `organic placement does not overlap symbols`() throws {
   let size = CGSize(width: 256, height: 256)
   let placement = PlacementModel.Organic(
     seed: 123,
@@ -292,8 +292,8 @@ import Testing
     baseScaleRange: 1...1,
     maximumSymbolCount: 25,
   )
-  let symbolDescriptor = makeSymbolDescriptor(
-    id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+  let symbolDescriptor = try makeSymbolDescriptor(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000001")),
     collisionShape: .circle(center: .zero, radius: 10),
   )
   let polygons = CollisionMath.polygons(for: symbolDescriptor.collisionShape)
@@ -325,23 +325,85 @@ import Testing
   }
 }
 
-@Test func organicPlacementRescuesTightGapByRetryingSmallerScales() async throws {
+@Test func `dense organic placement is deterministic and does not reduce accepted count`() throws {
+  let size = CGSize(width: 140, height: 140)
+  let rejectionPlacement = PlacementModel.Organic(
+    seed: 44,
+    minimumSpacing: 0,
+    density: 1,
+    baseScaleRange: 1...1,
+    maximumSymbolCount: 90,
+  )
+  let densePlacement = PlacementModel.Organic(
+    seed: rejectionPlacement.seed,
+    minimumSpacing: rejectionPlacement.minimumSpacing,
+    density: rejectionPlacement.density,
+    baseScaleRange: rejectionPlacement.baseScaleRange,
+    maximumSymbolCount: rejectionPlacement.maximumSymbolCount,
+    fillStrategy: .dense,
+  )
+  let symbols = try [
+    makeSymbolDescriptor(
+      id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000025")),
+      collisionShape: .circle(center: .zero, radius: 12),
+    ),
+    makeSymbolDescriptor(
+      id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000026")),
+      collisionShape: .circle(center: .zero, radius: 5),
+    ),
+  ]
+
+  var rejectionGenerator = SeededGenerator(seed: rejectionPlacement.seed)
+  let rejectionPlaced = OrganicShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: symbols,
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .finite,
+    configuration: rejectionPlacement,
+    randomGenerator: &rejectionGenerator,
+  )
+
+  var denseGeneratorA = SeededGenerator(seed: densePlacement.seed)
+  let densePlacedA = OrganicShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: symbols,
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .finite,
+    configuration: densePlacement,
+    randomGenerator: &denseGeneratorA,
+  )
+
+  var denseGeneratorB = SeededGenerator(seed: densePlacement.seed)
+  let densePlacedB = OrganicShapePlacementEngine.placeSymbolDescriptors(
+    in: size,
+    symbolDescriptors: symbols,
+    pinnedSymbolDescriptors: [],
+    edgeBehavior: .finite,
+    configuration: densePlacement,
+    randomGenerator: &denseGeneratorB,
+  )
+
+  #expect(snapshot(densePlacedA) == snapshot(densePlacedB))
+  #expect(densePlacedA.count >= rejectionPlaced.count)
+}
+
+@Test func `organic placement rescues tight gap by retrying smaller scales`() throws {
   let size = CGSize(width: 160, height: 120)
-  let symbolDescriptor = makeSymbolDescriptor(
-    id: UUID(uuidString: "00000000-0000-0000-0000-000000000022")!,
+  let symbolDescriptor = try makeSymbolDescriptor(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000022")),
     allowedRotationRangeDegrees: 0...0,
     resolvedScaleRange: 0.45...1,
     collisionShape: .circle(center: .zero, radius: 20),
   )
-  let leftPinned = ShapePlacementEngine.PinnedSymbolDescriptor(
-    id: UUID(uuidString: "00000000-0000-0000-0000-000000000023")!,
+  let leftPinned = try ShapePlacementEngine.PinnedSymbolDescriptor(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000023")),
     position: CGPoint(x: 50, y: 60),
     rotationRadians: 0,
     scale: 1,
     collisionShape: .circle(center: .zero, radius: 20),
   )
-  let rightPinned = ShapePlacementEngine.PinnedSymbolDescriptor(
-    id: UUID(uuidString: "00000000-0000-0000-0000-000000000024")!,
+  let rightPinned = try ShapePlacementEngine.PinnedSymbolDescriptor(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000024")),
     position: CGPoint(x: 114, y: 60),
     rotationRadians: 0,
     scale: 1,
@@ -396,7 +458,7 @@ import Testing
   }
 }
 
-@Test func organicPlacementAvoidsPinnedSymbolCollisions() async throws {
+@Test func `organic placement avoids pinned symbol collisions`() throws {
   let size = CGSize(width: 256, height: 256)
   let placement = PlacementModel.Organic(
     seed: 123,
@@ -405,12 +467,12 @@ import Testing
     baseScaleRange: 1...1,
     maximumSymbolCount: 25,
   )
-  let symbolDescriptor = makeSymbolDescriptor(
-    id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+  let symbolDescriptor = try makeSymbolDescriptor(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000001")),
     collisionShape: .circle(center: .zero, radius: 10),
   )
-  let pinnedSymbol = ShapePlacementEngine.PinnedSymbolDescriptor(
-    id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
+  let pinnedSymbol = try ShapePlacementEngine.PinnedSymbolDescriptor(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000002")),
     position: CGPoint(x: size.width / 2, y: size.height / 2),
     rotationRadians: 0,
     scale: 1,
@@ -448,7 +510,7 @@ import Testing
   }
 }
 
-@Test func organicPlacementWrapsPinnedCollisionsAcrossTileEdges() async throws {
+@Test func `organic placement wraps pinned collisions across tile edges`() throws {
   let size = CGSize(width: 101, height: 80)
   let placement = PlacementModel.Organic(
     seed: 991,
@@ -457,12 +519,12 @@ import Testing
     baseScaleRange: 1...1,
     maximumSymbolCount: 2,
   )
-  let symbolDescriptor = makeSymbolDescriptor(
-    id: UUID(uuidString: "00000000-0000-0000-0000-000000000020")!,
+  let symbolDescriptor = try makeSymbolDescriptor(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000020")),
     collisionShape: .circle(center: .zero, radius: 20),
   )
-  let pinnedSymbol = ShapePlacementEngine.PinnedSymbolDescriptor(
-    id: UUID(uuidString: "00000000-0000-0000-0000-000000000021")!,
+  let pinnedSymbol = try ShapePlacementEngine.PinnedSymbolDescriptor(
+    id: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000021")),
     position: CGPoint(x: 4, y: size.height / 2),
     rotationRadians: 0,
     scale: 1,
@@ -507,7 +569,7 @@ import Testing
   #expect(wrappedPlaced.isEmpty)
 }
 
-private struct PlacementSnapshot: Hashable, Sendable {
+private struct PlacementSnapshot: Hashable {
   var symbolId: UUID
   var renderSymbolId: UUID
   var x: Double
